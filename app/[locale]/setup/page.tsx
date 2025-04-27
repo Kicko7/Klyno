@@ -63,14 +63,21 @@ export default function SetupPage() {
 
   useEffect(() => {
     ;(async () => {
-      const session = (await supabase.auth.getSession()).data.session
+      try {
+        const session = (await supabase.auth.getSession()).data.session
 
-      if (!session) {
-        return router.push("/login")
-      } else {
+        if (!session) {
+          return router.push("/login")
+        }
+
         const user = session.user
-
         const profile = await getProfileByUserId(user.id)
+
+        if (!profile) {
+          console.error("No profile found")
+          return router.push("/login")
+        }
+
         setProfile(profile)
         setUsername(profile.username)
 
@@ -79,22 +86,33 @@ export default function SetupPage() {
         } else {
           const data = await fetchHostedModels(profile)
 
-          if (!data) return
+          if (!data) {
+            console.error("No hosted models found")
+            return
+          }
 
           setEnvKeyMap(data.envKeyMap)
           setAvailableHostedModels(data.hostedModels)
 
           if (profile["openrouter_api_key"] || data.envKeyMap["openrouter"]) {
             const openRouterModels = await fetchOpenRouterModels()
-            if (!openRouterModels) return
-            setAvailableOpenRouterModels(openRouterModels)
+            if (openRouterModels) {
+              setAvailableOpenRouterModels(openRouterModels)
+            }
           }
 
-          const homeWorkspaceId = await getHomeWorkspaceByUserId(
-            session.user.id
-          )
+          const homeWorkspaceId = await getHomeWorkspaceByUserId(user.id)
+
+          if (!homeWorkspaceId) {
+            console.error("No Home Workspace ID Found")
+            return
+          }
+
           return router.push(`/${homeWorkspaceId}/chat`)
         }
+      } catch (error) {
+        console.error("Setup page failed:", error)
+        setLoading(false) // <-- Prevent infinite blank page
       }
     })()
   }, [])
@@ -244,8 +262,8 @@ export default function SetupPage() {
     }
   }
 
-  if (loading) {
-    return null
+  if (profile && !profile.has_onboarded) {
+    setLoading(false)
   }
 
   return (
