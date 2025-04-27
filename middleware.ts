@@ -13,38 +13,33 @@ export async function middleware(request: NextRequest) {
   const redirectToChat = session && request.nextUrl.pathname === "/";
 
   if (redirectToChat) {
-    const { data: homeWorkspace, error } = await supabase
-      .from("workspaces")
-      .select("*")
-      .eq("user_id", session.data.session?.user.id)
-      .eq("is_home", true)
-      .single(); // .single() because only one home workspace per user
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", session.data.session?.user.id)
+      .maybeSingle();
 
-    // 🔥 Instead of throwing an error, let's *wait and retry* once if no workspace
-    if (!homeWorkspace) {
-      console.log("No home workspace found yet... retrying in 1s");
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // wait 1 second
-      const { data: retryWorkspace } = await supabase
-        .from("workspaces")
-        .select("*")
-        .eq("user_id", session.data.session?.user.id)
-        .eq("is_home", true)
-        .single();
-
-      if (!retryWorkspace) {
-        console.error("Still no workspace found. Redirecting to setup.");
-        return NextResponse.redirect(new URL("/setup", request.url)); // fallback to setup page
-      }
-
-      return NextResponse.redirect(new URL(`/${retryWorkspace.id}/chat`, request.url));
+    if (!profile?.username) {
+      return NextResponse.redirect(new URL("/setup", request.url));
     }
 
-    return NextResponse.redirect(new URL(`/${homeWorkspace.id}/chat`, request.url));
+    const { data: homeWorkspace } = await supabase
+      .from("workspaces")
+      .select("id")
+      .eq("user_id", session.data.session?.user.id)
+      .eq("is_home", true)
+      .maybeSingle();
+
+    if (homeWorkspace?.id) {
+      return NextResponse.redirect(new URL(`/${homeWorkspace.id}/chat`, request.url));
+    } else {
+      return NextResponse.redirect(new URL("/setup", request.url));
+    }
   }
 
   return response;
 }
 
 export const config = {
-  matcher: ["/((?!api|static|.*\\..*|_next|auth).*)"],
+  matcher: ["/", "/((?!api|_next|static|.*\\..*|_next|auth).*)"],
 };
