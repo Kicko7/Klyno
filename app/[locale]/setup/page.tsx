@@ -177,13 +177,84 @@ export default function SetupPage() {
             value={openaiApiKey}
             onChange={e => setOpenaiApiKey(e.target.value)}
           />
-          {/* You can add more inputs for other APIs here */}
+          <input
+            className="input"
+            placeholder="Anthropic API Key"
+            value={anthropicApiKey}
+            onChange={e => setAnthropicApiKey(e.target.value)}
+          />
+          <input
+            className="input"
+            placeholder="Groq API Key"
+            value={groqApiKey}
+            onChange={e => setGroqApiKey(e.target.value)}
+          />
+          <input
+            className="input"
+            placeholder="Mistral API Key"
+            value={mistralApiKey}
+            onChange={e => setMistralApiKey(e.target.value)}
+          />
+          <input
+            className="input"
+            placeholder="OpenRouter API Key"
+            value={openrouterApiKey}
+            onChange={e => setOpenrouterApiKey(e.target.value)}
+          />
+          <input
+            className="input"
+            placeholder="Perplexity API Key"
+            value={perplexityApiKey}
+            onChange={e => setPerplexityApiKey(e.target.value)}
+          />
+          <input
+            className="input"
+            placeholder="Azure OpenAI API Key"
+            value={azureOpenaiApiKey}
+            onChange={e => setAzureOpenaiApiKey(e.target.value)}
+          />
+          <input
+            className="input"
+            placeholder="Azure Embeddings ID"
+            value={azureEmbeddingsId}
+            onChange={e => setAzureEmbeddingsId(e.target.value)}
+          />
+          <input
+            className="input"
+            placeholder="Azure 35 Turbo ID"
+            value={azure35TurboId}
+            onChange={e => setAzure35TurboId(e.target.value)}
+          />
+          <input
+            className="input"
+            placeholder="Azure 45 Turbo ID"
+            value={azure45TurboId}
+            onChange={e => setAzure45TurboId(e.target.value)}
+          />
+          <input
+            className="input"
+            placeholder="Azure 45 Vision ID"
+            value={azure45VisionId}
+            onChange={e => setAzure45VisionId(e.target.value)}
+          />
+          <input
+            className="input"
+            placeholder="Azure Endpoint URL"
+            value={azureEndpoint}
+            onChange={e => setAzureEndpoint(e.target.value)}
+          />
+          <input
+            className="input"
+            placeholder="Google Gemini API Key"
+            value={googleGeminiApiKey}
+            onChange={e => setGoogleGeminiApiKey(e.target.value)}
+          />
+
           <button onClick={() => setCurrentStep(FINISH_STEP)}>
             Next: Finish
           </button>
         </>
       )}
-
       {currentStep === FINISH_STEP && (
         <>
           <h2 className="text-xl font-semibold">Finish Setup</h2>
