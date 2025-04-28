@@ -21,39 +21,36 @@ async function createProfileIfMissing(userId: string) {
     .maybeSingle()
 
   if (!data && !error) {
-    const { error: insertError } = await supabase.from("profiles").insert(
-      [
-        {
-          id: userId,
-          user_id: userId,
-          username: userId.slice(0, 8),
-          display_name: userId.slice(0, 8),
-          avatar_url: "",
-          bio: "", // ✅ you must have this
-          image_path: "",
-          image_url: "",
-          profile_context: "",
-          openai_api_key: null,
-          anthropic_api_key: null,
-          groq_api_key: null,
-          mistral_api_key: null,
-          openrouter_api_key: null,
-          perplexity_api_key: null,
-          use_azure_openai: false,
-          azure_openai_api_key: null,
-          azure_openai_embeddings_id: null,
-          azure_openai_35_turbo_id: null,
-          azure_openai_45_turbo_id: null,
-          azure_openai_45_vision_id: null,
-          azure_openai_endpoint: null,
-          google_gemini_api_key: null,
-          has_onboarded: false,
-          created_at: new Date().toISOString(), // ✅ this was missing
-          updated_at: new Date().toISOString() // ✅ matching expectations
-        }
-      ],
-      { returning: "minimal" }
-    )
+    const { error: insertError } = await supabase.from("profiles").insert([
+      {
+        id: userId,
+        user_id: userId,
+        username: userId.slice(0, 8),
+        display_name: userId.slice(0, 8),
+        avatar_url: "",
+        bio: "", // ✅ you must have this
+        image_path: "",
+        image_url: "",
+        profile_context: "",
+        openai_api_key: null,
+        anthropic_api_key: null,
+        groq_api_key: null,
+        mistral_api_key: null,
+        openrouter_api_key: null,
+        perplexity_api_key: null,
+        use_azure_openai: false,
+        azure_openai_api_key: null,
+        azure_openai_embeddings_id: null,
+        azure_openai_35_turbo_id: null,
+        azure_openai_45_turbo_id: null,
+        azure_openai_45_vision_id: null,
+        azure_openai_endpoint: null,
+        google_gemini_api_key: null,
+        has_onboarded: false,
+        created_at: new Date().toISOString(), // ✅ this was missing
+        updated_at: new Date().toISOString() // ✅ matching expectations
+      }
+    ])
 
     if (insertError) {
       console.error("Failed to create profile automatically:", insertError)
