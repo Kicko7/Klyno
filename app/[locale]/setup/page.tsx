@@ -1,3 +1,5 @@
+// SetupPage.tsx
+
 "use client"
 
 // 🌍 Import libraries
@@ -125,17 +127,16 @@ export default function SetupPage() {
             include_workspace_instructions: false,
             instructions: ""
           })
-          .select()
+          .select("id")
           .single()
 
         workspaceId = newWorkspace?.id
       }
 
-      // 3. Redirect to workspace chat page
       if (workspaceId) {
         router.push(`/${workspaceId}/chat`)
       } else {
-        throw new Error("No workspace found or created")
+        alert("Workspace was not created. Please try again.")
       }
     } catch (error) {
       console.error("Setup error:", error)
@@ -146,23 +147,23 @@ export default function SetupPage() {
 
   // ✨ Render Logic
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center">
+    <div className="flex min-h-screen flex-col items-center justify-center p-4">
       {currentStep === PROFILE_STEP && (
         <>
-          <h2 className="text-xl font-semibold">Set up your profile</h2>
+          <h2 className="mb-4 text-xl font-semibold">Set up your profile</h2>
           <input
-            className="input"
+            className="input mb-2"
             placeholder="Username"
             value={username}
             onChange={e => setUsername(e.target.value)}
           />
           <input
-            className="input"
+            className="input mb-4"
             placeholder="Display Name (optional)"
             value={displayName}
             onChange={e => setDisplayName(e.target.value)}
           />
-          <button onClick={() => setCurrentStep(API_STEP)}>
+          <button className="btn" onClick={() => setCurrentStep(API_STEP)}>
             Next: API Keys
           </button>
         </>
@@ -170,95 +171,106 @@ export default function SetupPage() {
 
       {currentStep === API_STEP && (
         <>
-          <h2 className="text-xl font-semibold">Enter API Keys (optional)</h2>
-          <input
-            className="input"
-            placeholder="OpenAI API Key"
-            value={openaiApiKey}
-            onChange={e => setOpenaiApiKey(e.target.value)}
-          />
-          <input
-            className="input"
-            placeholder="Anthropic API Key"
-            value={anthropicApiKey}
-            onChange={e => setAnthropicApiKey(e.target.value)}
-          />
-          <input
-            className="input"
-            placeholder="Groq API Key"
-            value={groqApiKey}
-            onChange={e => setGroqApiKey(e.target.value)}
-          />
-          <input
-            className="input"
-            placeholder="Mistral API Key"
-            value={mistralApiKey}
-            onChange={e => setMistralApiKey(e.target.value)}
-          />
-          <input
-            className="input"
-            placeholder="OpenRouter API Key"
-            value={openrouterApiKey}
-            onChange={e => setOpenrouterApiKey(e.target.value)}
-          />
-          <input
-            className="input"
-            placeholder="Perplexity API Key"
-            value={perplexityApiKey}
-            onChange={e => setPerplexityApiKey(e.target.value)}
-          />
-          <input
-            className="input"
-            placeholder="Azure OpenAI API Key"
-            value={azureOpenaiApiKey}
-            onChange={e => setAzureOpenaiApiKey(e.target.value)}
-          />
-          <input
-            className="input"
-            placeholder="Azure Embeddings ID"
-            value={azureEmbeddingsId}
-            onChange={e => setAzureEmbeddingsId(e.target.value)}
-          />
-          <input
-            className="input"
-            placeholder="Azure 35 Turbo ID"
-            value={azure35TurboId}
-            onChange={e => setAzure35TurboId(e.target.value)}
-          />
-          <input
-            className="input"
-            placeholder="Azure 45 Turbo ID"
-            value={azure45TurboId}
-            onChange={e => setAzure45TurboId(e.target.value)}
-          />
-          <input
-            className="input"
-            placeholder="Azure 45 Vision ID"
-            value={azure45VisionId}
-            onChange={e => setAzure45VisionId(e.target.value)}
-          />
-          <input
-            className="input"
-            placeholder="Azure Endpoint URL"
-            value={azureEndpoint}
-            onChange={e => setAzureEndpoint(e.target.value)}
-          />
-          <input
-            className="input"
-            placeholder="Google Gemini API Key"
-            value={googleGeminiApiKey}
-            onChange={e => setGoogleGeminiApiKey(e.target.value)}
-          />
-
-          <button onClick={() => setCurrentStep(FINISH_STEP)}>
+          <h2 className="mb-4 text-xl font-semibold">
+            Enter API Keys (optional)
+          </h2>
+          <div className="grid grid-cols-1 gap-2">
+            <input
+              className="input"
+              placeholder="OpenAI API Key"
+              value={openaiApiKey}
+              onChange={e => setOpenaiApiKey(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Anthropic API Key"
+              value={anthropicApiKey}
+              onChange={e => setAnthropicApiKey(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Groq API Key"
+              value={groqApiKey}
+              onChange={e => setGroqApiKey(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Mistral API Key"
+              value={mistralApiKey}
+              onChange={e => setMistralApiKey(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="OpenRouter API Key"
+              value={openrouterApiKey}
+              onChange={e => setOpenrouterApiKey(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Perplexity API Key"
+              value={perplexityApiKey}
+              onChange={e => setPerplexityApiKey(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Azure OpenAI API Key"
+              value={azureOpenaiApiKey}
+              onChange={e => setAzureOpenaiApiKey(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Azure Embeddings ID"
+              value={azureEmbeddingsId}
+              onChange={e => setAzureEmbeddingsId(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Azure 35 Turbo ID"
+              value={azure35TurboId}
+              onChange={e => setAzure35TurboId(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Azure 45 Turbo ID"
+              value={azure45TurboId}
+              onChange={e => setAzure45TurboId(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Azure 45 Vision ID"
+              value={azure45VisionId}
+              onChange={e => setAzure45VisionId(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Azure Endpoint URL"
+              value={azureEndpoint}
+              onChange={e => setAzureEndpoint(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Google Gemini API Key"
+              value={googleGeminiApiKey}
+              onChange={e => setGoogleGeminiApiKey(e.target.value)}
+            />
+          </div>
+          <button
+            className="btn mt-4"
+            onClick={() => setCurrentStep(FINISH_STEP)}
+          >
             Next: Finish
           </button>
         </>
       )}
+
       {currentStep === FINISH_STEP && (
         <>
-          <h2 className="text-xl font-semibold">Finish Setup</h2>
-          <button disabled={loading} onClick={handleSaveSetupSetting}>
+          <h2 className="mb-4 text-xl font-semibold">Finish Setup</h2>
+          <button
+            className="btn"
+            disabled={loading}
+            onClick={handleSaveSetupSetting}
+          >
             {loading ? "Saving..." : "Save and Finish"}
           </button>
         </>
