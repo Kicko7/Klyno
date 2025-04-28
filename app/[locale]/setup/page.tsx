@@ -1,4 +1,4 @@
-// SetupPage.tsx
+"use client"
 
 // 🌍 Import libraries
 import { useEffect, useState } from "react"
