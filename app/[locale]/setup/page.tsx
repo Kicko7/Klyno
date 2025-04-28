@@ -1,193 +1,224 @@
 "use client"
 
-import { useEffect, useState, useContext } from "react"
+// 📦 Import libraries
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/browser-client"
-import { ChatbotUIContext } from "@/context/context"
 import { getProfileByUserId } from "@/db/profile"
-import { Tables } from "@/supabase/types"
+import { TablesInsert } from "@/supabase/types"
 
+// 🧠 Define Steps
+const PROFILE_STEP = 1
+const API_STEP = 2
+const FINISH_STEP = 3
+
+// 🚀 Main SetupPage Component
 export default function SetupPage() {
   const router = useRouter()
 
-  const {
-    setEnvKeyMap,
-    setAvailableHostedModels,
-    setAvailableOpenRouterModels,
-    setSelectedWorkspace
-  } = useContext(ChatbotUIContext)
-
+  // 🔥 State Management
+  const [currentStep, setCurrentStep] = useState(PROFILE_STEP)
   const [loading, setLoading] = useState(false)
-  const [currentStep, setCurrentStep] = useState(1)
 
-  // Profile Step
-  const [displayName, setDisplayName] = useState("")
+  // 🌟 Profile Fields
   const [username, setUsername] = useState("")
+  const [displayName, setDisplayName] = useState("")
   const [usernameAvailable, setUsernameAvailable] = useState(true)
 
-  // API Step
-  const [useAzureOpenai, setUseAzureOpenai] = useState(false)
+  // 🔑 API Key Fields
   const [openaiApiKey, setOpenaiApiKey] = useState("")
-  const [openaiEndpoint, setOpenaiEndpoint] = useState("")
   const [azureOpenaiApiKey, setAzureOpenaiApiKey] = useState("")
-  const [azureOpenai35TurboID, setAzureOpenai35TurboID] = useState("")
-  const [azureOpenai45TurboID, setAzureOpenai45TurboID] = useState("")
-  const [azureOpenai45VisionID, setAzureOpenai45VisionID] = useState("")
-  const [azureOpenaiEmbeddingsID, setAzureOpenaiEmbeddingsID] = useState("")
+  const [azureEmbeddingsId, setAzureEmbeddingsId] = useState("")
+  const [azure35TurboId, setAzure35TurboId] = useState("")
+  const [azure45TurboId, setAzure45TurboId] = useState("")
+  const [azure45VisionId, setAzure45VisionId] = useState("")
+  const [azureEndpoint, setAzureEndpoint] = useState("")
   const [anthropicApiKey, setAnthropicApiKey] = useState("")
   const [googleGeminiApiKey, setGoogleGeminiApiKey] = useState("")
   const [groqApiKey, setGroqApiKey] = useState("")
   const [mistralApiKey, setMistralApiKey] = useState("")
   const [openrouterApiKey, setOpenrouterApiKey] = useState("")
   const [perplexityApiKey, setPerplexityApiKey] = useState("")
+  const [useAzureOpenai, setUseAzureOpenai] = useState(false)
 
-  // Fetch session and user profile
+  // 📡 Fetch user profile when page loads
   useEffect(() => {
     ;(async () => {
       try {
-        const { data: session } = await supabase.auth.getSession()
-        if (!session?.session?.user?.id) {
-          router.push("/login")
-          return
-        }
+        const session = (await supabase.auth.getSession()).data.session
+        if (!session) return router.push("/login")
 
-        const userId = session.session.user.id
-        const profile = await getProfileByUserId(userId)
+        const profile = await getProfileByUserId(session.user.id)
 
         if (profile) {
-          setDisplayName(profile.display_name ?? "")
           setUsername(profile.username ?? "")
+          setDisplayName(profile.display_name ?? "")
         }
       } catch (error) {
-        console.error("Error fetching profile:", error)
+        console.error("Setup fetch error:", error)
       }
     })()
   }, [router])
 
-  // Save Setup
+  // ⚡ Handle Save Button
   const handleSaveSetupSetting = async () => {
     setLoading(true)
 
-    try {
-      const { data: sessionData, error: sessionError } =
-        await supabase.auth.getSession()
+    const {
+      data: { session },
+      error: sessionError
+    } = await supabase.auth.getSession()
 
-      if (sessionError || !sessionData?.session?.user?.id) {
-        setLoading(false)
-        throw new Error("User session not found")
-      }
+    if (sessionError || !session?.user.id) {
+      setLoading(false)
+      throw new Error("No user session found.")
+    }
 
-      const userId = sessionData.session.user.id
+    const userId = session.user.id
 
-      // 1. Update the user profile
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({
-          username,
-          display_name: displayName || username,
-          bio: "",
-          has_onboarded: true,
-          openai_api_key: openaiApiKey,
-          azure_openai_api_key: azureOpenaiApiKey,
-          azure_openai_embeddings_id: azureOpenaiEmbeddingsID,
-          azure_openai_35_turbo_id: azureOpenai35TurboID,
-          azure_openai_45_turbo_id: azureOpenai45TurboID,
-          azure_openai_45_vision_id: azureOpenai45VisionID,
-          azure_openai_endpoint: openaiEndpoint,
-          anthropic_api_key: anthropicApiKey,
-          google_gemini_api_key: googleGeminiApiKey,
-          groq_api_key: groqApiKey,
-          mistral_api_key: mistralApiKey,
-          openrouter_api_key: openrouterApiKey,
-          perplexity_api_key: perplexityApiKey,
-          use_azure_openai: useAzureOpenai
-        })
-        .eq("id", userId)
+    // 🛠 1. Save Profile Information
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({
+        username,
+        display_name: displayName || username,
+        has_onboarded: true,
+        openai_api_key: openaiApiKey,
+        azure_openai_api_key: azureOpenaiApiKey,
+        azure_openai_embeddings_id: azureEmbeddingsId,
+        azure_openai_35_turbo_id: azure35TurboId,
+        azure_openai_45_turbo_id: azure45TurboId,
+        azure_openai_45_vision_id: azure45VisionId,
+        azure_openai_endpoint: azureEndpoint,
+        anthropic_api_key: anthropicApiKey,
+        google_gemini_api_key: googleGeminiApiKey,
+        groq_api_key: groqApiKey,
+        mistral_api_key: mistralApiKey,
+        openrouter_api_key: openrouterApiKey,
+        perplexity_api_key: perplexityApiKey,
+        use_azure_openai: useAzureOpenai
+      })
+      .eq("id", userId)
 
-      if (profileError) {
-        console.error(profileError)
-        setLoading(false)
-        throw new Error("Failed to update user profile")
-      }
+    if (profileError) {
+      console.error("Profile update error:", profileError)
+      setLoading(false)
+      throw new Error("Failed to update profile.")
+    }
 
-      // 2. Fetch home workspace
-      const { data: homeWorkspaceIdData, error: homeWorkspaceError } =
-        await supabase
-          .from("workspaces")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("is_home", true)
-          .maybeSingle()
+    // 🛠 2. Create Home Workspace if needed
+    const { data: existingWorkspace } = await supabase
+      .from("workspaces")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("is_home", true)
+      .maybeSingle()
 
-      let homeWorkspaceId = homeWorkspaceIdData?.id
+    let workspaceId = existingWorkspace?.id
 
-      // 3. If no workspace, create one
-      if (!homeWorkspaceId) {
-        const { data: newWorkspace, error: newWorkspaceError } = await supabase
-          .from("workspaces")
-          .insert([
-            {
-              user_id: userId,
-              name: "Personal Workspace",
-              is_home: true,
-              default_context_length: 4096,
-              default_model: "default",
-              default_prompt: "",
-              default_temperature: 0.7,
-              description: "",
-              embeddings_provider: "openai",
-              include_profile_context: false,
-              include_workspace_instructions: false,
-              instructions: "",
-              created_at: new Date().toISOString()
-            }
-          ])
-          .select()
-          .maybeSingle()
-
-        if (newWorkspaceError || !newWorkspace?.id) {
-          console.error(newWorkspaceError)
-          setLoading(false)
-          throw new Error("Failed to create personal workspace")
-        }
-
-        homeWorkspaceId = newWorkspace.id
-      }
-
-      const { data: workspace, error: workspaceError } = await supabase
+    if (!workspaceId) {
+      const { data: newWorkspace, error: workspaceError } = await supabase
         .from("workspaces")
-        .select("*")
-        .eq("id", homeWorkspaceId)
+        .insert([
+          {
+            user_id: userId,
+            name: "Personal Workspace",
+            is_home: true,
+            default_context_length: 4096,
+            default_model: "",
+            default_prompt: "",
+            default_temperature: 0.7,
+            description: "",
+            embeddings_provider: "",
+            include_profile_context: false,
+            include_workspace_instructions: false,
+            instructions: "",
+            created_at: new Date().toISOString()
+          }
+        ])
+        .select()
         .maybeSingle()
 
-      if (workspaceError || !workspace) {
-        console.error(workspaceError)
+      if (workspaceError || !newWorkspace) {
+        console.error("Workspace creation error:", workspaceError)
         setLoading(false)
-        throw new Error("Failed to fetch workspace details")
+        throw new Error("Failed to create personal workspace.")
       }
 
-      setSelectedWorkspace(workspace)
-      setLoading(false)
+      workspaceId = newWorkspace.id
+    }
 
-      router.push(`/chat`)
-    } catch (error) {
-      console.error("Error saving setup:", error)
-      setLoading(false)
+    setLoading(false)
+    router.push(`/${workspaceId}/chat`)
+  }
+
+  // 🧩 Render different steps
+  const renderStep = () => {
+    switch (currentStep) {
+      case PROFILE_STEP:
+        return (
+          <div className="space-y-4">
+            <h2 className="text-2xl font-semibold">Set up your profile</h2>
+            <input
+              className="w-full rounded bg-gray-800 p-2 text-white"
+              placeholder="Username"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+            />
+            <input
+              className="w-full rounded bg-gray-800 p-2 text-white"
+              placeholder="Display Name (optional)"
+              value={displayName}
+              onChange={e => setDisplayName(e.target.value)}
+            />
+            <button
+              onClick={() => setCurrentStep(API_STEP)}
+              className="rounded bg-blue-600 px-4 py-2 text-white"
+            >
+              Next: API Keys
+            </button>
+          </div>
+        )
+      case API_STEP:
+        return (
+          <div className="space-y-4">
+            <h2 className="text-2xl font-semibold">
+              Enter API Keys (optional)
+            </h2>
+            <input
+              className="w-full rounded bg-gray-800 p-2 text-white"
+              placeholder="OpenAI API Key"
+              value={openaiApiKey}
+              onChange={e => setOpenaiApiKey(e.target.value)}
+            />
+            {/* Add more input fields for other API Keys similarly */}
+            <button
+              onClick={() => setCurrentStep(FINISH_STEP)}
+              className="rounded bg-blue-600 px-4 py-2 text-white"
+            >
+              Next: Finish
+            </button>
+          </div>
+        )
+      case FINISH_STEP:
+        return (
+          <div className="space-y-4">
+            <h2 className="text-2xl font-semibold">Finish Setup</h2>
+            <button
+              onClick={handleSaveSetupSetting}
+              disabled={loading}
+              className="rounded bg-green-600 px-4 py-2 text-white"
+            >
+              {loading ? "Saving..." : "Save and Finish"}
+            </button>
+          </div>
+        )
     }
   }
 
   return (
-    <div className="p-4">
-      {/* Your stepper or setup form goes here */}
-
-      {/* Save Button */}
-      <button
-        onClick={handleSaveSetupSetting}
-        disabled={loading}
-        className="mt-4 rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
-      >
-        {loading ? "Saving..." : "Save and Finish Setup"}
-      </button>
+    <div className="flex h-screen items-center justify-center">
+      <div className="w-full max-w-md space-y-6">{renderStep()}</div>
     </div>
   )
 }
