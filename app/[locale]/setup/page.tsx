@@ -1,32 +1,77 @@
-// SetupPage.tsx
-
 "use client"
 
-// 🌍 Import libraries
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/browser-client"
 import { getProfileByUserId } from "@/db/profile"
+import type { Database } from "@/supabase/types"
 
-// ⚖️ Define Steps
+// Steps
 const PROFILE_STEP = 1
 const API_STEP = 2
 const FINISH_STEP = 3
 
-// 📒 SetupPage Main Component
+// ✅ Create Profile if missing
+
+async function createProfileIfMissing(userId: string) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle()
+
+  if (!data && !error) {
+    const { error: insertError } = await supabase.from("profiles").insert(
+      [
+        {
+          id: userId,
+          user_id: userId,
+          username: userId.slice(0, 8),
+          display_name: userId.slice(0, 8),
+          avatar_url: "",
+          bio: "", // ✅ you must have this
+          image_path: "",
+          image_url: "",
+          profile_context: "",
+          openai_api_key: null,
+          anthropic_api_key: null,
+          groq_api_key: null,
+          mistral_api_key: null,
+          openrouter_api_key: null,
+          perplexity_api_key: null,
+          use_azure_openai: false,
+          azure_openai_api_key: null,
+          azure_openai_embeddings_id: null,
+          azure_openai_35_turbo_id: null,
+          azure_openai_45_turbo_id: null,
+          azure_openai_45_vision_id: null,
+          azure_openai_endpoint: null,
+          google_gemini_api_key: null,
+          has_onboarded: false,
+          created_at: new Date().toISOString(), // ✅ this was missing
+          updated_at: new Date().toISOString() // ✅ matching expectations
+        }
+      ],
+      { returning: "minimal" }
+    )
+
+    if (insertError) {
+      console.error("Failed to create profile automatically:", insertError)
+      throw insertError
+    }
+  }
+}
+
 export default function SetupPage() {
   const router = useRouter()
 
-  // ✨ State Management
   const [currentStep, setCurrentStep] = useState(PROFILE_STEP)
   const [loading, setLoading] = useState(false)
 
-  // 🔑 Profile Fields
   const [username, setUsername] = useState("")
   const [displayName, setDisplayName] = useState("")
   const [usernameAvailable, setUsernameAvailable] = useState(true)
 
-  // 🛋️ API Key Fields
   const [openaiApiKey, setOpenaiApiKey] = useState("")
   const [azureOpenaiApiKey, setAzureOpenaiApiKey] = useState("")
   const [azureEmbeddingsId, setAzureEmbeddingsId] = useState("")
@@ -42,7 +87,7 @@ export default function SetupPage() {
   const [perplexityApiKey, setPerplexityApiKey] = useState("")
   const [useAzureOpenai, setUseAzureOpenai] = useState(false)
 
-  // 🔢 Fetch user profile when page loads
+  // On page load
   useEffect(() => {
     ;(async () => {
       try {
@@ -51,19 +96,22 @@ export default function SetupPage() {
           return router.push("/login")
         }
 
-        const profile = await getProfileByUserId(session.session.user.id)
+        const userId = session.session.user.id
+
+        await createProfileIfMissing(userId)
+
+        const profile = await getProfileByUserId(userId)
 
         if (profile) {
           setUsername(profile.username || "")
           setDisplayName(profile.display_name || "")
         }
       } catch (error) {
-        console.error("Failed loading profile", error)
+        console.error("Failed loading profile:", error)
       }
     })()
   }, [router])
 
-  // ✔️ Save Setup Handler
   const handleSaveSetupSetting = async () => {
     setLoading(true)
 
@@ -145,7 +193,6 @@ export default function SetupPage() {
     }
   }
 
-  // ✨ Render Logic
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
       {currentStep === PROFILE_STEP && (
