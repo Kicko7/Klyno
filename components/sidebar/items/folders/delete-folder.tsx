@@ -8,7 +8,7 @@ import {
   DialogTitle,
   DialogTrigger
 } from "@/components/ui/dialog"
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { deleteFolder } from "@/db/folders"
 import { supabase } from "@/lib/supabase/browser-client"
 import { Tables } from "@/supabase/types"
@@ -36,7 +36,7 @@ export const DeleteFolder: FC<DeleteFolderProps> = ({
     setAssistants,
     setTools,
     setModels
-  } = useContext(ChatbotUIContext)
+  } = useContext(KlynoAIContext)
 
   const buttonRef = useRef<HTMLButtonElement>(null)
 

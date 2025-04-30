@@ -1,4 +1,4 @@
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { getFileFromStorage } from "@/db/storage/files"
 import useHotkey from "@/lib/hooks/use-hotkey"
 import { cn } from "@/lib/utils"
@@ -41,7 +41,7 @@ export const ChatFilesDisplay: FC<ChatFilesDisplayProps> = ({}) => {
     setChatImages,
     setChatFiles,
     setUseRetrieval
-  } = useContext(ChatbotUIContext)
+  } = useContext(KlynoAIContext)
 
   const [selectedFile, setSelectedFile] = useState<ChatFile | null>(null)
   const [selectedImage, setSelectedImage] = useState<MessageImage | null>(null)
@@ -249,7 +249,7 @@ export const ChatFilesDisplay: FC<ChatFilesDisplayProps> = ({}) => {
 }
 
 const RetrievalToggle = ({}) => {
-  const { useRetrieval, setUseRetrieval } = useContext(ChatbotUIContext)
+  const { useRetrieval, setUseRetrieval } = useContext(KlynoAIContext)
 
   return (
     <div className="flex items-center">

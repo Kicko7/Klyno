@@ -1,5 +1,5 @@
 import { useChatHandler } from "@/components/chat/chat-hooks/use-chat-handler"
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { LLM_LIST } from "@/lib/models/llm/llm-list"
 import { cn } from "@/lib/utils"
 import { Tables } from "@/supabase/types"
@@ -60,7 +60,7 @@ export const Message: FC<MessageProps> = ({
     toolInUse,
     files,
     models
-  } = useContext(ChatbotUIContext)
+  } = useContext(KlynoAIContext)
 
   const { handleSendMessage } = useChatHandler()
 

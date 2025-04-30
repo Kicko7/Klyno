@@ -1,4 +1,4 @@
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import {
   PROFILE_CONTEXT_MAX,
   PROFILE_DISPLAY_NAME_MAX,
@@ -53,7 +53,7 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
     setAvailableHostedModels,
     setAvailableOpenRouterModels,
     availableOpenRouterModels
-  } = useContext(ChatbotUIContext)
+  } = useContext(KlynoAIContext)
 
   const router = useRouter()
 

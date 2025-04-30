@@ -8,7 +8,7 @@ import {
   DialogTitle,
   DialogTrigger
 } from "@/components/ui/dialog"
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { deleteAssistant } from "@/db/assistants"
 import { deleteChat } from "@/db/chats"
 import { deleteCollection } from "@/db/collections"
@@ -40,7 +40,7 @@ export const SidebarDeleteItem: FC<SidebarDeleteItemProps> = ({
     setAssistants,
     setTools,
     setModels
-  } = useContext(ChatbotUIContext)
+  } = useContext(KlynoAIContext)
 
   const buttonRef = useRef<HTMLButtonElement>(null)
 

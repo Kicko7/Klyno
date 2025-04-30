@@ -5,7 +5,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { Tables } from "@/supabase/types"
 import {
   IconBooks,
@@ -26,7 +26,7 @@ export const AssistantRetrievalSelect: FC<AssistantRetrievalSelectProps> = ({
   selectedAssistantRetrievalItems,
   onAssistantRetrievalItemsSelect
 }) => {
-  const { files, collections } = useContext(ChatbotUIContext)
+  const { files, collections } = useContext(KlynoAIContext)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)

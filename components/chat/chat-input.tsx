@@ -1,4 +1,4 @@
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import useHotkey from "@/lib/hooks/use-hotkey"
 import { LLM_LIST } from "@/lib/models/llm/llm-list"
 import { cn } from "@/lib/utils"
@@ -54,8 +54,9 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
     chatSettings,
     selectedTools,
     setSelectedTools,
-    assistantImages
-  } = useContext(ChatbotUIContext)
+    assistantImages,
+    currentRoom // <-- ADDED for team context
+  } = useContext(KlynoAIContext)
 
   const {
     chatInputRef,
@@ -78,17 +79,17 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
   useEffect(() => {
     setTimeout(() => {
       handleFocusChatInput()
-    }, 200) // FIX: hacky
+    }, 200) // FIX hacky
   }, [selectedPreset, selectedAssistant])
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (!isTyping && event.key === "Enter" && !event.shiftKey) {
       event.preventDefault()
       setIsPromptPickerOpen(false)
-      handleSendMessage(userInput, chatMessages, false)
+      if (!userInput || !currentRoom?.id) return
+      handleSendMessage(userInput, chatMessages, false, currentRoom.id)
     }
 
-    // Consolidate conditions to avoid TypeScript error
     if (
       isPromptPickerOpen ||
       isFilePickerOpen ||
@@ -101,7 +102,6 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
         event.key === "ArrowDown"
       ) {
         event.preventDefault()
-        // Toggle focus based on picker type
         if (isPromptPickerOpen) setFocusPrompt(!focusPrompt)
         if (isFilePickerOpen) setFocusFile(!focusFile)
         if (isToolPickerOpen) setFocusTool(!focusTool)
@@ -118,33 +118,12 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
       event.preventDefault()
       setNewMessageContentToNextUserMessage()
     }
-
-    //use shift+ctrl+up and shift+ctrl+down to navigate through chat history
-    if (event.key === "ArrowUp" && event.shiftKey && event.ctrlKey) {
-      event.preventDefault()
-      setNewMessageContentToPreviousUserMessage()
-    }
-
-    if (event.key === "ArrowDown" && event.shiftKey && event.ctrlKey) {
-      event.preventDefault()
-      setNewMessageContentToNextUserMessage()
-    }
-
-    if (
-      isAssistantPickerOpen &&
-      (event.key === "Tab" ||
-        event.key === "ArrowUp" ||
-        event.key === "ArrowDown")
-    ) {
-      event.preventDefault()
-      setFocusAssistant(!focusAssistant)
-    }
   }
 
   const handlePaste = (event: React.ClipboardEvent) => {
-    const imagesAllowed = LLM_LIST.find(
-      llm => llm.modelId === chatSettings?.model
-    )?.imageInput
+    const imagesAllowed = chatSettings
+      ? LLM_LIST.find(llm => llm.modelId === chatSettings.model)?.imageInput
+      : false
 
     const items = event.clipboardData.items
     for (const item of items) {
@@ -163,85 +142,77 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
   }
 
   return (
-    <>
-      <div className="flex flex-col flex-wrap justify-center gap-2">
-        <ChatFilesDisplay />
+    <div className="flex flex-col flex-wrap justify-center gap-2">
+      <ChatFilesDisplay />
 
-        {selectedTools &&
-          selectedTools.map((tool, index) => (
-            <div
-              key={index}
-              className="flex justify-center"
-              onClick={() =>
-                setSelectedTools(
-                  selectedTools.filter(
-                    selectedTool => selectedTool.id !== tool.id
-                  )
+      {selectedTools &&
+        selectedTools.map((tool, index) => (
+          <div
+            key={index}
+            className="flex justify-center"
+            onClick={() =>
+              setSelectedTools(
+                selectedTools.filter(
+                  selectedTool => selectedTool.id !== tool.id
                 )
-              }
-            >
-              <div className="flex cursor-pointer items-center justify-center space-x-1 rounded-lg bg-purple-600 px-3 py-1 hover:opacity-50">
-                <IconBolt size={20} />
-
-                <div>{tool.name}</div>
-              </div>
-            </div>
-          ))}
-
-        {selectedAssistant && (
-          <div className="border-primary mx-auto flex w-fit items-center space-x-2 rounded-lg border p-1.5">
-            {selectedAssistant.image_path && (
-              <Image
-                className="rounded"
-                src={
-                  assistantImages.find(
-                    img => img.path === selectedAssistant.image_path
-                  )?.base64
-                }
-                width={28}
-                height={28}
-                alt={selectedAssistant.name}
-              />
-            )}
-
-            <div className="text-sm font-bold">
-              Talking to {selectedAssistant.name}
+              )
+            }
+          >
+            <div className="flex cursor-pointer items-center justify-center space-x-1 rounded-lg bg-purple-600 px-3 py-1 hover:opacity-50">
+              <IconBolt size={20} />
+              <div>{tool.name}</div>
             </div>
           </div>
-        )}
-      </div>
+        ))}
+
+      {selectedAssistant && (
+        <div className="border-primary mx-auto flex w-fit items-center space-x-2 rounded-lg border p-1.5">
+          {selectedAssistant.image_path && (
+            <Image
+              className="rounded"
+              src={
+                assistantImages.find(
+                  img => img.path === selectedAssistant.image_path
+                )?.base64 || ""
+              }
+              width={28}
+              height={28}
+              alt={selectedAssistant.name}
+            />
+          )}
+          <div className="text-sm font-bold">
+            Talking to {selectedAssistant.name}
+          </div>
+        </div>
+      )}
 
       <div className="border-input relative mt-3 flex min-h-[60px] w-full items-center justify-center rounded-xl border-2">
         <div className="absolute bottom-[76px] left-0 max-h-[300px] w-full overflow-auto rounded-xl dark:border-none">
           <ChatCommandInput />
         </div>
 
-        <>
-          <IconCirclePlus
-            className="absolute bottom-[12px] left-3 cursor-pointer p-1 hover:opacity-50"
-            size={32}
-            onClick={() => fileInputRef.current?.click()}
-          />
+        <IconCirclePlus
+          className="absolute bottom-[12px] left-3 cursor-pointer p-1 hover:opacity-50"
+          size={32}
+          onClick={() => fileInputRef.current?.click()}
+        />
 
-          {/* Hidden input to select files from device */}
-          <Input
-            ref={fileInputRef}
-            className="hidden"
-            type="file"
-            onChange={e => {
-              if (!e.target.files) return
-              handleSelectDeviceFile(e.target.files[0])
-            }}
-            accept={filesToAccept}
-          />
-        </>
+        <Input
+          ref={fileInputRef}
+          className="hidden"
+          type="file"
+          onChange={e => {
+            if (!e.target.files) return
+            handleSelectDeviceFile(e.target.files[0])
+          }}
+          accept={filesToAccept}
+        />
 
         <TextareaAutosize
           textareaRef={chatInputRef}
           className="ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring text-md flex w-full resize-none rounded-md border-none bg-transparent px-14 py-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           placeholder={t(
-            // `Ask anything. Type "@" for assistants, "/" for prompts, "#" for files, and "!" for tools.`
-            `Ask anything. Type @  /  #  !`
+            `Ask anything. Type @ for assistants, # for files, and ! for tools.`
           )}
           onValueChange={handleInputChange}
           value={userInput}
@@ -267,15 +238,19 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
                 !userInput && "cursor-not-allowed opacity-50"
               )}
               onClick={() => {
-                if (!userInput) return
-
-                handleSendMessage(userInput, chatMessages, false)
+                if (!userInput || !currentRoom?.id) return
+                handleSendMessage(
+                  userInput,
+                  chatMessages,
+                  false,
+                  currentRoom.id
+                )
               }}
               size={30}
             />
           )}
         </div>
       </div>
-    </>
+    </div>
   )
 }

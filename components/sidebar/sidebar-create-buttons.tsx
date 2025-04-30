@@ -1,5 +1,5 @@
 import { useChatHandler } from "@/components/chat/chat-hooks/use-chat-handler"
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { createFolder } from "@/db/folders"
 import { ContentType } from "@/types"
 import { IconFolderPlus, IconPlus } from "@tabler/icons-react"
@@ -23,7 +23,7 @@ export const SidebarCreateButtons: FC<SidebarCreateButtonsProps> = ({
   hasData
 }) => {
   const { profile, selectedWorkspace, folders, setFolders } =
-    useContext(ChatbotUIContext)
+    useContext(KlynoAIContext)
   const { handleNewChat } = useChatHandler()
 
   const [isCreatingPrompt, setIsCreatingPrompt] = useState(false)

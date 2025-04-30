@@ -1,4 +1,4 @@
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { MessageImage } from "@/types"
 import { FC, MouseEvent, useContext, useEffect, useRef, useState } from "react"
 
@@ -7,7 +7,7 @@ interface DrawingCanvasProps {
 }
 
 export const DrawingCanvas: FC<DrawingCanvasProps> = ({ imageItem }) => {
-  const { setNewMessageImages } = useContext(ChatbotUIContext)
+  const { setNewMessageImages } = useContext(KlynoAIContext)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)

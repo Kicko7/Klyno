@@ -1,6 +1,6 @@
 "use client"
 
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { CHAT_SETTING_LIMITS } from "@/lib/chat-setting-limits"
 import { ChatSettings } from "@/types"
 import { IconInfoCircle } from "@tabler/icons-react"
@@ -33,7 +33,7 @@ export const ChatSettingsForm: FC<ChatSettingsFormProps> = ({
   useAdvancedDropdown = true,
   showTooltip = true
 }) => {
-  const { profile, models } = useContext(ChatbotUIContext)
+  const { profile, models } = useContext(KlynoAIContext)
 
   if (!profile) return null
 
@@ -98,7 +98,7 @@ const AdvancedContent: FC<AdvancedContentProps> = ({
   showTooltip
 }) => {
   const { profile, selectedWorkspace, availableOpenRouterModels, models } =
-    useContext(ChatbotUIContext)
+    useContext(KlynoAIContext)
 
   const isCustomModel = models.some(
     model => model.model_id === chatSettings.model

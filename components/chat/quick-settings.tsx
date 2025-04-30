@@ -1,4 +1,4 @@
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { getAssistantCollectionsByAssistantId } from "@/db/assistant-collections"
 import { getAssistantFilesByAssistantId } from "@/db/assistant-files"
 import { getAssistantToolsByAssistantId } from "@/db/assistant-tools"
@@ -43,7 +43,7 @@ export const QuickSettings: FC<QuickSettingsProps> = ({}) => {
     setSelectedTools,
     setShowFilesDisplay,
     selectedWorkspace
-  } = useContext(ChatbotUIContext)
+  } = useContext(KlynoAIContext)
 
   const inputRef = useRef<HTMLInputElement>(null)
 

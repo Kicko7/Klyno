@@ -1,4 +1,4 @@
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { getAssistantCollectionsByAssistantId } from "@/db/assistant-collections"
 import { getAssistantFilesByAssistantId } from "@/db/assistant-files"
 import { getAssistantToolsByAssistantId } from "@/db/assistant-tools"
@@ -67,7 +67,7 @@ export const useChatHandler = () => {
     isPromptPickerOpen,
     isFilePickerOpen,
     isToolPickerOpen
-  } = useContext(ChatbotUIContext)
+  } = useContext(KlynoAIContext)
 
   const chatInputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -191,7 +191,8 @@ export const useChatHandler = () => {
   const handleSendMessage = async (
     messageContent: string,
     chatMessages: ChatMessage[],
-    isRegeneration: boolean
+    isRegeneration: boolean,
+    id: any
   ) => {
     const startingInput = messageContent
 
@@ -407,7 +408,7 @@ export const useChatHandler = () => {
 
     setChatMessages(filteredMessages)
 
-    handleSendMessage(editedContent, filteredMessages, false)
+    handleSendMessage(editedContent, filteredMessages, false, "default")
   }
 
   return {

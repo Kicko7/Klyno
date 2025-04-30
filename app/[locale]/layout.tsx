@@ -9,13 +9,14 @@ import { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import { cookies } from "next/headers"
 import { ReactNode } from "react"
+import { KlynoContextProvider } from "@/components/chat/klyno-context-provider" // ✅ ADDED
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
-const APP_NAME = "Chatbot UI"
-const APP_DEFAULT_TITLE = "Chatbot UI"
-const APP_TITLE_TEMPLATE = "%s - Chatbot UI"
-const APP_DESCRIPTION = "Chabot UI PWA!"
+const APP_NAME = "Klyno AI"
+const APP_DEFAULT_TITLE = "Klyno AI"
+const APP_TITLE_TEMPLATE = "%s - Klyno AI"
+const APP_DESCRIPTION = "Klyno AI PWA!"
 
 interface RootLayoutProps {
   children: ReactNode
@@ -36,7 +37,6 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black",
     title: APP_DEFAULT_TITLE
-    // startUpImage: [],
   },
   formatDetection: {
     telephone: false
@@ -95,10 +95,14 @@ export default async function RootLayout({
             locale={locale}
             resources={resources}
           >
-            <Toaster richColors position="top-center" duration={3000} />
-            <div className="bg-background text-foreground flex h-dvh flex-col items-center overflow-x-auto">
-              {session ? <GlobalState>{children}</GlobalState> : children}
-            </div>
+            <KlynoContextProvider>
+              {" "}
+              {/* ✅ CONTEXT WRAPPED SAFELY */}
+              <Toaster richColors position="top-center" duration={3000} />
+              <div className="bg-background text-foreground flex h-dvh flex-col items-center overflow-x-auto">
+                {session ? <GlobalState>{children}</GlobalState> : children}
+              </div>
+            </KlynoContextProvider>
           </TranslationsProvider>
         </Providers>
       </body>

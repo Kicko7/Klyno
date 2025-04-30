@@ -12,7 +12,7 @@ import { AssistantImage } from "@/types/images/assistant-image"
 import { VALID_ENV_KEYS } from "@/types/valid-keys"
 import { Dispatch, SetStateAction, createContext } from "react"
 
-interface ChatbotUIContext {
+interface KlynoAIContext {
   // PROFILE STORE
   profile: Tables<"profiles"> | null
   setProfile: Dispatch<SetStateAction<Tables<"profiles"> | null>>
@@ -136,9 +136,13 @@ interface ChatbotUIContext {
   setSelectedTools: Dispatch<SetStateAction<Tables<"tools">[]>>
   toolInUse: string
   setToolInUse: Dispatch<SetStateAction<string>>
+
+  // TEAM CHAT STORE
+  currentRoom: { id: string; name: string } | null
+  setCurrentRoom: Dispatch<SetStateAction<{ id: string; name: string } | null>>
 }
 
-export const ChatbotUIContext = createContext<ChatbotUIContext>({
+export const KlynoAIContext = createContext<KlynoAIContext>({
   // PROFILE STORE
   profile: null,
   setProfile: () => {},
@@ -261,5 +265,9 @@ export const ChatbotUIContext = createContext<ChatbotUIContext>({
   selectedTools: [],
   setSelectedTools: () => {},
   toolInUse: "none",
-  setToolInUse: () => {}
+  setToolInUse: () => {},
+
+  // TEAM CHAT STORE
+  currentRoom: null,
+  setCurrentRoom: () => {}
 })

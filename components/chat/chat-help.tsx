@@ -35,7 +35,7 @@ export const ChatHelp: FC<ChatHelpProps> = ({}) => {
           <div className="flex space-x-2">
             <Link
               className="cursor-pointer hover:opacity-50"
-              href="https://twitter.com/ChatbotUI"
+              href="https://twitter.com/KlynoAI"
               target="_blank"
               rel="noopener noreferrer"
             >

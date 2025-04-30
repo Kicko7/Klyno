@@ -1,4 +1,4 @@
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { createDocXFile, createFile } from "@/db/files"
 import { LLM_LIST } from "@/lib/models/llm/llm-list"
 import mammoth from "mammoth"
@@ -24,7 +24,7 @@ export const useSelectFileHandler = () => {
     setShowFilesDisplay,
     setFiles,
     setUseRetrieval
-  } = useContext(ChatbotUIContext)
+  } = useContext(KlynoAIContext)
 
   const [filesToAccept, setFilesToAccept] = useState(ACCEPTED_FILE_TYPES)
 

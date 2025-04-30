@@ -1,4 +1,4 @@
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { Tables } from "@/supabase/types"
 import { IconBolt } from "@tabler/icons-react"
 import { FC, useContext, useEffect, useRef } from "react"
@@ -13,7 +13,7 @@ export const ToolPicker: FC<ToolPickerProps> = ({}) => {
     toolCommand,
     isToolPickerOpen,
     setIsToolPickerOpen
-  } = useContext(ChatbotUIContext)
+  } = useContext(KlynoAIContext)
 
   const { handleSelectTool } = usePromptAndCommand()
 

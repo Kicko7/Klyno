@@ -1,4 +1,4 @@
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { IconCheck, IconCopy, IconEdit, IconRepeat } from "@tabler/icons-react"
 import { FC, useContext, useEffect, useState } from "react"
 import { WithTooltip } from "../ui/with-tooltip"
@@ -24,7 +24,7 @@ export const MessageActions: FC<MessageActionsProps> = ({
   onEdit,
   onRegenerate
 }) => {
-  const { isGenerating } = useContext(ChatbotUIContext)
+  const { isGenerating } = useContext(KlynoAIContext)
 
   const [showCheckmark, setShowCheckmark] = useState(false)
 

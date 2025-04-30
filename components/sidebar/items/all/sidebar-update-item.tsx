@@ -9,7 +9,7 @@ import {
   SheetTrigger
 } from "@/components/ui/sheet"
 import { AssignWorkspaces } from "@/components/workspace/assign-workspaces"
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import {
   createAssistantCollection,
   deleteAssistantCollection,
@@ -114,7 +114,7 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     setTools,
     setModels,
     setAssistantImages
-  } = useContext(ChatbotUIContext)
+  } = useContext(KlynoAIContext)
 
   const buttonRef = useRef<HTMLButtonElement>(null)
 

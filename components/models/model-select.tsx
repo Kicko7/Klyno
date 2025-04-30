@@ -1,4 +1,4 @@
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { LLM, LLMID, ModelProvider } from "@/types"
 import { IconCheck, IconChevronDown } from "@tabler/icons-react"
 import { FC, useContext, useEffect, useRef, useState } from "react"
@@ -28,7 +28,7 @@ export const ModelSelect: FC<ModelSelectProps> = ({
     availableHostedModels,
     availableLocalModels,
     availableOpenRouterModels
-  } = useContext(ChatbotUIContext)
+  } = useContext(KlynoAIContext)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)

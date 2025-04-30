@@ -1,4 +1,4 @@
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { Tables } from "@/supabase/types"
 import { IconBooks } from "@tabler/icons-react"
 import { FC, useContext, useEffect, useRef } from "react"
@@ -25,8 +25,7 @@ export const FilePicker: FC<FilePickerProps> = ({
   onSelectCollection,
   isFocused
 }) => {
-  const { files, collections, setIsFilePickerOpen } =
-    useContext(ChatbotUIContext)
+  const { files, collections, setIsFilePickerOpen } = useContext(KlynoAIContext)
 
   const itemsRef = useRef<(HTMLDivElement | null)[]>([])
 

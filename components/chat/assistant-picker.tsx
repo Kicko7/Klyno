@@ -1,4 +1,4 @@
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { Tables } from "@/supabase/types"
 import { IconRobotFace } from "@tabler/icons-react"
 import Image from "next/image"
@@ -15,7 +15,7 @@ export const AssistantPicker: FC<AssistantPickerProps> = ({}) => {
     atCommand,
     isAssistantPickerOpen,
     setIsAssistantPickerOpen
-  } = useContext(ChatbotUIContext)
+  } = useContext(KlynoAIContext)
 
   const { handleSelectAssistant } = usePromptAndCommand()
 

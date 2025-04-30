@@ -2,7 +2,7 @@ import { ChatSettingsForm } from "@/components/ui/chat-settings-form"
 import ImagePicker from "@/components/ui/image-picker"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { ASSISTANT_DESCRIPTION_MAX, ASSISTANT_NAME_MAX } from "@/db/limits"
 import { Tables } from "@/supabase/types"
 import { IconRobotFace } from "@tabler/icons-react"
@@ -18,7 +18,7 @@ interface AssistantItemProps {
 }
 
 export const AssistantItem: FC<AssistantItemProps> = ({ assistant }) => {
-  const { selectedWorkspace, assistantImages } = useContext(ChatbotUIContext)
+  const { selectedWorkspace, assistantImages } = useContext(KlynoAIContext)
 
   const [name, setName] = useState(assistant.name)
   const [isTyping, setIsTyping] = useState(false)

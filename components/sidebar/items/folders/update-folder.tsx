@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { updateFolder } from "@/db/folders"
 import { Tables } from "@/supabase/types"
 import { IconEdit } from "@tabler/icons-react"
@@ -20,7 +20,7 @@ interface UpdateFolderProps {
 }
 
 export const UpdateFolder: FC<UpdateFolderProps> = ({ folder }) => {
-  const { setFolders } = useContext(ChatbotUIContext)
+  const { setFolders } = useContext(KlynoAIContext)
 
   const buttonRef = useRef<HTMLButtonElement>(null)
 

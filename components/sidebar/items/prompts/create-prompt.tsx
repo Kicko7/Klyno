@@ -2,7 +2,7 @@ import { SidebarCreateItem } from "@/components/sidebar/items/all/sidebar-create
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { TextareaAutosize } from "@/components/ui/textarea-autosize"
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { PROMPT_NAME_MAX } from "@/db/limits"
 import { TablesInsert } from "@/supabase/types"
 import { FC, useContext, useState } from "react"
@@ -16,7 +16,7 @@ export const CreatePrompt: FC<CreatePromptProps> = ({
   isOpen,
   onOpenChange
 }) => {
-  const { profile, selectedWorkspace } = useContext(ChatbotUIContext)
+  const { profile, selectedWorkspace } = useContext(KlynoAIContext)
   const [isTyping, setIsTyping] = useState(false)
   const [name, setName] = useState("")
   const [content, setContent] = useState("")

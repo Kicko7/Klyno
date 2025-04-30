@@ -6,7 +6,7 @@ import {
   SheetHeader,
   SheetTitle
 } from "@/components/ui/sheet"
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { createAssistantCollections } from "@/db/assistant-collections"
 import { createAssistantFiles } from "@/db/assistant-files"
 import { createAssistantTools } from "@/db/assistant-tools"
@@ -57,7 +57,7 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
     setAssistantImages,
     setTools,
     setModels
-  } = useContext(ChatbotUIContext)
+  } = useContext(KlynoAIContext)
 
   const buttonRef = useRef<HTMLButtonElement>(null)
 
