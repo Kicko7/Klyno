@@ -1,10 +1,10 @@
 "use client"
 
-import { ChatbotUIContext } from "@/context/context"
+import { KlynoAIContext } from "@/context/context"
 import { useContext } from "react"
 
 export default function WorkspacePage() {
-  const { selectedWorkspace } = useContext(ChatbotUIContext)
+  const { selectedWorkspace } = useContext(KlynoAIContext)
 
   return (
     <div className="flex h-screen w-full flex-col items-center justify-center">
