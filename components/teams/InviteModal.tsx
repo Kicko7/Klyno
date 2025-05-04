@@ -45,7 +45,7 @@ export const InviteModal = ({ teamId }: InviteModalProps) => {
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-white/30">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
             <h2 className="mb-4 text-lg font-semibold">Invite a Member</h2>
             <form onSubmit={inviteUser}>

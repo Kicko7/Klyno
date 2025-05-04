@@ -9,7 +9,7 @@ import {
   IconSend
 } from "@tabler/icons-react"
 import Image from "next/image"
-import { FC, useContext, useEffect, useRef, useState } from "react"
+import { FC, useContext, useEffect, useRef, useState, useCallback } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { Input } from "../ui/input"
@@ -75,12 +75,24 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
   } = useChatHistoryHandler()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-
+  
+  const stableFocusChatInput = useCallback(() => {
+    if (handleFocusChatInput) {
+      handleFocusChatInput();
+    }
+  }, [handleFocusChatInput]);
+  
   useEffect(() => {
-    setTimeout(() => {
-      handleFocusChatInput()
-    }, 200) // FIX hacky
-  }, [selectedPreset, selectedAssistant])
+    const timer = setTimeout(() => {
+      stableFocusChatInput();
+    }, 200);
+  
+    return () => clearTimeout(timer);
+  }, [selectedPreset, selectedAssistant, stableFocusChatInput]);
+  
+  
+  
+  
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (!isTyping && event.key === "Enter" && !event.shiftKey) {
@@ -254,3 +266,6 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
     </div>
   )
 }
+// Removed the incorrect useCallback definition as it is already provided by React.
+
+

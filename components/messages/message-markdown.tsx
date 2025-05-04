@@ -4,6 +4,9 @@ import remarkMath from "remark-math"
 import { MessageCodeBlock } from "./message-codeblock"
 import { MessageMarkdownMemoized } from "./message-markdown-memoized"
 
+// components/messages/message-markdown.tsx
+
+
 interface MessageMarkdownProps {
   content: string
 }
@@ -18,7 +21,7 @@ export const MessageMarkdown: FC<MessageMarkdownProps> = ({ content }) => {
           return <p className="mb-2 last:mb-0">{children}</p>
         },
         img({ node, ...props }) {
-          return <img className="max-w-[67%]" {...props} />
+          return <img className="max-w-[67%]" alt="" {...props} />
         },
         code({ node, className, children, ...props }) {
           const childArray = React.Children.toArray(children)
