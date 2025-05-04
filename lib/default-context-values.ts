@@ -1,5 +1,7 @@
 // /lib/default-context-values.ts
 
+// /lib/default-context-values.ts
+
 export const DEFAULT_VALUES = {
   profile: null,
   setProfile: () => {},
@@ -43,7 +45,7 @@ export const DEFAULT_VALUES = {
   setAssistantImages: () => {},
   openaiAssistants: [],
   setOpenaiAssistants: () => {},
-  userInput: "",
+  userInput: '',
   setUserInput: () => {},
   chatMessages: [],
   setChatMessages: () => {},
@@ -61,15 +63,15 @@ export const DEFAULT_VALUES = {
   setIsGenerating: () => {},
   isPromptPickerOpen: false,
   setIsPromptPickerOpen: () => {},
-  slashCommand: "",
+  slashCommand: '',
   setSlashCommand: () => {},
   isFilePickerOpen: false,
   setIsFilePickerOpen: () => {},
-  hashtagCommand: "",
+  hashtagCommand: '',
   setHashtagCommand: () => {},
   isToolPickerOpen: false,
   setIsToolPickerOpen: () => {},
-  toolCommand: "",
+  toolCommand: '',
   setToolCommand: () => {},
   focusPrompt: false,
   setFocusPrompt: () => {},
@@ -79,7 +81,7 @@ export const DEFAULT_VALUES = {
   setFocusTool: () => {},
   focusAssistant: false,
   setFocusAssistant: () => {},
-  atCommand: "",
+  atCommand: '',
   setAtCommand: () => {},
   isAssistantPickerOpen: false,
   setIsAssistantPickerOpen: () => {},
@@ -99,8 +101,8 @@ export const DEFAULT_VALUES = {
   setSourceCount: () => {},
   selectedTools: [],
   setSelectedTools: () => {},
-  toolInUse: "none",
+  toolInUse: 'none',
   setToolInUse: () => {},
   currentRoom: null,
   setCurrentRoom: () => {}
-}
+};

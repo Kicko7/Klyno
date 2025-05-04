@@ -564,6 +564,7 @@ export type Database = {
       }
       file_items: {
         Row: {
+          message_id: string
           content: string
           created_at: string
           file_id: string

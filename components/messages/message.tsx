@@ -108,8 +108,9 @@ export const Message: FC<MessageProps> = ({
     await handleSendMessage(
       editedMessage || chatMessages[chatMessages.length - 2].message.content,
       chatMessages,
-      true
-    )
+      true,
+      chatMessages[chatMessages.length - 1].message.id // ✅ this is your missing 4th argument
+    )    
   }
 
   const handleStartEdit = () => {

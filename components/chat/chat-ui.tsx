@@ -18,6 +18,7 @@ import { ChatInput } from "./chat-input"
 import { ChatMessages } from "./chat-messages"
 import { ChatScrollButtons } from "./chat-scroll-buttons"
 import { ChatSecondaryButtons } from "./chat-secondary-buttons"
+import { sanitizeMessage } from "./chat-helpers/sanitizeMessage"
 
 interface ChatUIProps {}
 
@@ -213,7 +214,19 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
       >
         <div ref={messagesStartRef} />
 
-        <ChatMessages />
+        <ChatMessages
+  message={sanitizeMessage({
+    content: "Loading...",
+    chat_id: ""
+  })}
+  fileItems={[]}
+  isEditing={false}
+  isLast={true}
+  onStartEdit={() => {}}
+  onCancelEdit={() => {}}
+  onSubmitEdit={() => {}}
+/>
+
 
         <div ref={messagesEndRef} />
       </div>
@@ -228,3 +241,5 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
     </div>
   )
 }
+
+

@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { KlynoAIContext } from "@/context/context"
 import { DEFAULT_VALUES } from "@/lib/default-context-values"
+const [currentRoom, setCurrentRoom] = useState<{ id: string; name: string } | null>(null);
 
 export const KlynoContextProvider = ({
   children

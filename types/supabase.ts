@@ -212,6 +212,13 @@ export type Database = {
       }
       messages: {
         Row: {
+          chat_id: string
+          assistant_id: string
+          updated_at: string | null
+          model: string
+          role: string
+          image_paths: never[]
+          sequence_number: number
           content: string | null
           conversation_id: string | null
           created_at: string | null
