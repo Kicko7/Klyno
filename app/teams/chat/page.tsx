@@ -20,22 +20,27 @@ export default function ChatRoomPage() {
     if (!conversationId) return
 
     const loadMessages = async () => {
+      // Fetch messages for the current conversation from Supabase
       const { data, error } = await supabase
         .from("messages")
         .select("*")
         .eq("chat_id", conversationId)
         .order("created_at", { ascending: true })
 
+      // If messages were successfully retrieved, update state and scroll to bottom
       if (!error && data) {
         setMessages(data)
         scrollToBottom()
       }
 
+      // Mark loading as complete
       setLoading(false)
     }
 
+    // Load initial messages
     loadMessages()
 
+    // Set up real-time subscription to receive new messages
     const channel = supabase
       .channel("room:" + conversationId)
       .on(
@@ -47,16 +52,18 @@ export default function ChatRoomPage() {
           filter: `chat_id=eq.${conversationId}`
         },
         payload => {
+          // Add new message to state and scroll to bottom
           setMessages(prev => [...prev, payload.new as Message])
           scrollToBottom()
         }
       )
       .subscribe()
 
+    // Clean up subscription when component unmounts or conversationId changes
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [conversationId])
+  }, [conversationId, supabase]) // Remove scrollToBottom from dependencies since it's defined later
 
   const handleSend = async () => {
     if (!newMessage.trim()) return

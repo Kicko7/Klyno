@@ -1,21 +1,21 @@
 // components/chat/chat-helpers/sanitizeMessage.ts
 
 export type MessageRow = {
-  id: string;
-  chat_id: string;
-  assistant_id: string | null;
-  user_id: string;
-  content: string;
-  created_at: string;
-  updated_at: string | null;
-  model: string;
-  role: string;
-  image_paths: string[];
-  sequence_number: number;
-  conversation_id: string | null;
-};
+  id: string
+  chat_id: string
+  assistant_id: string | null
+  user_id: string
+  content: string
+  created_at: string
+  updated_at: string | null
+  model: string
+  role: string
+  image_paths: string[]
+  sequence_number: number
+  conversation_id: string | null
+}
 
-type PartialMessageRow = Partial<MessageRow>;
+type PartialMessageRow = Partial<MessageRow>
 
 export const sanitizeMessage = (message: PartialMessageRow): MessageRow => {
   return {
@@ -30,6 +30,6 @@ export const sanitizeMessage = (message: PartialMessageRow): MessageRow => {
     role: message.role ?? "user",
     image_paths: message.image_paths ?? [],
     sequence_number: message.sequence_number ?? 0,
-    conversation_id: message.conversation_id ?? null,
-  };
-};
+    conversation_id: message.conversation_id ?? null
+  }
+}

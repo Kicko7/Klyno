@@ -227,6 +227,7 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
     setIsOpen(false)
   }
 
+  // Create a debounced function that delays execution until after wait milliseconds
   const debounce = (func: (...args: any[]) => void, wait: number) => {
     let timeout: NodeJS.Timeout | null
 
@@ -241,8 +242,11 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
     }
   }
 
+  // Memoize the username availability check function with useCallback
+  // This prevents unnecessary re-creation of the function on each render
   const checkUsernameAvailability = useCallback(
-    debounce(async (username: string) => {
+    // Define the function inline instead of using debounce externally
+    async (username: string) => {
       if (!username) return
 
       if (username.length < PROFILE_USERNAME_MIN) {
@@ -281,8 +285,14 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
       }
 
       setLoadingUsername(false)
-    }, 500),
-    []
+    },
+    [profile?.username, setUsernameAvailable, setLoadingUsername, toast]
+  )
+
+  // Apply debounce to the memoized function
+  const debouncedCheckUsername = useCallback(
+    debounce((username: string) => checkUsernameAvailability(username), 500),
+    [checkUsernameAvailability]
   )
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {

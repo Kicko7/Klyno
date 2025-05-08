@@ -28,22 +28,25 @@ export const useSelectFileHandler = () => {
 
   const [filesToAccept, setFilesToAccept] = useState(ACCEPTED_FILE_TYPES)
 
-  useEffect(() => {
-    handleFilesToAccept()
-  }, [chatSettings?.model])
-
+  // Determines which file types to accept based on the selected model's capabilities
   const handleFilesToAccept = () => {
     const model = chatSettings?.model
     const FULL_MODEL = LLM_LIST.find(llm => llm.modelId === model)
 
     if (!FULL_MODEL) return
 
+    // Include image file types only if the model supports image input
     setFilesToAccept(
       FULL_MODEL.imageInput
         ? `${ACCEPTED_FILE_TYPES},image/*`
         : ACCEPTED_FILE_TYPES
     )
   }
+
+  // Effect to update accepted file types when the selected model changes
+  useEffect(() => {
+    handleFilesToAccept()
+  }, [chatSettings?.model, handleFilesToAccept])
 
   const handleSelectDeviceFile = async (file: File) => {
     if (!profile || !selectedWorkspace || !chatSettings) return
@@ -63,9 +66,9 @@ export const useSelectFileHandler = () => {
           simplifiedFileType = "pdf"
         } else if (
           simplifiedFileType.includes(
-            "vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-              "docx"
-          )
+            "vnd.openxmlformats-officedocument.wordprocessingml.document"
+          ) ||
+          simplifiedFileType.includes("docx")
         ) {
           simplifiedFileType = "docx"
         }
@@ -83,9 +86,9 @@ export const useSelectFileHandler = () => {
         // Handle docx files
         if (
           file.type.includes(
-            "vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-              "docx"
-          )
+            "vnd.openxmlformats-officedocument.wordprocessingml.document"
+          ) ||
+          file.type.includes("docx")
         ) {
           const arrayBuffer = await file.arrayBuffer()
           const result = await mammoth.extractRawText({

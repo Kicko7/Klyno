@@ -3,9 +3,9 @@ import remarkGfm from "remark-gfm"
 import remarkMath from "remark-math"
 import { MessageCodeBlock } from "./message-codeblock"
 import { MessageMarkdownMemoized } from "./message-markdown-memoized"
+import Image from "next/image"
 
 // components/messages/message-markdown.tsx
-
 
 interface MessageMarkdownProps {
   content: string
@@ -20,8 +20,25 @@ export const MessageMarkdown: FC<MessageMarkdownProps> = ({ content }) => {
         p({ children }) {
           return <p className="mb-2 last:mb-0">{children}</p>
         },
-        img({ node, ...props }) {
-          return <img className="max-w-[67%]" alt="" {...props} />
+        img({ node, src, alt, ...props }) {
+          return (
+            <div className="relative w-full max-w-[67%]">
+              <Image
+                className="max-w-[67%]"
+                src={src || ""}
+                alt={alt || ""}
+                width={500}
+                height={300}
+                sizes="(max-width: 768px) 100vw, 67vw"
+                style={{ height: "auto", width: "auto", maxWidth: "67%" }}
+                {...Object.fromEntries(
+                  Object.entries(props).filter(
+                    ([key]) => !["width", "height"].includes(key)
+                  )
+                )}
+              />
+            </div>
+          )
         },
         code({ node, className, children, ...props }) {
           const childArray = React.Children.toArray(children)

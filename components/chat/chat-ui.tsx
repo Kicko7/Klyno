@@ -58,25 +58,6 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
 
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const fetchData = async () => {
-      await fetchMessages()
-      await fetchChat()
-
-      scrollToBottom()
-      setIsAtBottom(true)
-    }
-
-    if (params.chatid) {
-      fetchData().then(() => {
-        handleFocusChatInput()
-        setLoading(false)
-      })
-    } else {
-      setLoading(false)
-    }
-  }, [])
-
   const fetchMessages = async () => {
     const fetchedMessages = await getMessagesByChatId(params.chatid as string)
 
@@ -182,6 +163,32 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
     })
   }
 
+  useEffect(() => {
+    const fetchData = async () => {
+      await fetchMessages()
+      await fetchChat()
+
+      scrollToBottom()
+      setIsAtBottom(true)
+    }
+
+    if (params.chatid) {
+      fetchData().then(() => {
+        handleFocusChatInput()
+        setLoading(false)
+      })
+    } else {
+      setLoading(false)
+    }
+  }, [
+    params.chatid,
+    fetchMessages,
+    fetchChat,
+    scrollToBottom,
+    setIsAtBottom,
+    handleFocusChatInput
+  ])
+
   if (loading) {
     return <Loading />
   }
@@ -215,18 +222,17 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
         <div ref={messagesStartRef} />
 
         <ChatMessages
-  message={sanitizeMessage({
-    content: "Loading...",
-    chat_id: ""
-  })}
-  fileItems={[]}
-  isEditing={false}
-  isLast={true}
-  onStartEdit={() => {}}
-  onCancelEdit={() => {}}
-  onSubmitEdit={() => {}}
-/>
-
+          message={sanitizeMessage({
+            content: "Loading...",
+            chat_id: ""
+          })}
+          fileItems={[]}
+          isEditing={false}
+          isLast={true}
+          onStartEdit={() => {}}
+          onCancelEdit={() => {}}
+          onSubmitEdit={() => {}}
+        />
 
         <div ref={messagesEndRef} />
       </div>
@@ -241,5 +247,3 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
     </div>
   )
 }
-
-

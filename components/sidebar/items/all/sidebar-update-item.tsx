@@ -152,53 +152,6 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     Tables<"tools">[]
   >([])
 
-  useEffect(() => {
-    if (isOpen) {
-      const fetchData = async () => {
-        if (workspaces.length > 1) {
-          const workspaces = await fetchSelectedWorkspaces()
-          setStartingWorkspaces(workspaces)
-          setSelectedWorkspaces(workspaces)
-        }
-
-        const fetchDataFunction = fetchDataFunctions[contentType]
-        if (!fetchDataFunction) return
-        await fetchDataFunction(item.id)
-      }
-
-      fetchData()
-    }
-  }, [isOpen])
-
-  const renderState = {
-    chats: null,
-    presets: null,
-    prompts: null,
-    files: null,
-    collections: {
-      startingCollectionFiles,
-      setStartingCollectionFiles,
-      selectedCollectionFiles,
-      setSelectedCollectionFiles
-    },
-    assistants: {
-      startingAssistantFiles,
-      setStartingAssistantFiles,
-      startingAssistantCollections,
-      setStartingAssistantCollections,
-      startingAssistantTools,
-      setStartingAssistantTools,
-      selectedAssistantFiles,
-      setSelectedAssistantFiles,
-      selectedAssistantCollections,
-      setSelectedAssistantCollections,
-      selectedAssistantTools,
-      setSelectedAssistantTools
-    },
-    tools: null,
-    models: null
-  }
-
   const fetchDataFunctions = {
     chats: null,
     presets: null,
@@ -269,6 +222,62 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     const workspaces = await fetchFunction(item.id)
 
     return workspaces
+  }
+
+  useEffect(() => {
+    if (isOpen) {
+      const fetchData = async () => {
+        // Fetch workspace data if multiple workspaces exist
+        if (workspaces.length > 1) {
+          const workspaces = await fetchSelectedWorkspaces()
+          setStartingWorkspaces(workspaces)
+          setSelectedWorkspaces(workspaces)
+        }
+
+        // Fetch content-specific data using the appropriate function
+        const fetchDataFunction = fetchDataFunctions[contentType]
+        if (!fetchDataFunction) return
+        await fetchDataFunction(item.id)
+      }
+
+      fetchData()
+    }
+  }, [
+    isOpen,
+    workspaces.length,
+    fetchSelectedWorkspaces,
+    fetchDataFunctions,
+    contentType,
+    item.id
+  ]) // Include all dependencies
+
+  const renderState = {
+    chats: null,
+    presets: null,
+    prompts: null,
+    files: null,
+    collections: {
+      startingCollectionFiles,
+      setStartingCollectionFiles,
+      selectedCollectionFiles,
+      setSelectedCollectionFiles
+    },
+    assistants: {
+      startingAssistantFiles,
+      setStartingAssistantFiles,
+      startingAssistantCollections,
+      setStartingAssistantCollections,
+      startingAssistantTools,
+      setStartingAssistantTools,
+      selectedAssistantFiles,
+      setSelectedAssistantFiles,
+      selectedAssistantCollections,
+      setSelectedAssistantCollections,
+      selectedAssistantTools,
+      setSelectedAssistantTools
+    },
+    tools: null,
+    models: null
   }
 
   const handleWorkspaceUpdates = async (

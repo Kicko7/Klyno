@@ -39,8 +39,11 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null)
 
   // TEAM CHAT STORE
-  const [currentRoom, setCurrentRoom] = useState<{ id: string; name: string } | null>(null); 
-  
+  const [currentRoom, setCurrentRoom] = useState<{
+    id: string
+    name: string
+  } | null>(null)
+
   // ITEMS STORE
   const [assistants, setAssistants] = useState<Tables<"assistants">[]>([])
   const [collections, setCollections] = useState<Tables<"collections">[]>([])
@@ -126,35 +129,6 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
   const [selectedTools, setSelectedTools] = useState<Tables<"tools">[]>([])
   const [toolInUse, setToolInUse] = useState<string>("none")
 
-  useEffect(() => {
-    ;(async () => {
-      const profile = await fetchStartingData()
-
-      if (profile) {
-        const hostedModelRes = await fetchHostedModels(profile)
-        if (!hostedModelRes) return
-
-        setEnvKeyMap(hostedModelRes.envKeyMap)
-        setAvailableHostedModels(hostedModelRes.hostedModels)
-
-        if (
-          profile["openrouter_api_key"] ||
-          hostedModelRes.envKeyMap["openrouter"]
-        ) {
-          const openRouterModels = await fetchOpenRouterModels()
-          if (!openRouterModels) return
-          setAvailableOpenRouterModels(openRouterModels)
-        }
-      }
-
-      if (process.env.NEXT_PUBLIC_OLLAMA_URL) {
-        const localModels = await fetchOllamaModels()
-        if (!localModels) return
-        setAvailableLocalModels(localModels)
-      }
-    })()
-  }, [])
-
   const fetchStartingData = async () => {
     const session = (await supabase.auth.getSession()).data.session
 
@@ -199,6 +173,41 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
       return profile
     }
   }
+
+  useEffect(() => {
+    // Self-executing async function to fetch initial data
+    ;(async () => {
+      // Get user profile and related data
+      const profile = await fetchStartingData()
+
+      if (profile) {
+        // If profile exists, fetch available hosted models
+        const hostedModelRes = await fetchHostedModels(profile)
+        if (!hostedModelRes) return
+
+        // Set environment key map and available hosted models
+        setEnvKeyMap(hostedModelRes.envKeyMap)
+        setAvailableHostedModels(hostedModelRes.hostedModels)
+
+        // If OpenRouter API key is available, fetch OpenRouter models
+        if (
+          profile["openrouter_api_key"] ||
+          hostedModelRes.envKeyMap["openrouter"]
+        ) {
+          const openRouterModels = await fetchOpenRouterModels()
+          if (!openRouterModels) return
+          setAvailableOpenRouterModels(openRouterModels)
+        }
+      }
+
+      // If Ollama URL is configured, fetch local models
+      if (process.env.NEXT_PUBLIC_OLLAMA_URL) {
+        const localModels = await fetchOllamaModels()
+        if (!localModels) return
+        setAvailableLocalModels(localModels)
+      }
+    })()
+  }, [fetchStartingData]) // Include fetchStartingData in dependency array
 
   return (
     <KlynoAIContext.Provider

@@ -20,20 +20,36 @@ export const useScroll = () => {
   const [userScrolled, setUserScrolled] = useState(false)
   const [isOverflowing, setIsOverflowing] = useState(false)
 
+  // Scroll to the bottom of the message list
+  const scrollToBottom = useCallback(() => {
+    isAutoScrolling.current = true
+
+    setTimeout(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: "instant" })
+      }
+
+      isAutoScrolling.current = false
+    }, 100)
+  }, [])
+
+  // Reset userScrolled state when generation stops
   useEffect(() => {
     setUserScrolled(false)
 
     if (!isGenerating && userScrolled) {
       setUserScrolled(false)
     }
-  }, [isGenerating])
+  }, [isGenerating, userScrolled])
 
+  // Auto-scroll to bottom when new messages arrive during generation
   useEffect(() => {
     if (isGenerating && !userScrolled) {
       scrollToBottom()
     }
-  }, [chatMessages])
+  }, [chatMessages, isGenerating, userScrolled, scrollToBottom])
 
+  // Handle scroll events to track scroll position
   const handleScroll: UIEventHandler<HTMLDivElement> = useCallback(e => {
     const target = e.target as HTMLDivElement
     const bottom =
@@ -54,22 +70,11 @@ export const useScroll = () => {
     setIsOverflowing(isOverflow)
   }, [])
 
+  // Scroll to the top of the message list
   const scrollToTop = useCallback(() => {
     if (messagesStartRef.current) {
       messagesStartRef.current.scrollIntoView({ behavior: "instant" })
     }
-  }, [])
-
-  const scrollToBottom = useCallback(() => {
-    isAutoScrolling.current = true
-
-    setTimeout(() => {
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: "instant" })
-      }
-
-      isAutoScrolling.current = false
-    }, 100)
   }, [])
 
   return {

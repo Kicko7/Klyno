@@ -33,6 +33,7 @@ export const ProfileStep: FC<ProfileStepProps> = ({
 }) => {
   const [loading, setLoading] = useState(false)
 
+  // Create a debounce utility function
   const debounce = (func: (...args: any[]) => void, wait: number) => {
     let timeout: NodeJS.Timeout | null
 
@@ -47,8 +48,9 @@ export const ProfileStep: FC<ProfileStepProps> = ({
     }
   }
 
+  // Define the username availability check function with proper dependencies
   const checkUsernameAvailability = useCallback(
-    debounce(async (username: string) => {
+    async (username: string) => {
       if (!username) return
 
       if (username.length < PROFILE_USERNAME_MIN) {
@@ -83,8 +85,14 @@ export const ProfileStep: FC<ProfileStepProps> = ({
       onUsernameAvailableChange(isAvailable)
 
       setLoading(false)
-    }, 500),
-    []
+    },
+    [onUsernameAvailableChange, toast, setLoading]
+  )
+
+  // Create a debounced version of the check function
+  const debouncedCheckUsername = useCallback(
+    debounce((username: string) => checkUsernameAvailability(username), 500),
+    [checkUsernameAvailability]
   )
 
   return (
@@ -109,7 +117,7 @@ export const ProfileStep: FC<ProfileStepProps> = ({
             value={username}
             onChange={e => {
               onUsernameChange(e.target.value)
-              checkUsernameAvailability(e.target.value)
+              debouncedCheckUsername(e.target.value)
             }}
             minLength={PROFILE_USERNAME_MIN}
             maxLength={PROFILE_USERNAME_MAX}

@@ -67,13 +67,15 @@ export const WorkspaceSettings: FC<WorkspaceSettingsProps> = ({}) => {
   })
 
   useEffect(() => {
+    // Find the base64 image data for the current workspace's image path
     const workspaceImage =
       workspaceImages.find(
         image => image.path === selectedWorkspace?.image_path
       )?.base64 || ""
 
+    // Update the image link state with the found base64 data
     setImageLink(workspaceImage)
-  }, [workspaceImages])
+  }, [workspaceImages, selectedWorkspace?.image_path]) // Include selectedWorkspace?.image_path in dependencies
 
   const handleSave = async () => {
     if (!selectedWorkspace) return

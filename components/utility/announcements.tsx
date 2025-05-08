@@ -14,6 +14,7 @@ interface AnnouncementsProps {}
 export const Announcements: FC<AnnouncementsProps> = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
 
+  // This effect synchronizes the announcements state with localStorage
   useEffect(() => {
     // Load announcements from local storage
     const storedAnnouncements = localStorage.getItem("announcements")
@@ -50,7 +51,7 @@ export const Announcements: FC<AnnouncementsProps> = () => {
     // Update state and local storage
     setAnnouncements(updatedAnnouncements)
     localStorage.setItem("announcements", JSON.stringify(updatedAnnouncements))
-  }, [])
+  }, []) // Empty dependency array to run only once on mount
 
   const unreadCount = announcements.filter(a => !a.read).length
 

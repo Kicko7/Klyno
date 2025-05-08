@@ -138,18 +138,18 @@ interface KlynoAIContext {
   setToolInUse: Dispatch<SetStateAction<string>>
 
   // TEAM CHAT STORE
-  currentRoom: { id: string; name: string } | null;
-  setCurrentRoom: Dispatch<SetStateAction<{ id: string; name: string } | null>>;
+  currentRoom: { id: string; name: string } | null
+  setCurrentRoom: Dispatch<SetStateAction<{ id: string; name: string } | null>>
 }
 
 export const KlynoAIContext = createContext<KlynoAIContext>({
   // PROFILE STORE
   profile: null,
   setProfile: () => {},
-  
+
   // TEAM CHAT STORE
-currentRoom: null,
-setCurrentRoom: () => {},
+  currentRoom: null,
+  setCurrentRoom: () => {},
 
   // ITEMS STORE
   assistants: [],
@@ -269,5 +269,5 @@ setCurrentRoom: () => {},
   selectedTools: [],
   setSelectedTools: () => {},
   toolInUse: "none",
-  setToolInUse: () => {},
+  setToolInUse: () => {}
 })

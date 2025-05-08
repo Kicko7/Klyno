@@ -103,8 +103,7 @@ export const createTempMessages = (
       user_id: ""
     },
     fileItems: []
-  };
-  
+  }
 
   let tempAssistantChatMessage: ChatMessage = {
     message: {
@@ -121,8 +120,7 @@ export const createTempMessages = (
       user_id: ""
     },
     fileItems: []
-  };
-  
+  }
 
   let newMessages = []
 
@@ -330,7 +328,7 @@ export const processResponse = async (
                   content: fullText
                 },
                 fileItems: chatMessage.fileItems || [] // ✅ Must be at top level
-              };
+              }
 
               return updatedChatMessage
             }
@@ -436,7 +434,7 @@ export const handleCreateMessages = async (
     const updatedMessage = await updateMessage(lastStartingMessage.id, {
       ...lastStartingMessage,
       content: generatedText,
-      user_id: lastStartingMessage.user_id ?? undefined,
+      user_id: lastStartingMessage.user_id ?? undefined
     })
 
     chatMessages[chatMessages.length - 1].message = updatedMessage
@@ -515,4 +513,3 @@ export const handleCreateMessages = async (
     setChatMessages(finalChatMessages)
   }
 }
-

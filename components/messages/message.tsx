@@ -110,7 +110,7 @@ export const Message: FC<MessageProps> = ({
       chatMessages,
       true,
       chatMessages[chatMessages.length - 1].message.id // ✅ this is your missing 4th argument
-    )    
+    )
   }
 
   const handleStartEdit = () => {
@@ -118,14 +118,17 @@ export const Message: FC<MessageProps> = ({
   }
 
   useEffect(() => {
+    // Update the edited message content when the original message changes
+    // or when editing mode is toggled
     setEditedMessage(message.content)
 
+    // Focus and position cursor at the end of the textarea when entering edit mode
     if (isEditing && editInputRef.current) {
       const input = editInputRef.current
       input.focus()
       input.setSelectionRange(input.value.length, input.value.length)
     }
-  }, [isEditing])
+  }, [isEditing, message.content]) // Include message.content in dependency array
 
   const MODEL_DATA = [
     ...models.map(model => ({
