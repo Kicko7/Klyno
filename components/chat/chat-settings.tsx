@@ -30,9 +30,11 @@ export const ChatSettings: FC<ChatSettingsProps> = ({}) => {
     }
   }
 
+  // Effect to adjust temperature and context length when model changes
   useEffect(() => {
     if (!chatSettings) return
 
+    // Update chat settings to ensure values don't exceed model-specific limits
     setChatSettings({
       ...chatSettings,
       temperature: Math.min(
@@ -44,7 +46,7 @@ export const ChatSettings: FC<ChatSettingsProps> = ({}) => {
         CHAT_SETTING_LIMITS[chatSettings.model]?.MAX_CONTEXT_LENGTH || 4096
       )
     })
-  }, [chatSettings?.model])
+  }, [chatSettings, setChatSettings, chatSettings?.model])
 
   if (!chatSettings) return null
 
