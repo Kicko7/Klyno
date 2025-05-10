@@ -19,8 +19,25 @@ import { ChatMessages } from "./chat-messages"
 import { ChatScrollButtons } from "./chat-scroll-buttons"
 import { ChatSecondaryButtons } from "./chat-secondary-buttons"
 import { sanitizeMessage } from "./chat-helpers/sanitizeMessage"
+import { Tables } from "@/supabase/types"
+import { MessageRow } from "./chat-helpers/sanitizeMessage"
 
 interface ChatUIProps {}
+
+interface Message extends Tables<"messages"> {
+  image_paths?: string[]
+}
+
+interface Chat extends Tables<"chats"> {
+  model?: LLMID
+  prompt?: string
+  temperature?: number
+  context_length?: number
+  include_profile_context?: boolean
+  include_workspace_instructions?: boolean
+  embeddings_provider?: "openai" | "local"
+  assistant_id?: string
+}
 
 export const ChatUI: FC<ChatUIProps> = ({}) => {
   useHotkey("o", () => handleNewChat())
@@ -60,11 +77,15 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
 
   const fetchMessages = async () => {
     const fetchedMessages = await getMessagesByChatId(params.chatid as string)
+    const typedMessages = fetchedMessages.map(msg => ({
+      ...msg,
+      image_paths: (msg as any).image_paths || []
+    })) as Message[]
 
-    const imagePromises: Promise<MessageImage>[] = fetchedMessages.flatMap(
-      message =>
-        message.image_paths
-          ? message.image_paths.map(async imagePath => {
+    const imagePromises: Promise<MessageImage>[] = typedMessages.flatMap(
+      message => {
+        return message.image_paths
+          ? message.image_paths.map(async (imagePath: string) => {
               const url = await getMessageImageFromStorage(imagePath)
 
               if (url) {
@@ -90,24 +111,34 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
               }
             })
           : []
+      }
     )
 
     const images: MessageImage[] = await Promise.all(imagePromises.flat())
     setChatImages(images)
 
-    const messageFileItemPromises = fetchedMessages.map(
+    const messageFileItemPromises = typedMessages.map(
       async message => await getMessageFileItemsByMessageId(message.id)
     )
 
     const messageFileItems = await Promise.all(messageFileItemPromises)
 
-    const uniqueFileItems = messageFileItems.flatMap(item => item.file_items)
-    setChatFileItems(uniqueFileItems)
+    // Only use valid results, filter out errors
+    const validFileItems = messageFileItems.filter(
+      item => item && typeof item === "object" && Array.isArray(item.file_items)
+    )
+
+    const uniqueFileItems = validFileItems.flatMap(item => item.file_items)
+    setChatFileItems(uniqueFileItems as any)
 
     const chatFiles = await getChatFilesByChatId(params.chatid as string)
-
+    // Defensive: check if chatFiles.files exists and is an array
+    const filesArray =
+      chatFiles && Array.isArray((chatFiles as any).files)
+        ? (chatFiles as any).files
+        : []
     setChatFiles(
-      chatFiles.files.map(file => ({
+      filesArray.map((file: any) => ({
         id: file.id,
         name: file.name,
         type: file.type,
@@ -118,22 +149,37 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
     setUseRetrieval(true)
     setShowFilesDisplay(true)
 
-    const fetchedChatMessages = fetchedMessages.map(message => {
+    const fetchedChatMessages = typedMessages.map(message => {
       return {
-        message,
-        fileItems: messageFileItems
+        message: {
+          id: message.id,
+          conversation_id: (message as any).conversation_id || null,
+          assistant_id: (message as any).assistant_id || null,
+          content: message.content || "",
+          created_at: message.created_at || "",
+          updated_at: (message as any).updated_at || null,
+          image_paths: (message as any).image_paths || [],
+          model: (message as any).model || "",
+          role: (message as any).role || "user",
+          sequence_number: (message as any).sequence_number || 0,
+          user_id: message.user_id || null,
+          workspace_id: (message as any).workspace_id || null
+        },
+        fileItems: validFileItems
           .filter(messageFileItem => messageFileItem.id === message.id)
           .flatMap(messageFileItem =>
-            messageFileItem.file_items.map(fileItem => fileItem.id)
+            Array.isArray(messageFileItem.file_items)
+              ? messageFileItem.file_items.map((fileItem: any) => fileItem.id)
+              : []
           )
       }
     })
 
-    setChatMessages(fetchedChatMessages)
+    setChatMessages(fetchedChatMessages as any)
   }
 
   const fetchChat = async () => {
-    const chat = await getChatById(params.chatid as string)
+    const chat = (await getChatById(params.chatid as string)) as Chat
     if (!chat) return
 
     if (chat.assistant_id) {
@@ -144,22 +190,30 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
       if (assistant) {
         setSelectedAssistant(assistant)
 
-        const assistantTools = (
-          await getAssistantToolsByAssistantId(assistant.id)
-        ).tools
-        setSelectedTools(assistantTools)
+        const assistantTools = await getAssistantToolsByAssistantId(
+          assistant.id
+        )
+        if (
+          assistantTools &&
+          typeof assistantTools === "object" &&
+          "tools" in assistantTools &&
+          Array.isArray(assistantTools.tools)
+        ) {
+          setSelectedTools(assistantTools.tools)
+        }
       }
     }
 
     setSelectedChat(chat)
     setChatSettings({
-      model: chat.model as LLMID,
-      prompt: chat.prompt,
-      temperature: chat.temperature,
-      contextLength: chat.context_length,
-      includeProfileContext: chat.include_profile_context,
-      includeWorkspaceInstructions: chat.include_workspace_instructions,
-      embeddingsProvider: chat.embeddings_provider as "openai" | "local"
+      model: chat.model || "gpt-3.5-turbo",
+      prompt: chat.prompt || "",
+      temperature: chat.temperature || 0.7,
+      contextLength: chat.context_length || 4096,
+      includeProfileContext: chat.include_profile_context || false,
+      includeWorkspaceInstructions:
+        chat.include_workspace_instructions || false,
+      embeddingsProvider: chat.embeddings_provider || "openai"
     })
   }
 
@@ -211,7 +265,9 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
 
       <div className="bg-secondary flex max-h-[50px] min-h-[50px] w-full items-center justify-center border-b-2 font-bold">
         <div className="max-w-[200px] truncate sm:max-w-[400px] md:max-w-[500px] lg:max-w-[600px] xl:max-w-[700px]">
-          {selectedChat?.name || "Chat"}
+          {(selectedChat as any)?.name ||
+            (selectedChat as any)?.title ||
+            "Chat"}
         </div>
       </div>
 
@@ -223,8 +279,18 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
 
         <ChatMessages
           message={sanitizeMessage({
+            id: "",
             content: "Loading...",
-            chat_id: ""
+            conversation_id: null,
+            created_at: new Date().toISOString(),
+            user_id: "",
+            chat_id: "",
+            assistant_id: null,
+            model: "gpt-3.5-turbo",
+            role: "user",
+            sequence_number: 0,
+            image_paths: [],
+            updated_at: null
           })}
           fileItems={[]}
           isEditing={false}
@@ -238,7 +304,7 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
       </div>
 
       <div className="relative w-full min-w-[300px] items-end px-2 pb-3 pt-0 sm:w-[600px] sm:pb-8 sm:pt-5 md:w-[700px] lg:w-[700px] xl:w-[800px]">
-        <ChatInput />
+        <ChatInput onSendMessage={() => {}} />
       </div>
 
       <div className="absolute bottom-2 right-2 hidden md:block lg:bottom-4 lg:right-4">

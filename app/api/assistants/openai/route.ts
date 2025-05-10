@@ -11,8 +11,7 @@ export async function GET() {
     checkApiKey(profile.openai_api_key, "OpenAI")
 
     const openai = new OpenAI({
-      apiKey: profile.openai_api_key || "",
-      organization: profile.openai_organization_id
+      apiKey: profile.openai_api_key || ""
     })
 
     const myAssistants = await openai.beta.assistants.list({

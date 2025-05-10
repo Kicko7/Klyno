@@ -92,7 +92,7 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
     embeddingsProvider: "openai"
   })
   const [selectedChat, setSelectedChat] = useState<Tables<"chats"> | null>(null)
-  const [chatFileItems, setChatFileItems] = useState<Tables<"file_items">[]>([])
+  const [chatFileItems, setChatFileItems] = useState<Tables<"files">[]>([])
 
   // ACTIVE CHAT STORE
   const [isGenerating, setIsGenerating] = useState<boolean>(false)
@@ -138,37 +138,15 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
       const profile = await getProfileByUserId(user.id)
       setProfile(profile)
 
-      if (!profile.has_onboarded) {
+      if (profile.has_onboarded !== true) {
+        // If not onboarded or null, redirect to setup
         return router.push("/setup")
       }
 
       const workspaces = await getWorkspacesByUserId(user.id)
       setWorkspaces(workspaces)
 
-      for (const workspace of workspaces) {
-        let workspaceImageUrl = ""
-
-        if (workspace.image_path) {
-          workspaceImageUrl =
-            (await getWorkspaceImageFromStorage(workspace.image_path)) || ""
-        }
-
-        if (workspaceImageUrl) {
-          const response = await fetch(workspaceImageUrl)
-          const blob = await response.blob()
-          const base64 = await convertBlobToBase64(blob)
-
-          setWorkspaceImages(prev => [
-            ...prev,
-            {
-              workspaceId: workspace.id,
-              path: workspace.image_path,
-              base64: base64,
-              url: workspaceImageUrl
-            }
-          ])
-        }
-      }
+      // No image_path on workspace, so skip image loading
 
       return profile
     }

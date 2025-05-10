@@ -1,28 +1,28 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { getTeams } from "@/db/teams"
-import { useUser } from "@/context/user-context"
+import { TeamChatList } from "./TeamChatList"
+import { TeamChat } from "./TeamChat"
+import MyInvitations from "@/components/teams/MyInvitations"
 import { createTeam } from "@/db/teams"
+import { useUser } from "@/context/user-context"
+// Add other team-related components as needed
 
-export const TeamSwitcher = () => {
-  const [teams, setTeams] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+interface TeamsWorkspaceProps {
+  teamId: string
+}
+
+export const TeamsWorkspace = ({ teamId }: TeamsWorkspaceProps) => {
+  const [selectedChatId, setSelectedChatId] = useState<string>()
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false)
   const [teamName, setTeamName] = useState("")
-  const router = useRouter()
+  const [teams, setTeams] = useState<any[]>([])
   const { user } = useUser()
 
   useEffect(() => {
-    const fetchTeams = async () => {
-      if (!user) return
-      const fetchedTeams = await getTeams(user.id)
-      setTeams(fetchedTeams)
-      setLoading(false)
-    }
-    fetchTeams()
-  }, [user])
+    // Fetch teams for the user (pseudo code, replace with your fetch logic)
+    // setTeams(fetchedTeams)
+  }, [])
 
   const handleCreateTeam = async () => {
     if (!user || !teamName) return
@@ -32,13 +32,9 @@ export const TeamSwitcher = () => {
     setTeamName("")
   }
 
-  if (loading) {
-    return <div>Loading teams...</div>
-  }
-
   if (teams.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-4">
+      <div className="flex h-full flex-col items-center justify-center">
         <h2 className="mb-4 text-xl font-bold">No teams found</h2>
         <button
           className="btn btn-primary"
@@ -75,18 +71,23 @@ export const TeamSwitcher = () => {
   }
 
   return (
-    <div className="relative">
-      <select
-        className="w-full rounded border p-2"
-        onChange={e => router.push(`/teams/${e.target.value}`)}
-      >
-        <option value="">Select a team</option>
-        {teams.map(team => (
-          <option key={team.id} value={team.id}>
-            {team.name}
-          </option>
-        ))}
-      </select>
+    <div className="flex h-full">
+      <div className="w-80 border-r">
+        <TeamChatList
+          teamId={teamId}
+          onSelectChat={setSelectedChatId}
+          selectedChatId={selectedChatId}
+        />
+      </div>
+      <div className="flex-1">
+        {selectedChatId ? (
+          <TeamChat chatId={selectedChatId} />
+        ) : (
+          <div className="flex h-full items-center justify-center text-gray-500">
+            Select a chat or create a new one
+          </div>
+        )}
+      </div>
     </div>
   )
 }

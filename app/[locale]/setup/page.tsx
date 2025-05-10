@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/browser-client"
 import { getProfileByUserId } from "@/db/profile"
 import type { Database } from "@/supabase/types"
+import { Tooltip } from "@/components/ui/tooltip"
+import { CheckCircleIcon } from "@heroicons/react/24/solid"
+import { WithTooltip } from "@/components/ui/with-tooltip"
 
 // Steps
 const PROFILE_STEP = 1
@@ -21,37 +24,31 @@ async function createProfileIfMissing(userId: string) {
     .maybeSingle()
 
   if (!data && !error) {
+    // Insert a valid profile row with all required fields
     const { error: insertError } = await supabase.from("profiles").insert([
       {
         id: userId,
         user_id: userId,
-        username: userId.slice(0, 8),
-        display_name: userId.slice(0, 8),
-        avatar_url: "",
-        bio: "", // ✅ you must have this
-        image_path: "",
-        image_url: "",
-        profile_context: "",
+        username: userId.slice(0, 16),
+        display_name: userId.slice(0, 16),
+        avatar_url: "", // required, default empty
+        has_onboarded: false,
+        use_azure_openai: false,
         openai_api_key: null,
         anthropic_api_key: null,
         groq_api_key: null,
         mistral_api_key: null,
         openrouter_api_key: null,
         perplexity_api_key: null,
-        use_azure_openai: false,
         azure_openai_api_key: null,
         azure_openai_embeddings_id: null,
         azure_openai_35_turbo_id: null,
         azure_openai_45_turbo_id: null,
         azure_openai_45_vision_id: null,
         azure_openai_endpoint: null,
-        google_gemini_api_key: null,
-        has_onboarded: false,
-        created_at: new Date().toISOString(), // ✅ this was missing
-        updated_at: new Date().toISOString() // ✅ matching expectations
+        google_gemini_api_key: null
       }
     ])
-
     if (insertError) {
       console.error("Failed to create profile automatically:", insertError)
       throw insertError
@@ -178,6 +175,8 @@ export default function SetupPage() {
         workspaceId = newWorkspace?.id
       }
 
+      console.log("Redirecting to workspace:", workspaceId)
+
       if (workspaceId) {
         router.push(`/${workspaceId}/chat`)
       } else {
@@ -191,134 +190,363 @@ export default function SetupPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4">
-      {currentStep === PROFILE_STEP && (
-        <>
-          <h2 className="mb-4 text-xl font-semibold">Set up your profile</h2>
-          <input
-            className="input mb-2"
-            placeholder="Username"
-            value={username}
-            onChange={e => setUsername(e.target.value)}
-          />
-          <input
-            className="input mb-4"
-            placeholder="Display Name (optional)"
-            value={displayName}
-            onChange={e => setDisplayName(e.target.value)}
-          />
-          <button className="btn" onClick={() => setCurrentStep(API_STEP)}>
-            Next: API Keys
-          </button>
-        </>
-      )}
+    <div className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
+      <div className="mx-auto flex w-full max-w-md flex-col items-center rounded-xl bg-white p-8 shadow-xl">
+        {/* Progress Bar */}
+        <div className="mb-8 flex w-full max-w-md items-center justify-between">
+          <div
+            className={`h-2 flex-1 rounded-full ${currentStep >= PROFILE_STEP ? "bg-blue-500" : "bg-gray-300"}`}
+          ></div>
+          <div
+            className={`mx-2 h-2 flex-1 rounded-full ${currentStep >= API_STEP ? "bg-blue-500" : "bg-gray-300"}`}
+          ></div>
+          <div
+            className={`h-2 flex-1 rounded-full ${currentStep >= FINISH_STEP ? "bg-blue-500" : "bg-gray-300"}`}
+          ></div>
+        </div>
+        {currentStep === PROFILE_STEP && (
+          <>
+            <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold text-gray-800">
+              <CheckCircleIcon className="size-6 text-blue-500" /> Set up your
+              profile
+            </h2>
+            <input
+              className="input mb-2 w-full rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder="Username"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+            />
+            <input
+              className="input mb-4 w-full rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder="Display Name (optional)"
+              value={displayName}
+              onChange={e => setDisplayName(e.target.value)}
+            />
+            <button
+              className="btn w-full rounded bg-blue-500 py-2 text-white transition hover:bg-blue-600"
+              onClick={() => setCurrentStep(API_STEP)}
+            >
+              Next: API Keys
+            </button>
+          </>
+        )}
 
-      {currentStep === API_STEP && (
-        <>
-          <h2 className="mb-4 text-xl font-semibold">
-            Enter API Keys (optional)
-          </h2>
-          <div className="grid grid-cols-1 gap-2">
-            <input
-              className="input"
-              placeholder="OpenAI API Key"
-              value={openaiApiKey}
-              onChange={e => setOpenaiApiKey(e.target.value)}
-            />
-            <input
-              className="input"
-              placeholder="Anthropic API Key"
-              value={anthropicApiKey}
-              onChange={e => setAnthropicApiKey(e.target.value)}
-            />
-            <input
-              className="input"
-              placeholder="Groq API Key"
-              value={groqApiKey}
-              onChange={e => setGroqApiKey(e.target.value)}
-            />
-            <input
-              className="input"
-              placeholder="Mistral API Key"
-              value={mistralApiKey}
-              onChange={e => setMistralApiKey(e.target.value)}
-            />
-            <input
-              className="input"
-              placeholder="OpenRouter API Key"
-              value={openrouterApiKey}
-              onChange={e => setOpenrouterApiKey(e.target.value)}
-            />
-            <input
-              className="input"
-              placeholder="Perplexity API Key"
-              value={perplexityApiKey}
-              onChange={e => setPerplexityApiKey(e.target.value)}
-            />
-            <input
-              className="input"
-              placeholder="Azure OpenAI API Key"
-              value={azureOpenaiApiKey}
-              onChange={e => setAzureOpenaiApiKey(e.target.value)}
-            />
-            <input
-              className="input"
-              placeholder="Azure Embeddings ID"
-              value={azureEmbeddingsId}
-              onChange={e => setAzureEmbeddingsId(e.target.value)}
-            />
-            <input
-              className="input"
-              placeholder="Azure 35 Turbo ID"
-              value={azure35TurboId}
-              onChange={e => setAzure35TurboId(e.target.value)}
-            />
-            <input
-              className="input"
-              placeholder="Azure 45 Turbo ID"
-              value={azure45TurboId}
-              onChange={e => setAzure45TurboId(e.target.value)}
-            />
-            <input
-              className="input"
-              placeholder="Azure 45 Vision ID"
-              value={azure45VisionId}
-              onChange={e => setAzure45VisionId(e.target.value)}
-            />
-            <input
-              className="input"
-              placeholder="Azure Endpoint URL"
-              value={azureEndpoint}
-              onChange={e => setAzureEndpoint(e.target.value)}
-            />
-            <input
-              className="input"
-              placeholder="Google Gemini API Key"
-              value={googleGeminiApiKey}
-              onChange={e => setGoogleGeminiApiKey(e.target.value)}
-            />
-          </div>
-          <button
-            className="btn mt-4"
-            onClick={() => setCurrentStep(FINISH_STEP)}
-          >
-            Next: Finish
-          </button>
-        </>
-      )}
+        {currentStep === API_STEP && (
+          <>
+            <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold text-gray-800">
+              <CheckCircleIcon className="size-6 text-blue-500" /> Enter API
+              Keys (optional)
+            </h2>
+            <div className="grid w-full grid-cols-1 gap-2">
+              <div className="relative">
+                <input
+                  className="input w-full rounded border border-gray-300 px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="OpenAI API Key"
+                  value={openaiApiKey}
+                  onChange={e => setOpenaiApiKey(e.target.value)}
+                  type="password"
+                />
+                <WithTooltip
+                  display={
+                    <div>
+                      Get your OpenAI API key from
+                      https://platform.openai.com/account/api-keys
+                    </div>
+                  }
+                  trigger={
+                    <span className="absolute right-2 top-2 cursor-pointer text-blue-400">
+                      ?
+                    </span>
+                  }
+                />
+              </div>
+              <div className="relative">
+                <input
+                  className="input w-full rounded border border-gray-300 px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Anthropic API Key"
+                  value={anthropicApiKey}
+                  onChange={e => setAnthropicApiKey(e.target.value)}
+                  type="password"
+                />
+                <WithTooltip
+                  display={
+                    <div>
+                      Get your Anthropic API key from
+                      https://console.anthropic.com/settings/keys
+                    </div>
+                  }
+                  trigger={
+                    <span className="absolute right-2 top-2 cursor-pointer text-blue-400">
+                      ?
+                    </span>
+                  }
+                />
+              </div>
+              <div className="relative">
+                <input
+                  className="input w-full rounded border border-gray-300 px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Groq API Key"
+                  value={groqApiKey}
+                  onChange={e => setGroqApiKey(e.target.value)}
+                  type="password"
+                />
+                <WithTooltip
+                  display={
+                    <div>Get your Groq API key from your Groq account</div>
+                  }
+                  trigger={
+                    <span className="absolute right-2 top-2 cursor-pointer text-blue-400">
+                      ?
+                    </span>
+                  }
+                />
+              </div>
+              <div className="relative">
+                <input
+                  className="input w-full rounded border border-gray-300 px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Mistral API Key"
+                  value={mistralApiKey}
+                  onChange={e => setMistralApiKey(e.target.value)}
+                  type="password"
+                />
+                <WithTooltip
+                  display={
+                    <div>
+                      Get your Mistral API key from your Mistral account
+                    </div>
+                  }
+                  trigger={
+                    <span className="absolute right-2 top-2 cursor-pointer text-blue-400">
+                      ?
+                    </span>
+                  }
+                />
+              </div>
+              <div className="relative">
+                <input
+                  className="input w-full rounded border border-gray-300 px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="OpenRouter API Key"
+                  value={openrouterApiKey}
+                  onChange={e => setOpenrouterApiKey(e.target.value)}
+                  type="password"
+                />
+                <WithTooltip
+                  display={
+                    <div>
+                      Get your OpenRouter API key from your OpenRouter account
+                    </div>
+                  }
+                  trigger={
+                    <span className="absolute right-2 top-2 cursor-pointer text-blue-400">
+                      ?
+                    </span>
+                  }
+                />
+              </div>
+              <div className="relative">
+                <input
+                  className="input w-full rounded border border-gray-300 px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Perplexity API Key"
+                  value={perplexityApiKey}
+                  onChange={e => setPerplexityApiKey(e.target.value)}
+                  type="password"
+                />
+                <WithTooltip
+                  display={
+                    <div>
+                      Get your Perplexity API key from your Perplexity account
+                    </div>
+                  }
+                  trigger={
+                    <span className="absolute right-2 top-2 cursor-pointer text-blue-400">
+                      ?
+                    </span>
+                  }
+                />
+              </div>
+              <div className="relative">
+                <input
+                  className="input w-full rounded border border-gray-300 px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Azure OpenAI API Key"
+                  value={azureOpenaiApiKey}
+                  onChange={e => setAzureOpenaiApiKey(e.target.value)}
+                  type="password"
+                />
+                <WithTooltip
+                  display={
+                    <div>
+                      Get your Azure OpenAI API key from your Azure portal
+                    </div>
+                  }
+                  trigger={
+                    <span className="absolute right-2 top-2 cursor-pointer text-blue-400">
+                      ?
+                    </span>
+                  }
+                />
+              </div>
+              <div className="relative">
+                <input
+                  className="input w-full rounded border border-gray-300 px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Azure Embeddings ID"
+                  value={azureEmbeddingsId}
+                  onChange={e => setAzureEmbeddingsId(e.target.value)}
+                  type="password"
+                />
+                <WithTooltip
+                  display={
+                    <div>
+                      Get your Azure Embeddings ID from your Azure portal
+                    </div>
+                  }
+                  trigger={
+                    <span className="absolute right-2 top-2 cursor-pointer text-blue-400">
+                      ?
+                    </span>
+                  }
+                />
+              </div>
+              <div className="relative">
+                <input
+                  className="input w-full rounded border border-gray-300 px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Azure 35 Turbo ID"
+                  value={azure35TurboId}
+                  onChange={e => setAzure35TurboId(e.target.value)}
+                  type="password"
+                />
+                <WithTooltip
+                  display={
+                    <div>Get your Azure 35 Turbo ID from your Azure portal</div>
+                  }
+                  trigger={
+                    <span className="absolute right-2 top-2 cursor-pointer text-blue-400">
+                      ?
+                    </span>
+                  }
+                />
+              </div>
+              <div className="relative">
+                <input
+                  className="input w-full rounded border border-gray-300 px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Azure 45 Turbo ID"
+                  value={azure45TurboId}
+                  onChange={e => setAzure45TurboId(e.target.value)}
+                  type="password"
+                />
+                <WithTooltip
+                  display={
+                    <div>Get your Azure 45 Turbo ID from your Azure portal</div>
+                  }
+                  trigger={
+                    <span className="absolute right-2 top-2 cursor-pointer text-blue-400">
+                      ?
+                    </span>
+                  }
+                />
+              </div>
+              <div className="relative">
+                <input
+                  className="input w-full rounded border border-gray-300 px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Azure 45 Vision ID"
+                  value={azure45VisionId}
+                  onChange={e => setAzure45VisionId(e.target.value)}
+                  type="password"
+                />
+                <WithTooltip
+                  display={
+                    <div>
+                      Get your Azure 45 Vision ID from your Azure portal
+                    </div>
+                  }
+                  trigger={
+                    <span className="absolute right-2 top-2 cursor-pointer text-blue-400">
+                      ?
+                    </span>
+                  }
+                />
+              </div>
+              <div className="relative">
+                <input
+                  className="input w-full rounded border border-gray-300 px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Azure Endpoint URL"
+                  value={azureEndpoint}
+                  onChange={e => setAzureEndpoint(e.target.value)}
+                  type="password"
+                />
+                <WithTooltip
+                  display={
+                    <div>
+                      Get your Azure Endpoint URL from your Azure portal
+                    </div>
+                  }
+                  trigger={
+                    <span className="absolute right-2 top-2 cursor-pointer text-blue-400">
+                      ?
+                    </span>
+                  }
+                />
+              </div>
+              <div className="relative">
+                <input
+                  className="input w-full rounded border border-gray-300 px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Google Gemini API Key"
+                  value={googleGeminiApiKey}
+                  onChange={e => setGoogleGeminiApiKey(e.target.value)}
+                  type="password"
+                />
+                <WithTooltip
+                  display={
+                    <div>
+                      Get your Google Gemini API key from your Google Cloud
+                      Console
+                    </div>
+                  }
+                  trigger={
+                    <span className="absolute right-2 top-2 cursor-pointer text-blue-400">
+                      ?
+                    </span>
+                  }
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex w-full gap-2">
+              <button
+                className="btn w-1/2 rounded bg-gray-200 py-2 text-gray-700 transition hover:bg-gray-300"
+                onClick={() => setCurrentStep(PROFILE_STEP)}
+              >
+                Back
+              </button>
+              <button
+                className="btn w-1/2 rounded bg-blue-500 py-2 text-white transition hover:bg-blue-600"
+                onClick={() => setCurrentStep(FINISH_STEP)}
+              >
+                Next: Finish
+              </button>
+            </div>
+            <button
+              className="mt-2 text-sm text-blue-500 underline"
+              onClick={() => setCurrentStep(FINISH_STEP)}
+            >
+              Skip for now
+            </button>
+          </>
+        )}
 
-      {currentStep === FINISH_STEP && (
-        <>
-          <h2 className="mb-4 text-xl font-semibold">Finish Setup</h2>
-          <button
-            className="btn"
-            disabled={loading}
-            onClick={handleSaveSetupSetting}
-          >
-            {loading ? "Saving..." : "Save and Finish"}
-          </button>
-        </>
-      )}
+        {currentStep === FINISH_STEP && (
+          <>
+            <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold text-gray-800">
+              <CheckCircleIcon className="size-6 text-green-500" /> Finish Setup
+            </h2>
+            <button
+              className="btn w-full rounded bg-green-500 py-2 text-white transition hover:bg-green-600"
+              disabled={loading}
+              onClick={handleSaveSetupSetting}
+            >
+              {loading ? "Saving..." : "Save and Finish"}
+            </button>
+          </>
+        )}
+      </div>
     </div>
   )
 }

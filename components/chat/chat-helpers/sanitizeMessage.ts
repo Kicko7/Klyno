@@ -13,6 +13,7 @@ export type MessageRow = {
   image_paths: string[]
   sequence_number: number
   conversation_id: string | null
+  workspace_id: string | null
 }
 
 type PartialMessageRow = Partial<MessageRow>
@@ -30,6 +31,7 @@ export const sanitizeMessage = (message: PartialMessageRow): MessageRow => {
     role: message.role ?? "user",
     image_paths: message.image_paths ?? [],
     sequence_number: message.sequence_number ?? 0,
-    conversation_id: message.conversation_id ?? null
+    conversation_id: message.conversation_id ?? null,
+    workspace_id: message.workspace_id ?? null
   }
 }

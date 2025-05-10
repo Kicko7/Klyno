@@ -24,6 +24,13 @@ interface WorkspaceLayoutProps {
   children: ReactNode
 }
 
+type AssistantImage = {
+  assistantId: string
+  path: string | null
+  base64: string
+  url: string
+}
+
 export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
   const router = useRouter()
 
@@ -57,6 +64,9 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
   } = useContext(KlynoAIContext)
 
   const [loading, setLoading] = useState(true)
+  const [assistantImages, setAssistantImagesState] = useState<AssistantImage[]>(
+    []
+  )
 
   // Fetch all workspace-related data and initialize chat settings
   const fetchWorkspaceData = useCallback(
@@ -84,7 +94,7 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
           const blob = await response.blob()
           const base64 = await convertBlobToBase64(blob)
 
-          setAssistantImages(prev => [
+          setAssistantImagesState(prev => [
             ...prev,
             {
               assistantId: assistant.id,
@@ -94,7 +104,7 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
             }
           ])
         } else {
-          setAssistantImages(prev => [
+          setAssistantImagesState(prev => [
             ...prev,
             {
               assistantId: assistant.id,
@@ -154,7 +164,7 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
     [
       setChatSettings,
       setAssistants,
-      setAssistantImages,
+      setAssistantImagesState,
       setChats,
       setCollections,
       setFolders,

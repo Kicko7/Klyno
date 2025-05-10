@@ -1,12 +1,14 @@
 import { KlynoAIContext } from "@/context/context"
 import { Tables } from "@/supabase/types"
 import { ContentType } from "@/types"
-import { FC, useContext } from "react"
+import { FC, useContext, useState } from "react"
 import { SIDEBAR_WIDTH } from "../ui/dashboard"
 import { TabsContent } from "../ui/tabs"
 import { WorkspaceSwitcher } from "../utility/workspace-switcher"
 import { WorkspaceSettings } from "../workspace/workspace-settings"
 import { SidebarContent } from "./sidebar-content"
+import { ProfileSettings } from "../utility/profile-settings"
+import { IconSettings } from "@tabler/icons-react"
 
 interface SidebarProps {
   contentType: ContentType
@@ -38,6 +40,8 @@ export const Sidebar: FC<SidebarProps> = ({ contentType, showSidebar }) => {
   )
   const toolFolders = folders.filter(folder => folder.type === "tools")
   const modelFolders = folders.filter(folder => folder.type === "models")
+
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const renderSidebarContent = (
     contentType: ContentType,
@@ -105,6 +109,20 @@ export const Sidebar: FC<SidebarProps> = ({ contentType, showSidebar }) => {
               return null
           }
         })()}
+        <div className="relative mt-auto">
+          <ProfileSettings
+            isOpen={settingsOpen}
+            onOpenChange={setSettingsOpen}
+          />
+          <button
+            className="absolute -bottom-14 left-0 z-50 flex size-12 items-center justify-center rounded-full border border-gray-200 bg-white shadow-lg transition hover:bg-gray-100"
+            style={{ marginLeft: 0 }}
+            onClick={() => setSettingsOpen(true)}
+            aria-label="Open settings"
+          >
+            <IconSettings size={28} className="text-gray-700" />
+          </button>
+        </div>
       </div>
     </TabsContent>
   )

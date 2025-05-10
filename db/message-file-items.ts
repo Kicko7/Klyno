@@ -1,5 +1,10 @@
-import { supabase } from "@/lib/supabase/browser-client"
-import { TablesInsert } from "@/supabase/types"
+import { createClient } from "@supabase/supabase-js"
+import { Database } from "@/types/supabase"
+
+export const supabase = createClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 export const getMessageFileItemsByMessageId = async (messageId: string) => {
   const { data: messageFileItems, error } = await supabase
@@ -7,13 +12,20 @@ export const getMessageFileItemsByMessageId = async (messageId: string) => {
     .select(
       `
       id,
-      file_items (*)
+      file_items (
+        id,
+        name,
+        type,
+        size,
+        created_at,
+        updated_at
+      )
     `
     )
     .eq("id", messageId)
     .single()
 
-  if (!messageFileItems) {
+  if (error) {
     throw new Error(error.message)
   }
 
@@ -21,16 +33,27 @@ export const getMessageFileItemsByMessageId = async (messageId: string) => {
 }
 
 export const createMessageFileItems = async (
-  messageFileItems: TablesInsert<"message_file_items">[]
+  messageId: string,
+  fileItems: { id: string }[]
 ) => {
-  const { data: createdMessageFileItems, error } = await supabase
-    .from("message_file_items")
-    .insert(messageFileItems)
-    .select("*")
+  const { data: user } = await supabase.auth.getUser()
+  if (!user.user) throw new Error("User not authenticated")
 
-  if (!createdMessageFileItems) {
+  // Create the file items in the message_file_items table
+  const { data: createdFileItems, error } = await supabase
+    .from("message_file_items")
+    .insert(
+      fileItems.map(fileItem => ({
+        message_id: messageId,
+        file_id: fileItem.id,
+        user_id: user.user.id
+      }))
+    )
+    .select()
+
+  if (error) {
     throw new Error(error.message)
   }
 
-  return createdMessageFileItems
+  return createdFileItems
 }

@@ -1,15 +1,21 @@
 import { supabase } from "@/lib/supabase/browser-client"
 import { TablesInsert, TablesUpdate } from "@/supabase/types"
+import { useRouter } from "next/navigation"
 
 export const getProfileByUserId = async (userId: string) => {
   const { data: profile, error } = await supabase
     .from("profiles")
     .select("*")
     .eq("user_id", userId)
-    .single()
+    .maybeSingle()
 
-  if (!profile) {
+  if (error) {
     throw new Error(error.message)
+  }
+  if (!profile) {
+    throw new Error(
+      "No profile found for this user. Please complete onboarding."
+    )
   }
 
   return profile

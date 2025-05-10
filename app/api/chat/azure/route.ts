@@ -51,15 +51,20 @@ export async function POST(request: Request) {
       defaultHeaders: { "api-key": KEY }
     })
 
+    const openaiMessages = messages.map((msg: any) => ({
+      role: msg.role, // must be 'user', 'assistant', or 'system'
+      content: msg.content // must be a string
+    }))
+
     const response = await azureOpenai.chat.completions.create({
       model: DEPLOYMENT_ID as ChatCompletionCreateParamsBase["model"],
-      messages: messages as ChatCompletionCreateParamsBase["messages"],
+      messages: openaiMessages,
       temperature: chatSettings.temperature,
-      max_tokens: chatSettings.model === "gpt-4-vision-preview" ? 4096 : null, // TODO: Fix
+      max_tokens: chatSettings.model === "gpt-4-vision-preview" ? 4096 : null,
       stream: true
     })
 
-    const stream = OpenAIStream(response)
+    const stream = OpenAIStream(response as any)
 
     return new StreamingTextResponse(stream)
   } catch (error: any) {

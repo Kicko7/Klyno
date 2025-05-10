@@ -43,9 +43,15 @@ import { TextareaAutosize } from "../ui/textarea-autosize"
 import { WithTooltip } from "../ui/with-tooltip"
 import { ThemeSwitcher } from "./theme-switcher"
 
-interface ProfileSettingsProps {}
+interface ProfileSettingsProps {
+  isOpen?: boolean
+  onOpenChange?: (open: boolean) => void
+}
 
-export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
+export const ProfileSettings: FC<ProfileSettingsProps> = ({
+  isOpen,
+  onOpenChange
+}) => {
   const {
     profile,
     setProfile,
@@ -59,19 +65,19 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
 
   const buttonRef = useRef<HTMLButtonElement>(null)
 
-  const [isOpen, setIsOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = typeof isOpen === "boolean" ? isOpen : internalOpen
+  const setOpen = onOpenChange || setInternalOpen
 
   const [displayName, setDisplayName] = useState(profile?.display_name || "")
   const [username, setUsername] = useState(profile?.username || "")
   const [usernameAvailable, setUsernameAvailable] = useState(true)
   const [loadingUsername, setLoadingUsername] = useState(false)
   const [profileImageSrc, setProfileImageSrc] = useState(
-    profile?.image_url || ""
+    profile?.avatar_url || ""
   )
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
-  const [profileInstructions, setProfileInstructions] = useState(
-    profile?.profile_context || ""
-  )
+  const [profileInstructions, setProfileInstructions] = useState("")
 
   const [useAzureOpenai, setUseAzureOpenai] = useState(
     profile?.use_azure_openai
@@ -79,9 +85,7 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
   const [openaiAPIKey, setOpenaiAPIKey] = useState(
     profile?.openai_api_key || ""
   )
-  const [openaiOrgID, setOpenaiOrgID] = useState(
-    profile?.openai_organization_id || ""
-  )
+  const [openaiOrgID, setOpenaiOrgID] = useState("")
   const [azureOpenaiAPIKey, setAzureOpenaiAPIKey] = useState(
     profile?.azure_openai_api_key || ""
   )
@@ -127,7 +131,7 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
 
   const handleSave = async () => {
     if (!profile) return
-    let profileImageUrl = profile.image_url
+    let profileImageUrl = profile.avatar_url
     let profileImagePath = ""
 
     if (profileImageFile) {
@@ -140,11 +144,8 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
       ...profile,
       display_name: displayName,
       username,
-      profile_context: profileInstructions,
-      image_url: profileImageUrl,
-      image_path: profileImagePath,
+      avatar_url: profileImageUrl,
       openai_api_key: openaiAPIKey,
-      openai_organization_id: openaiOrgID,
       anthropic_api_key: anthropicAPIKey,
       google_gemini_api_key: googleGeminiAPIKey,
       mistral_api_key: mistralAPIKey,
@@ -224,7 +225,7 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
       }
     })
 
-    setIsOpen(false)
+    setOpen(false)
   }
 
   // Create a debounced function that delays execution until after wait milliseconds
@@ -304,12 +305,12 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
   if (!profile) return null
 
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        {profile.image_url ? (
+        {profile.avatar_url ? (
           <Image
             className="mt-2 size-[34px] cursor-pointer rounded hover:opacity-50"
-            src={profile.image_url + "?" + new Date().getTime()}
+            src={profile.avatar_url + "?" + new Date().getTime()}
             height={34}
             width={34}
             alt={"Image"}
@@ -758,7 +759,7 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
           </div>
 
           <div className="ml-auto space-x-2">
-            <Button variant="ghost" onClick={() => setIsOpen(false)}>
+            <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
 

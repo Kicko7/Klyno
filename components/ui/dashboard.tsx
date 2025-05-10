@@ -8,10 +8,19 @@ import useHotkey from "@/lib/hooks/use-hotkey"
 import { cn } from "@/lib/utils"
 import { ContentType } from "@/types"
 import { IconChevronCompactRight } from "@tabler/icons-react"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import {
+  usePathname,
+  useRouter,
+  useSearchParams,
+  useParams
+} from "next/navigation"
 import { FC, useState } from "react"
 import { useSelectFileHandler } from "../chat/chat-hooks/use-select-file-handler"
 import { CommandK } from "../utility/command-k"
+import { useMode } from "@/components/utility/ModeContext"
+import PersonalWorkspace from "@/components/workspace/PersonalWorkspace"
+import { TeamsWorkspace } from "@/components/teams/TeamsWorkspace"
+import { ModeSwitcher } from "@/components/ui/ModeSwitcher"
 
 export const SIDEBAR_WIDTH = 350
 
@@ -25,6 +34,8 @@ export const Dashboard: FC<DashboardProps> = ({ children }) => {
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const params = useParams()
+  const teamId = params.teamId as string | undefined
   const tabValue = searchParams.get("tab") || "chats"
 
   const { handleSelectDeviceFile } = useSelectFileHandler()
@@ -36,6 +47,8 @@ export const Dashboard: FC<DashboardProps> = ({ children }) => {
     localStorage.getItem("showSidebar") === "true"
   )
   const [isDragging, setIsDragging] = useState(false)
+
+  const { mode } = useMode()
 
   const onFileDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -110,7 +123,16 @@ export const Dashboard: FC<DashboardProps> = ({ children }) => {
             drop file here
           </div>
         ) : (
-          children
+          <>
+            <ModeSwitcher />
+            {mode === "personal" ? (
+              <PersonalWorkspace />
+            ) : teamId ? (
+              <TeamsWorkspace teamId={teamId} />
+            ) : (
+              <div>Select a team to get started</div>
+            )}
+          </>
         )}
 
         <Button

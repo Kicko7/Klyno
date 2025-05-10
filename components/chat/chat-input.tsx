@@ -1,3 +1,5 @@
+"use client"
+import React, { useState } from "react"
 import { KlynoAIContext } from "@/context/context"
 import useHotkey from "@/lib/hooks/use-hotkey"
 import { LLM_LIST } from "@/lib/models/llm/llm-list"
@@ -9,7 +11,7 @@ import {
   IconSend
 } from "@tabler/icons-react"
 import Image from "next/image"
-import { FC, useContext, useEffect, useRef, useState, useCallback } from "react"
+import { FC, useContext, useEffect, useRef, useCallback } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { Input } from "../ui/input"
@@ -21,9 +23,11 @@ import { useChatHistoryHandler } from "./chat-hooks/use-chat-history"
 import { usePromptAndCommand } from "./chat-hooks/use-prompt-and-command"
 import { useSelectFileHandler } from "./chat-hooks/use-select-file-handler"
 
-interface ChatInputProps {}
+interface ChatInputProps {
+  onSendMessage: (msg: string) => void
+}
 
-export const ChatInput: FC<ChatInputProps> = ({}) => {
+export function ChatInput({ onSendMessage }: ChatInputProps) {
   const { t } = useTranslation()
 
   useHotkey("l", () => {
@@ -262,4 +266,3 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
     </div>
   )
 }
-// Removed the incorrect useCallback definition as it is already provided by React.
