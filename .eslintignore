@@ -29,3 +29,6 @@ logs
 # misc
 # add other ignore file below
 .next
+
+# Generated Supabase types
+src/types/supabase.ts

@@ -8,7 +8,7 @@ Create a `.env.local` file in your project root with the following variables:
 
 ```env
 # Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL=https://mftvddarsfotetczgjoy.supabase.co
+NEXT_PUBLIC_SUPABASE_URL=https://.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
 
@@ -24,10 +24,10 @@ NEXT_PUBLIC_KLYNO_VERSION=1.0.0
 
 ### 2. Get Your Supabase Keys
 
-1. Go to your Supabase project: https://supabase.com/dashboard/project/mftvddarsfotetczgjoy
+1. Go to your Supabase project: <https://supabase.com/dashboard/project/>
 2. Navigate to Settings → API
 3. Copy the following keys:
-   - **Project URL**: `https://mftvddarsfotetczgjoy.supabase.co` (already provided)
+   - **Project URL**: `https://.supabase.co` (already provided)
    - **anon/public key**: Copy this to `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - **service_role key**: Copy this to `SUPABASE_SERVICE_ROLE_KEY`
 
@@ -48,6 +48,7 @@ npm run dev
 ## 📋 What's Been Implemented
 
 ### ✅ Supabase Integration
+
 - **Client Configuration**: `src/lib/supabase.ts`
 - **Type Definitions**: `src/types/supabase.ts`
 - **Database Adapter**: `src/database/core/supabase.ts`
@@ -56,17 +57,8 @@ npm run dev
 - **Provider**: `src/providers/SupabaseProvider.tsx`
 - **Database Schema**: `supabase/migrations/001_initial_schema.sql`
 
-### ✅ Database Schema
-The migration includes tables for:
-- **Users**: Extended user profiles with subscription info
-- **Teams**: Team management and collaboration
-- **Workspaces**: Shared workspaces for teams
-- **Conversations**: Chat conversations
-- **Messages**: Individual chat messages
-- **Usage Tracking**: Token usage and billing
-- **Prompt Templates**: Shared prompts for teams
-
 ### ✅ Environment Configuration
+
 - Updated `src/envs/app.ts` with Supabase variables
 - Added Klyno-specific configuration options
 
@@ -145,4 +137,4 @@ supabase/
 - Check the Supabase dashboard for connection status
 - Review the test endpoint at `/api/supabase/test`
 - Check browser console for client-side errors
-- Review server logs for API errors 
+- Review server logs for API errors
