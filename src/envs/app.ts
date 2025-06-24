@@ -34,6 +34,14 @@ export const getAppConfig = () => {
     client: {
       NEXT_PUBLIC_BASE_PATH: z.string(),
       NEXT_PUBLIC_ENABLE_SENTRY: z.boolean(),
+      // Supabase configuration
+      NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string(),
+      // Stripe configuration
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+      // Klyno configuration
+      NEXT_PUBLIC_KLYNO_BRANDING: z.boolean().default(true),
+      NEXT_PUBLIC_BYOK_ENABLED: z.boolean().default(true),
     },
     server: {
       ACCESS_CODES: z.any(z.string()).optional(),
@@ -57,6 +65,18 @@ export const getAppConfig = () => {
 
       SSRF_ALLOW_PRIVATE_IP_ADDRESS: z.boolean().optional(),
       SSRF_ALLOW_IP_ADDRESS_LIST: z.string().optional(),
+
+      // Supabase server configuration
+      SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+      
+      // Stripe server configuration
+      STRIPE_SECRET_KEY: z.string().optional(),
+      STRIPE_WEBHOOK_SECRET: z.string().optional(),
+      
+      // Klyno API keys for default service
+      KLYNO_OPENAI_API_KEY: z.string().optional(),
+      KLYNO_ANTHROPIC_API_KEY: z.string().optional(),
+      KLYNO_GOOGLE_API_KEY: z.string().optional(),
     },
     runtimeEnv: {
       NEXT_PUBLIC_BASE_PATH: process.env.NEXT_PUBLIC_BASE_PATH || '',
@@ -91,6 +111,23 @@ export const getAppConfig = () => {
 
       SSRF_ALLOW_PRIVATE_IP_ADDRESS: process.env.SSRF_ALLOW_PRIVATE_IP_ADDRESS === '1',
       SSRF_ALLOW_IP_ADDRESS_LIST: process.env.SSRF_ALLOW_IP_ADDRESS_LIST,
+
+      // Supabase configuration
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+
+      // Stripe configuration
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+      STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+      STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+
+      // Klyno configuration
+      NEXT_PUBLIC_KLYNO_BRANDING: process.env.NEXT_PUBLIC_KLYNO_BRANDING !== 'false',
+      NEXT_PUBLIC_BYOK_ENABLED: process.env.NEXT_PUBLIC_BYOK_ENABLED !== 'false',
+      KLYNO_OPENAI_API_KEY: process.env.KLYNO_OPENAI_API_KEY,
+      KLYNO_ANTHROPIC_API_KEY: process.env.KLYNO_ANTHROPIC_API_KEY,
+      KLYNO_GOOGLE_API_KEY: process.env.KLYNO_GOOGLE_API_KEY,
     },
   });
 };

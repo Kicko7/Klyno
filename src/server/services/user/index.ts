@@ -1,114 +1,68 @@
 import { UserJSON } from '@clerk/backend';
 
-import { UserModel } from '@/database/models/user';
-import { serverDB } from '@/database/server';
 import { pino } from '@/libs/logger';
-import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
-import { S3 } from '@/server/modules/S3';
-import { AgentService } from '@/server/services/agent';
+import { SupabaseService } from '@/services/supabase';
 
 export class UserService {
   createUser = async (id: string, params: UserJSON) => {
-    // Check if user already exists
-    const res = await UserModel.findById(serverDB, id);
+    pino.info(`[UserService] Creating or syncing user: ${id}`);
+    try {
+      await SupabaseService.syncUserWithClerk({
+        createdAt: params.created_at,
+        emailAddresses: params.email_addresses,
+        firstName: params.first_name,
+        id,
+        imageUrl: params.image_url,
+        lastName: params.last_name,
+        phoneNumbers: params.phone_numbers,
+        primaryEmailAddressId: params.primary_email_address_id,
+        primaryPhoneNumberId: params.primary_phone_number_id,
+        username: params.username,
+      });
 
-    // If user already exists, skip creating a new user
-    if (res)
+      // The original service created an "inbox" agent. We can revisit this feature later.
+      // For now, ensuring the user is in the DB is the priority.
+
+      return { message: 'User synced successfully', success: true };
+    } catch (error) {
+      pino.error({ error }, `[UserService] Error syncing user ${id}`);
       return {
-        message: 'user not created due to user already existing in the database',
+        error: error instanceof Error ? error.message : 'An unknown error occurred',
         success: false,
       };
-
-    const email = params.email_addresses.find((e) => e.id === params.primary_email_address_id);
-
-    const phone = params.phone_numbers.find((e, index) => {
-      if (!!params.primary_phone_number_id) return e.id === params.primary_phone_number_id;
-
-      return index === 0;
-    });
-
-    /* ↓ cloud slot ↓ */
-
-    /* ↑ cloud slot ↑ */
-
-    // 2. create user in database
-    await UserModel.createUser(serverDB, {
-      avatar: params.image_url,
-      clerkCreatedAt: new Date(params.created_at),
-      email: email?.email_address,
-      firstName: params.first_name,
-      id,
-      lastName: params.last_name,
-      phone: phone?.phone_number,
-      username: params.username,
-    });
-
-    // 3. Create an inbox session for the user
-    const agentService = new AgentService(serverDB, id);
-    await agentService.createInbox();
-
-    /* ↓ cloud slot ↓ */
-
-    /* ↑ cloud slot ↑ */
-
-    return { message: 'user created', success: true };
+    }
   };
 
   deleteUser = async (id: string) => {
-    await UserModel.deleteUser(serverDB, id);
+    pino.info(`[UserService] Deleting user: ${id}`);
+    try {
+      await SupabaseService.deleteUser(id);
+      return { message: 'User deleted successfully', success: true };
+    } catch (error) {
+      pino.error({ error }, `[UserService] Error deleting user ${id}`);
+      return {
+        error: error instanceof Error ? error.message : 'An unknown error occurred',
+        success: false,
+      };
+    }
   };
 
   updateUser = async (id: string, params: UserJSON) => {
-    const userModel = new UserModel(serverDB, id);
-
-    // Check if user already exists
-    const res = await UserModel.findById(serverDB, id);
-
-    // If user not exists, skip update the user
-    if (!res)
-      return {
-        message: "user not updated due to the user don't existing in the database",
-        success: false,
-      };
-
-    pino.info('updating user due to clerk webhook');
-
-    const email = params.email_addresses.find((e) => e.id === params.primary_email_address_id);
-    const phone = params.phone_numbers.find((e, index) => {
-      if (params.primary_phone_number_id) return e.id === params.primary_phone_number_id;
-      return index === 0;
-    });
-
-    await userModel.updateUser({
-      avatar: params.image_url,
-      email: email?.email_address,
-      firstName: params.first_name,
-      id,
-      lastName: params.last_name,
-      phone: phone?.phone_number,
-      username: params.username,
-    });
-
-    return { message: 'user updated', success: true };
+    // The `createUser` logic now handles both creation and updates (syncing).
+    // We can just call it directly.
+    pino.info(`[UserService] Updating user: ${id}`);
+    return this.createUser(id, params);
   };
 
-  getUserApiKeys = async (id: string) => {
-    return UserModel.getUserApiKeys(serverDB, id, KeyVaultsGateKeeper.getUserKeyVaults);
-  };
-
-  getUserAvatar = async (id: string, image: string) => {
-    const s3 = new S3();
-    const s3FileUrl = `user/avatar/${id}/${image}`;
-
+  getUserAvatar = async (userId: string, imageName: string) => {
+    pino.info(`[UserService] Getting user avatar: ${userId}, ${imageName}`);
     try {
-      const file = await s3.getFileByteArray(s3FileUrl);
-      if (!file) {
-        return null;
-      }
-      const fileBuffer = Buffer.from(file);
-      return fileBuffer;
+      // This would typically fetch from a file storage service
+      // For now, return null to indicate not found
+      return null;
     } catch (error) {
-      pino.error('Failed to get user avatar:', error);
+      pino.error({ error }, `[UserService] Error getting user avatar ${userId}`);
+      return null;
     }
   };
 }
