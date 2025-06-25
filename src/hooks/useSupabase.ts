@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+
+import { supabase } from '@/libs/supabase';
 import type { Database } from '@/types/supabase';
 
 type User = Database['public']['Tables']['users']['Row'];
@@ -11,7 +12,9 @@ export const useSupabase = () => {
   useEffect(() => {
     // Get initial session
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (session?.user) {
         // Fetch user data from our users table
         const { data: userData } = await supabase
@@ -19,7 +22,7 @@ export const useSupabase = () => {
           .select('*')
           .eq('clerk_id', session.user.id)
           .single();
-        
+
         setUser(userData);
       }
       setLoading(false);
@@ -28,25 +31,25 @@ export const useSupabase = () => {
     getSession();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          const { data: userData } = await supabase
-            .from('users')
-            .select('*')
-            .eq('clerk_id', session.user.id)
-            .single();
-          
-          setUser(userData);
-        } else {
-          setUser(null);
-        }
-        setLoading(false);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('*')
+          .eq('clerk_id', session.user.id)
+          .single();
+
+        setUser(userData);
+      } else {
+        setUser(null);
       }
-    );
+      setLoading(false);
+    });
 
     return () => subscription.unsubscribe();
   }, []);
 
   return { loading, supabase, user };
-}; 
+};

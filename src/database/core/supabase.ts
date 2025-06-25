@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/libs/supabase';
 import type { Database } from '@/types/supabase';
 
 export class SupabaseDatabaseAdapter {
@@ -9,12 +9,15 @@ export class SupabaseDatabaseAdapter {
   }
 
   // User management - integrates with existing LobeChat users
-  async ensureUserExists(userId: string, userData: {
-    avatar?: string;
-    email?: string;
-    firstName?: string;
-    lastName?: string;
-  }) {
+  async ensureUserExists(
+    userId: string,
+    userData: {
+      avatar?: string;
+      email?: string;
+      firstName?: string;
+      lastName?: string;
+    },
+  ) {
     const { data, error } = await this.client
       .from('users')
       .upsert({
@@ -33,13 +36,16 @@ export class SupabaseDatabaseAdapter {
     return data;
   }
 
-  async syncKlynoUser(userId: string, klynoUserData: {
-    avatar?: string;
-    clerkId: string;
-    email?: string;
-    firstName?: string;
-    lastName?: string;
-  }) {
+  async syncKlynoUser(
+    userId: string,
+    klynoUserData: {
+      avatar?: string;
+      clerkId: string;
+      email?: string;
+      firstName?: string;
+      lastName?: string;
+    },
+  ) {
     const { data, error } = await this.client
       .from('users')
       .upsert({
@@ -69,7 +75,10 @@ export class SupabaseDatabaseAdapter {
     return data;
   }
 
-  async updateUser(userId: string, updates: Partial<Database['public']['Tables']['users']['Update']>) {
+  async updateUser(
+    userId: string,
+    updates: Partial<Database['public']['Tables']['users']['Update']>,
+  ) {
     const { data, error } = await this.client
       .from('users')
       .update({ ...updates, updated_at: new Date().toISOString() })
@@ -83,11 +92,7 @@ export class SupabaseDatabaseAdapter {
 
   // Team management
   async createTeam(teamData: Database['public']['Tables']['teams']['Insert']) {
-    const { data, error } = await this.client
-      .from('teams')
-      .insert(teamData)
-      .select()
-      .single();
+    const { data, error } = await this.client.from('teams').insert(teamData).select().single();
 
     if (error) throw error;
     return data;
@@ -96,17 +101,23 @@ export class SupabaseDatabaseAdapter {
   async getTeamsByUserId(userId: string) {
     const { data, error } = await this.client
       .from('team_members')
-      .select(`
+      .select(
+        `
         *,
         teams (*)
-      `)
+      `,
+      )
       .eq('user_id', userId);
 
     if (error) throw error;
     return data;
   }
 
-  async addTeamMember(teamId: string, userId: string, role: 'owner' | 'admin' | 'member' = 'member') {
+  async addTeamMember(
+    teamId: string,
+    userId: string,
+    role: 'owner' | 'admin' | 'member' = 'member',
+  ) {
     const { data, error } = await this.client
       .from('team_members')
       .insert({
@@ -145,16 +156,17 @@ export class SupabaseDatabaseAdapter {
   }
 
   async getWorkspacesByTeamId(teamId: string) {
-    const { data, error } = await this.client
-      .from('workspaces')
-      .select('*')
-      .eq('team_id', teamId);
+    const { data, error } = await this.client.from('workspaces').select('*').eq('team_id', teamId);
 
     if (error) throw error;
     return data;
   }
 
-  async addWorkspaceMember(workspaceId: string, userId: string, role: 'owner' | 'admin' | 'member' | 'viewer' = 'member') {
+  async addWorkspaceMember(
+    workspaceId: string,
+    userId: string,
+    role: 'owner' | 'admin' | 'member' | 'viewer' = 'member',
+  ) {
     const { data, error } = await this.client
       .from('team_members')
       .insert({
@@ -232,21 +244,14 @@ export class SupabaseDatabaseAdapter {
     return data;
   }
 
-  async getUserUsage(userId: string, _period: 'day' | 'week' | 'month' = 'month') {
-    const { data, error } = await this.client
-      .from('usage_logs')
-      .select('*')
-      .eq('user_id', userId);
-
+  async getUserUsage(userId: string) {
+    const { data, error } = await this.client.from('usage_logs').select('*').eq('user_id', userId);
     if (error) throw error;
     return data;
   }
 
-  async getTeamUsage(teamId: string, _period: 'day' | 'week' | 'month' = 'month') {
-    const { data, error } = await this.client
-      .from('usage_logs')
-      .select('*')
-      .eq('team_id', teamId);
+  async getTeamUsage(teamId: string) {
+    const { data, error } = await this.client.from('usage_logs').select('*').eq('team_id', teamId);
 
     if (error) throw error;
     return data;
@@ -282,16 +287,21 @@ export class SupabaseDatabaseAdapter {
     return settings?.promptTemplates || [];
   }
 
-  async getTeamPromptTemplates(_teamId: string) {
+  async getTeamPromptTemplates() {
+    // TODO: Implement team prompt templates when the feature is ready
+    // For now, return empty array as placeholder
     return [];
   }
 
   // Subscription management
-  async updateUserSubscription(userId: string, subscriptionData: {
-    status?: 'active' | 'canceled' | 'past_due';
-    stripeCustomerId?: string;
-    tier?: 'starter' | 'pro' | 'ultimate';
-  }) {
+  async updateUserSubscription(
+    userId: string,
+    subscriptionData: {
+      status?: 'active' | 'canceled' | 'past_due';
+      stripeCustomerId?: string;
+      tier?: 'starter' | 'pro' | 'ultimate';
+    },
+  ) {
     const { data, error } = await this.client
       .from('users')
       .update({
@@ -306,10 +316,13 @@ export class SupabaseDatabaseAdapter {
     return data;
   }
 
-  async updateUserUsage(userId: string, usageData: {
-    current?: number;
-    quota?: number;
-  }) {
+  async updateUserUsage(
+    userId: string,
+    usageData: {
+      current?: number;
+      quota?: number;
+    },
+  ) {
     const { data, error } = await this.client
       .from('user_settings')
       .upsert({
@@ -328,19 +341,18 @@ export class SupabaseDatabaseAdapter {
 
   static async deleteUser(id: string) {
     const client = createServerSupabaseClient();
-    const { error } = await client
-      .from('users')
-      .delete()
-      .eq('id', id);
+    const { error } = await client.from('users').delete().eq('id', id);
 
     if (error) throw error;
     return { success: true };
   }
 
-  async getUserAvatar(_userId: string, _imageName: string) {
+  async getUserAvatar() {
+    // TODO: Implement avatar retrieval when file storage is set up
+    // For now, return null as placeholder
     return null;
   }
 }
 
 // Export singleton instance
-export const supabaseDB = new SupabaseDatabaseAdapter(); 
+export const supabaseDB = new SupabaseDatabaseAdapter();

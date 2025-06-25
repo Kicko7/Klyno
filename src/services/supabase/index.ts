@@ -1,159 +1,92 @@
-import { supabase } from '@/lib/supabase';
-import { supabaseDB, SupabaseDatabaseAdapter } from '@/database/core/supabase';
+import { SupabaseDatabaseAdapter, supabaseDB } from '@/database/core/supabase';
+import { supabase } from '@/libs/supabase';
 import type { Database } from '@/types/supabase';
 
 export const SupabaseService = {
-  
-  
-async addTeamMember(teamId: string, userId: string, role: 'owner' | 'admin' | 'member' = 'member') {
+  async addTeamMember(
+    teamId: string,
+    userId: string,
+    role: 'owner' | 'admin' | 'member' = 'member',
+  ) {
     return await supabaseDB.addTeamMember(teamId, userId, role);
   },
 
-  
-
-
-async addWorkspaceMember(workspaceId: string, userId: string, role: 'owner' | 'admin' | 'member' | 'viewer' = 'member') {
+  async addWorkspaceMember(
+    workspaceId: string,
+    userId: string,
+    role: 'owner' | 'admin' | 'member' | 'viewer' = 'member',
+  ) {
     return await supabaseDB.addWorkspaceMember(workspaceId, userId, role);
   },
 
-  
-  
-
-
-// Prompt templates
-async createPromptTemplate(templateData: any) {
+  // Prompt templates
+  async createPromptTemplate(templateData: any) {
     return await supabaseDB.createPromptTemplate(templateData);
   },
 
-  
-
-
-
-
-// Team services
-async createTeam(teamData: Database['public']['Tables']['teams']['Insert']) {
+  // Team services
+  async createTeam(teamData: Database['public']['Tables']['teams']['Insert']) {
     return await supabaseDB.createTeam(teamData);
   },
 
-  
-
-
-
-
-
-// Conversation services
-async createTeamConversation(conversationData: any) {
+  // Conversation services
+  async createTeamConversation(conversationData: any) {
     return await supabaseDB.createTeamConversation(conversationData);
   },
 
-  
-
-
-
-
-
-// Message services
-async createTeamMessage(messageData: any) {
+  // Message services
+  async createTeamMessage(messageData: any) {
     return await supabaseDB.createTeamMessage(messageData);
   },
 
-  
-  
-
-
-
-// Workspace services
-async createWorkspace(workspaceData: Database['public']['Tables']['workspaces']['Insert']) {
+  // Workspace services
+  async createWorkspace(workspaceData: Database['public']['Tables']['workspaces']['Insert']) {
     return await supabaseDB.createWorkspace(workspaceData);
   },
 
-  
-
-
-
-// Add missing deleteUser method
-async deleteUser(id: string) {
+  // Add missing deleteUser method
+  async deleteUser(id: string) {
     return await SupabaseDatabaseAdapter.deleteUser(id);
   },
 
-  
-
-
-
-
-async getTeamConversations(teamId: string) {
+  async getTeamConversations(teamId: string) {
     return await supabaseDB.getTeamConversations(teamId);
   },
 
-  
-  
-
-
-
-async getTeamMessages(conversationId: string) {
+  async getTeamMessages(conversationId: string) {
     return await supabaseDB.getTeamMessages(conversationId);
   },
 
-  
-
-
-
-async getTeamPromptTemplates(teamId: string) {
+  async getTeamPromptTemplates(teamId: string) {
     return await supabaseDB.getTeamPromptTemplates(teamId);
   },
 
-  
-  
-
-
-async getTeamUsage(teamId: string, period: 'day' | 'week' | 'month' = 'month') {
+  async getTeamUsage(teamId: string, period: 'day' | 'week' | 'month' = 'month') {
     return await supabaseDB.getTeamUsage(teamId, period);
   },
 
-  
-
-
-async getUserPromptTemplates(userId: string) {
+  async getUserPromptTemplates(userId: string) {
     return await supabaseDB.getUserPromptTemplates(userId);
   },
 
-  
-  
-
-
-async getUserTeams(userId: string) {
+  async getUserTeams(userId: string) {
     return await supabaseDB.getTeamsByUserId(userId);
   },
 
-  
-
-
-
-async getUserUsage(userId: string, period: 'day' | 'week' | 'month' = 'month') {
+  async getUserUsage(userId: string, period: 'day' | 'week' | 'month' = 'month') {
     return await supabaseDB.getUserUsage(userId, period);
   },
 
-  
-
-
-
-async getWorkspacesByTeamId(teamId: string) {
+  async getWorkspacesByTeamId(teamId: string) {
     return await supabaseDB.getWorkspacesByTeamId(teamId);
   },
 
-  
-  
-
-
-async removeTeamMember(teamId: string, userId: string) {
+  async removeTeamMember(teamId: string, userId: string) {
     return await supabaseDB.removeTeamMember(teamId, userId);
   },
 
-  
-
-
-// Real-time subscriptions
-subscribeToTeamMessages(teamId: string, callback: (payload: any) => void) {
+  // Real-time subscriptions
+  subscribeToTeamMessages(teamId: string, callback: (payload: any) => void) {
     return supabase
       .channel(`team-messages-${teamId}`)
       .on(
@@ -164,17 +97,12 @@ subscribeToTeamMessages(teamId: string, callback: (payload: any) => void) {
           schema: 'public',
           table: 'team_messages',
         },
-        callback
+        callback,
       )
       .subscribe();
   },
 
-  
-
-
-
-
-subscribeToTeamUpdates(teamId: string, callback: (payload: any) => void) {
+  subscribeToTeamUpdates(teamId: string, callback: (payload: any) => void) {
     return supabase
       .channel(`team-updates-${teamId}`)
       .on(
@@ -185,17 +113,12 @@ subscribeToTeamUpdates(teamId: string, callback: (payload: any) => void) {
           schema: 'public',
           table: 'teams',
         },
-        callback
+        callback,
       )
       .subscribe();
   },
 
-  
-  
-
-
-
-subscribeToWorkspaceMessages(workspaceId: string, callback: (payload: any) => void) {
+  subscribeToWorkspaceMessages(workspaceId: string, callback: (payload: any) => void) {
     return supabase
       .channel(`workspace-messages-${workspaceId}`)
       .on(
@@ -206,15 +129,13 @@ subscribeToWorkspaceMessages(workspaceId: string, callback: (payload: any) => vo
           schema: 'public',
           table: 'team_messages',
         },
-        callback
+        callback,
       )
       .subscribe();
   },
 
-  
-
-// User services
-async syncUserWithClerk(clerkUser: any) {
+  // User services
+  async syncUserWithClerk(clerkUser: any) {
     try {
       // First, ensure the user exists in the base users table
       await supabaseDB.ensureUserExists(clerkUser.id, {
@@ -238,15 +159,10 @@ async syncUserWithClerk(clerkUser: any) {
     }
   },
 
-  
-
-// Utility methods
-async testConnection() {
+  // Utility methods
+  async testConnection() {
     try {
-      const { error } = await supabase
-        .from('users')
-        .select('count')
-        .limit(1);
+      const { error } = await supabase.from('users').select('count').limit(1);
 
       if (error) {
         throw error;
@@ -259,38 +175,37 @@ async testConnection() {
     }
   },
 
-  
-  
-
-
-// Usage tracking
-async trackUsage(usageData: any) {
+  // Usage tracking
+  async trackUsage(usageData: any) {
     return await supabaseDB.trackUsage(usageData);
   },
 
-  
-  
-
-
-async updateUserProfile(userId: string, profile: Partial<Database['public']['Tables']['users']['Update']>) {
+  async updateUserProfile(
+    userId: string,
+    profile: Partial<Database['public']['Tables']['users']['Update']>,
+  ) {
     return await supabaseDB.updateUser(userId, profile);
   },
 
-  
-// Subscription management
-async updateUserSubscription(userId: string, subscriptionData: {
-    status?: 'active' | 'canceled' | 'past_due';
-    stripeCustomerId?: string;
-    tier?: 'starter' | 'pro' | 'ultimate';
-  }) {
+  // Subscription management
+  async updateUserSubscription(
+    userId: string,
+    subscriptionData: {
+      status?: 'active' | 'canceled' | 'past_due';
+      stripeCustomerId?: string;
+      tier?: 'starter' | 'pro' | 'ultimate';
+    },
+  ) {
     return await supabaseDB.updateUserSubscription(userId, subscriptionData);
   },
 
-  
-  async updateUserUsage(userId: string, usageData: {
-    current?: number;
-    quota?: number;
-  }) {
+  async updateUserUsage(
+    userId: string,
+    usageData: {
+      current?: number;
+      quota?: number;
+    },
+  ) {
     return await supabaseDB.updateUserUsage(userId, usageData);
   },
-}; 
+};

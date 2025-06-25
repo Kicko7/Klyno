@@ -1,7 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+
+import { supabase } from '@/libs/supabase';
 import type { Database } from '@/types/supabase';
 
 type User = Database['public']['Tables']['users']['Row'];
@@ -23,14 +24,16 @@ export const SupabaseProvider = ({ children }: { children: React.ReactNode }) =>
   const [loading, setLoading] = useState(true);
 
   const refreshUser = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (session?.user) {
       const { data: userData } = await supabase
         .from('users')
         .select('*')
         .eq('clerk_id', session.user.id)
         .single();
-      
+
       setUser(userData);
     }
   };
@@ -40,15 +43,17 @@ export const SupabaseProvider = ({ children }: { children: React.ReactNode }) =>
 
     const { data: teamMembers } = await supabase
       .from('team_members')
-      .select(`
+      .select(
+        `
         team_id,
         role,
         teams (*)
-      `)
+      `,
+      )
       .eq('user_id', user.id);
 
     if (teamMembers) {
-      const userTeams = teamMembers.map(tm => tm.teams as Team);
+      const userTeams = teamMembers.map((tm) => tm.teams as Team);
       setTeams(userTeams);
     }
   };
@@ -61,16 +66,16 @@ export const SupabaseProvider = ({ children }: { children: React.ReactNode }) =>
 
     initializeSupabase();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          await refreshUser();
-        } else {
-          setUser(null);
-          setTeams([]);
-        }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        await refreshUser();
+      } else {
+        setUser(null);
+        setTeams([]);
       }
-    );
+    });
 
     return () => subscription.unsubscribe();
   }, []);
@@ -102,4 +107,4 @@ export const useSupabaseContext = () => {
     throw new Error('useSupabaseContext must be used within a SupabaseProvider');
   }
   return context;
-}; 
+};
