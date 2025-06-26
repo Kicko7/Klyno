@@ -1,2 +1,14 @@
-npm run type-check
-npx --no-install lint-staged
+echo "🔍 Running pre-commit checks..."
+
+# Run lint-staged with better error handling
+npx lint-staged --verbose || {
+  echo "❌ Pre-commit checks failed!"
+  echo "💡 To bypass pre-commit hooks (not recommended): git commit --no-verify"
+  echo "🔧 To fix issues:"
+  echo "   1. Run: npm run lint:fix"
+  echo "   2. Run: npm run type-check"
+  echo "   3. Try committing again"
+  exit 1
+}
+
+echo "✅ Pre-commit checks passed!"

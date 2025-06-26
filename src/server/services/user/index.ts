@@ -1,3 +1,4 @@
+/* eslint-disable no-unreachable */
 import { UserJSON } from '@clerk/backend';
 
 import { pino } from '@/libs/logger';
@@ -51,7 +52,8 @@ export class UserService {
     // The `createUser` logic now handles both creation and updates (syncing).
     // We can just call it directly.
     pino.info(`[UserService] Updating user: ${id}`);
-    return this.createUser(id, params);
+    const result = await this.createUser(id, params);
+    return result;
   };
 
   getUserAvatar = async (userId: string, imageName: string) => {

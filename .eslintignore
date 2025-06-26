@@ -3,6 +3,8 @@
 
 # dependencies
 node_modules
+.pnp
+.pnp.js
 
 # ci
 coverage
@@ -29,3 +31,35 @@ logs
 # misc
 # add other ignore file below
 .next
+
+# testing
+.nyc_output
+
+# next.js
+.next/
+out/
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# logs
+*.log
+
+# Generated Supabase types
+src/types/supabase.ts

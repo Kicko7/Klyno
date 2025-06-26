@@ -1,3 +1,6 @@
+/* eslint-disable unicorn/prefer-top-level-await */
+/* eslint-disable unicorn/no-process-exit */
+
 const dns = require('node:dns').promises;
 const fs = require('node:fs').promises;
 const { spawn } = require('node:child_process');
@@ -9,8 +12,7 @@ const PROXYCHAINS_CONF_PATH = '/etc/proxychains4.conf';
 
 // Function to check if a string is a valid IP address
 const isValidIP = (ip, version = 4) => {
-  const ipv4Regex =
-    /^(25[0-5]|2[0-4]\d|[01]?\d{1,2})(\.(25[0-5]|2[0-4]\d|[01]?\d{1,2})){3}$/;
+  const ipv4Regex = /^(25[0-5]|2[0-4]\d|[01]?\d{1,2})(\.(25[0-5]|2[0-4]\d|[01]?\d{1,2})){3}$/;
   const ipv6Regex =
     /^(([\da-f]{1,4}:){7}[\da-f]{1,4}|([\da-f]{1,4}:){1,7}:|([\da-f]{1,4}:){1,6}:[\da-f]{1,4}|([\da-f]{1,4}:){1,5}(:[\da-f]{1,4}){1,2}|([\da-f]{1,4}:){1,4}(:[\da-f]{1,4}){1,3}|([\da-f]{1,4}:){1,3}(:[\da-f]{1,4}){1,4}|([\da-f]{1,4}:){1,2}(:[\da-f]{1,4}){1,5}|[\da-f]{1,4}:((:[\da-f]{1,4}){1,6})|:((:[\da-f]{1,4}){1,7}|:)|fe80:(:[\da-f]{0,4}){0,4}%[\da-z]+|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}\d){0,1}\d)\.){3}(25[0-5]|(2[0-4]|1{0,1}\d){0,1}\d)|([\da-f]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}\d){0,1}\d)\.){3}(25[0-5]|(2[0-4]|1{0,1}\d){0,1}\d))$/;
 
@@ -42,14 +44,14 @@ const resolveHostIP = async (host, version = 4) => {
       console.error(
         `❌ DNS Error: Invalid resolved IP: ${address}. IP address must be IPv${version}.`,
       );
-      process.exit(1);
+      throw new Error(`Invalid resolved IP: ${address}`);
     }
 
     return address;
   } catch (err) {
     console.error(`❌ DNS Error: Could not resolve ${host}. Check DNS server:`);
     console.error(err);
-    process.exit(1);
+    throw new Error(`Could not resolve ${host}`);
   }
 };
 
@@ -61,7 +63,7 @@ const runProxyChainsConfGenerator = async (url) => {
     console.error(
       `❌ ProxyChains: Invalid protocol (${protocol}). Protocol must be 'http', 'socks4' and 'socks5'.`,
     );
-    process.exit(1);
+    throw new Error(`Invalid protocol: ${protocol}`);
   }
 
   const validPort = parseInt(port, 10);
@@ -69,15 +71,18 @@ const runProxyChainsConfGenerator = async (url) => {
     console.error(
       `❌ ProxyChains: Invalid port (${port}). Port must be a number between 1 and 65535.`,
     );
-    process.exit(1);
+    throw new Error(`Invalid port: ${port}`);
   }
 
   let ip = isValidIP(host, 4) ? host : await resolveHostIP(host, 4);
 
-  const proxyDNSConfig = process.env.ENABLE_PROXY_DNS === '1' ? `
+  const proxyDNSConfig =
+    process.env.ENABLE_PROXY_DNS === '1'
+      ? `
 proxy_dns
 remote_dns_subnet 224
-`.trim() : '';
+`.trim()
+      : '';
 
   const configContent = `
 localnet 127.0.0.0/8
@@ -91,7 +96,9 @@ tcp_connect_time_out 8000
 tcp_read_time_out 15000
 [ProxyList]
 ${protocol} ${ip} ${port} ${user} ${pass}
-`.replace(/\n{2,}/g, '\n').trim();
+`
+    .replaceAll(/\n{2,}/g, '\n')
+    .trim();
 
   await fs.writeFile(PROXYCHAINS_CONF_PATH, configContent);
   console.log(`✅ ProxyChains: All outgoing traffic routed via ${url}.`);
@@ -123,7 +130,7 @@ const runServer = async () => {
 };
 
 // Main execution block
-(async () => {
+const main = async () => {
   console.log('🌐 DNS Server:', dns.getServers());
   console.log('-------------------------------------');
 
@@ -141,11 +148,16 @@ const runServer = async () => {
       } else {
         console.error('❌ Error during DB migration:');
         console.error(err);
-        process.exit(1);
+        throw new Error('Database migration failed');
       }
     }
   }
 
   // Run the server in either database or non-database mode
   await runServer();
-})();
+};
+
+main().catch((error) => {
+  console.error('❌ Fatal error:', error);
+  process.exit(1);
+});

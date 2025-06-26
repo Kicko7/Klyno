@@ -1,0 +1,52 @@
+[1mdiff --git a/src/database/core/supabase.ts b/src/database/core/supabase.ts[m
+[1mindex 1f5c96f19..296b2bbd8 100644[m
+[1m--- a/src/database/core/supabase.ts[m
+[1m+++ b/src/database/core/supabase.ts[m
+[36m@@ -1,4 +1,4 @@[m
+[31m-import { createServerSupabaseClient } from '@/lib/supabase';[m
+[32m+[m[32mimport { createServerSupabaseClient } from '@/libs/supabase';[m
+ import type { Database } from '@/types/supabase';[m
+ [m
+ export class SupabaseDatabaseAdapter {[m
+[36m@@ -232,17 +232,16 @@[m [mexport class SupabaseDatabaseAdapter {[m
+     return data;[m
+   }[m
+ [m
+[31m-  async getUserUsage(userId: string, _period: 'day' | 'week' | 'month' = 'month') {[m
+[32m+[m[32m  async getUserUsage(userId: string) {[m
+     const { data, error } = await this.client[m
+       .from('usage_logs')[m
+       .select('*')[m
+       .eq('user_id', userId);[m
+[31m-[m
+     if (error) throw error;[m
+     return data;[m
+   }[m
+ [m
+[31m-  async getTeamUsage(teamId: string, _period: 'day' | 'week' | 'month' = 'month') {[m
+[32m+[m[32m  async getTeamUsage(teamId: string) {[m
+     const { data, error } = await this.client[m
+       .from('usage_logs')[m
+       .select('*')[m
+[36m@@ -282,7 +281,9 @@[m [mexport class SupabaseDatabaseAdapter {[m
+     return settings?.promptTemplates || [];[m
+   }[m
+ [m
+[31m-  async getTeamPromptTemplates(_teamId: string) {[m
+[32m+[m[32m  async getTeamPromptTemplates() {[m
+[32m+[m[32m    // TODO: Implement team prompt templates when the feature is ready[m
+[32m+[m[32m    // For now, return empty array as placeholder[m
+     return [];[m
+   }[m
+ [m
+[36m@@ -337,7 +338,9 @@[m [mexport class SupabaseDatabaseAdapter {[m
+     return { success: true };[m
+   }[m
+ [m
+[31m-  async getUserAvatar(_userId: string, _imageName: string) {[m
+[32m+[m[32m  async getUserAvatar() {[m
+[32m+[m[32m    // TODO: Implement avatar retrieval when file storage is set up[m
+[32m+[m[32m    // For now, return null as placeholder[m
+     return null;[m
+   }[m
+ }[m

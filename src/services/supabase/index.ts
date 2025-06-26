@@ -57,12 +57,12 @@ export const SupabaseService = {
     return await supabaseDB.getTeamMessages(conversationId);
   },
 
-  async getTeamPromptTemplates(teamId: string) {
-    return await supabaseDB.getTeamPromptTemplates(teamId);
+  async getTeamPromptTemplates() {
+    return await supabaseDB.getTeamPromptTemplates();
   },
 
-  async getTeamUsage(teamId: string, period: 'day' | 'week' | 'month' = 'month') {
-    return await supabaseDB.getTeamUsage(teamId, period);
+  async getTeamUsage(teamId: string) {
+    return await supabaseDB.getTeamUsage(teamId);
   },
 
   async getUserPromptTemplates(userId: string) {
@@ -73,8 +73,8 @@ export const SupabaseService = {
     return await supabaseDB.getTeamsByUserId(userId);
   },
 
-  async getUserUsage(userId: string, period: 'day' | 'week' | 'month' = 'month') {
-    return await supabaseDB.getUserUsage(userId, period);
+  async getUserUsage(userId: string) {
+    return await supabaseDB.getUserUsage(userId);
   },
 
   async getWorkspacesByTeamId(teamId: string) {
