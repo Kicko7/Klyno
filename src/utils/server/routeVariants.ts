@@ -3,7 +3,7 @@ import { ThemeAppearance } from 'antd-style/lib/types/appearance';
 
 import { DEFAULT_LANG } from '@/const/locale';
 import { Locales, locales } from '@/locales/resources';
-import { DynamicLayoutProps } from '@/types/next';
+import { DynamicLayoutProps, DynamicPageProps } from '@/types/next';
 
 // 定义变体接口
 export interface IRouteVariants {
@@ -13,6 +13,9 @@ export interface IRouteVariants {
   primaryColor?: string;
   theme: ThemeAppearance;
 }
+
+// Union type for props that have params (both layout and page props)
+type PropsWithParams = DynamicLayoutProps | DynamicPageProps;
 
 // 支持的主题
 const SUPPORTED_THEMES = ['dark', 'light'] as const;
@@ -49,18 +52,21 @@ export class RouteVariants {
     }
   };
 
-  static getVariantsFromProps = async (props: DynamicLayoutProps) => {
+  // Updated to accept both layout and page props
+  static getVariantsFromProps = async (props: PropsWithParams) => {
     const { variants } = await props.params;
     return RouteVariants.deserializeVariants(variants);
   };
 
-  static getIsMobile = async (props: DynamicLayoutProps) => {
+  // Updated to accept both layout and page props
+  static getIsMobile = async (props: PropsWithParams) => {
     const { variants } = await props.params;
     const { isMobile } = RouteVariants.deserializeVariants(variants);
     return isMobile;
   };
 
-  static getLocale = async (props: DynamicLayoutProps) => {
+  // Updated to accept both layout and page props
+  static getLocale = async (props: PropsWithParams) => {
     const { variants } = await props.params;
     const { locale } = RouteVariants.deserializeVariants(variants);
     return locale;
@@ -74,7 +80,9 @@ export class RouteVariants {
   });
 
   // 验证函数
-  private static isValidLocale = (locale: string): boolean => locales.includes(locale as any);
+  private static isValidLocale = (locale: unknown): boolean =>
+    (locales as readonly string[]).includes(locale as string);
 
-  private static isValidTheme = (theme: string): boolean => SUPPORTED_THEMES.includes(theme as any);
+  private static isValidTheme = (theme: unknown): boolean =>
+    (SUPPORTED_THEMES as readonly string[]).includes(theme as string);
 }

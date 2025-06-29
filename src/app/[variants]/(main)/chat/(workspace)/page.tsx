@@ -7,14 +7,14 @@ import { isDesktop } from '@/const/version';
 import { ldModule } from '@/server/ld';
 import { metadataModule } from '@/server/metadata';
 import { translation } from '@/server/translation';
-import { DynamicLayoutProps } from '@/types/next';
+import { DynamicPageProps } from '@/types/next';
 import { RouteVariants } from '@/utils/server/routeVariants';
 
 import PageTitle from '../features/PageTitle';
 import Changelog from './features/ChangelogModal';
 import TelemetryNotification from './features/TelemetryNotification';
 
-export const generateMetadata = async (props: DynamicLayoutProps) => {
+export const generateMetadata = async (props: DynamicPageProps) => {
   const locale = await RouteVariants.getLocale(props);
   const { t } = await translation('metadata', locale);
   return metadataModule.generate({
@@ -24,7 +24,7 @@ export const generateMetadata = async (props: DynamicLayoutProps) => {
   });
 };
 
-const Page = async (props: DynamicLayoutProps) => {
+const Page = async (props: DynamicPageProps) => {
   const { hideDocs, showChangelog } = serverFeatureFlags();
   const { isMobile, locale } = await RouteVariants.getVariantsFromProps(props);
   const { t } = await translation('metadata', locale);

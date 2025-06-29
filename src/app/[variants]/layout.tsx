@@ -17,9 +17,9 @@ import { RouteVariants } from '@/utils/server/routeVariants';
 
 const inVercel = process.env.VERCEL === '1';
 
+// RootLayoutProps extends DynamicLayoutProps to ensure type compatibility with Next.js
 interface RootLayoutProps extends DynamicLayoutProps {
   children: ReactNode;
-  modal: ReactNode;
 }
 
 const RootLayout = async ({ children, params, modal }: RootLayoutProps) => {
