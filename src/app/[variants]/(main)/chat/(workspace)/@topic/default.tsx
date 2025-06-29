@@ -1,7 +1,7 @@
 // import TopicListContent from './features/TopicListContent';
 import React, { Suspense, lazy } from 'react';
 
-import { DynamicLayoutProps } from '@/types/next';
+import { DynamicPageProps } from '@/types/next';
 import { RouteVariants } from '@/utils/server/routeVariants';
 
 import Desktop from './_layout/Desktop';
@@ -11,7 +11,7 @@ import SystemRole from './features/SystemRole';
 
 const TopicContent = lazy(() => import('./features/TopicListContent'));
 
-const Topic = async (props: DynamicLayoutProps) => {
+const Topic = async (props: DynamicPageProps) => {
   const isMobile = await RouteVariants.getIsMobile(props);
 
   const Layout = isMobile ? Mobile : Desktop;

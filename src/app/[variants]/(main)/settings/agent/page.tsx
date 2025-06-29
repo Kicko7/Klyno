@@ -1,10 +1,11 @@
 import { metadataModule } from '@/server/metadata';
 import { translation } from '@/server/translation';
-import { DynamicLayoutProps } from '@/types/next';
+import { DynamicPageProps } from '@/types/next';
 import { RouteVariants } from '@/utils/server/routeVariants';
 
-export const generateMetadata = async (props: DynamicLayoutProps) => {
-  const locale = await RouteVariants.getLocale(props);
+// Next.js 15+: Use DynamicPageProps for page components, not DynamicLayoutProps
+export const generateMetadata = async (_props: DynamicPageProps) => {
+  const locale = await RouteVariants.getLocale(_props);
   const { t } = await translation('setting', locale);
   return metadataModule.generate({
     description: t('header.desc'),
@@ -12,4 +13,9 @@ export const generateMetadata = async (props: DynamicLayoutProps) => {
     url: '/settings/agent',
   });
 };
-export { default } from './index';
+
+const Page = async (_props: DynamicPageProps) => {
+  // ...existing code...
+};
+
+export default Page;

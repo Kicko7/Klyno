@@ -1,12 +1,18 @@
 import { metadataModule } from '@/server/metadata';
 import { translation } from '@/server/translation';
-import { DynamicLayoutProps } from '@/types/next';
+import { DynamicPageProps } from '@/types/next';
 import { RouteVariants } from '@/utils/server/routeVariants';
 
-import Page from './(list)';
+import ProviderGridPage from './(list)/index';
 
-export const generateMetadata = async (props: DynamicLayoutProps) => {
-  const locale = await RouteVariants.getLocale(props);
+// Next.js 15+: Use DynamicPageProps for page components, not DynamicLayoutProps
+const Page = async (_props: DynamicPageProps) => {
+  // If you need to pass props, do so here. Otherwise, just render the grid.
+  return <ProviderGridPage />;
+};
+
+export const generateMetadata = async (_props: DynamicPageProps) => {
+  const locale = await RouteVariants.getLocale(_props);
   const { t } = await translation('setting', locale);
   return metadataModule.generate({
     description: t('header.desc'),
@@ -15,6 +21,4 @@ export const generateMetadata = async (props: DynamicLayoutProps) => {
   });
 };
 
-export default () => {
-  return <Page />;
-};
+export default Page;

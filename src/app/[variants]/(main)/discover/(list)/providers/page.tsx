@@ -4,12 +4,12 @@ import { ldModule } from '@/server/ld';
 import { metadataModule } from '@/server/metadata';
 import { DiscoverService } from '@/server/services/discover';
 import { translation } from '@/server/translation';
-import { DynamicLayoutProps } from '@/types/next';
+import { DynamicPageProps } from '@/types/next';
 import { RouteVariants } from '@/utils/server/routeVariants';
 
 import List from './features/List';
 
-interface DiscoverPageProps extends DynamicLayoutProps {
+interface DiscoverPageProps extends DynamicPageProps {
   searchParams: Promise<{ hl?: Locales }>;
 }
 
