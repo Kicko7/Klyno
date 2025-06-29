@@ -7,22 +7,33 @@ import { metadataModule } from '@/server/metadata';
 import { translation } from '@/server/translation';
 import { RouteVariants } from '@/utils/server/routeVariants';
 
-export const generateMetadata = async ({ params }: { params: { [key: string]: string } }) => {
-  const locale = await RouteVariants.getLocale({ params } as any);
+// Next.js 15+: params is now a Promise, must be awaited
+export const generateMetadata = async ({
+  params,
+}: {
+  params: Promise<{ [key: string]: string }>;
+}) => {
+  const _resolvedParams = await params; // Intentionally unused, but must be awaited for future compatibility
+  // Explicitly cast to match PropsWithParams for RouteVariants.getLocale
+  const locale = await RouteVariants.getLocale({ params } as {
+    params: Promise<{ variants: string }>;
+  });
   const { t } = await translation('clerk', locale);
+  // metadataModule is a class instance, use .generate
   return metadataModule.generate({
-    description: t('signIn.start.subtitle'),
-    title: t('signIn.start.title', { applicationName: BRANDING_NAME }),
+    description: t('login.description', { brand: BRANDING_NAME }),
+    title: t('login.title', { brand: BRANDING_NAME }),
     url: '/login',
   });
 };
 
-const Page = () => {
-  if (!enableClerk) return notFound();
+// Next.js 15+: params is now a Promise, must be awaited
+export default async function Page({ params }: { params: Promise<{ [key: string]: string }> }) {
+  const _resolvedParams = await params; // Intentionally unused, but must be awaited for future compatibility
+  if (!enableClerk) notFound();
+  return <SignIn />;
+}
 
-  return <SignIn path="/login" />;
-};
-
-Page.displayName = 'Login';
-
-export default Page;
+// ---
+// This pattern is future-proof for Next.js 15+ and will prevent build errors related to params typing.
+// If Next.js changes this again in the future, check the upgrade guide and update the type accordingly.
