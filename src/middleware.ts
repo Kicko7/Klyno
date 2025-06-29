@@ -137,6 +137,7 @@ const defaultMiddleware = (request: NextRequest) => {
 const isPublicRoute = createRouteMatcher([
   '/api/auth(.*)',
   '/trpc(.*)',
+  '/api/clerk-webhook(.*)',
   // next auth
   '/next-auth/(.*)',
   // clerk

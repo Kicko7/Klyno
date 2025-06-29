@@ -15,7 +15,7 @@ SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 ### Clerk Authentication
 
 ```
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
 CLERK_SECRET_KEY=your_clerk_secret_key
 NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
 NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
