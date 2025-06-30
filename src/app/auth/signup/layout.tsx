@@ -8,6 +8,11 @@ import GlobalProvider from '@/layout/GlobalProvider';
 import { DEFAULT_VARIANTS } from '@/utils/server/routeVariants';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
+
+export async function generateStaticParams() {
+  return [];
+}
 
 export default function SignupLayout({ children }: { children: React.ReactNode }) {
   return (
