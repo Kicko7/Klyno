@@ -1,9 +1,13 @@
+'use client';
+
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import React from 'react';
 
 import AuthProvider from '@/layout/AuthProvider';
 import GlobalProvider from '@/layout/GlobalProvider';
 import { DEFAULT_VARIANTS } from '@/utils/server/routeVariants';
+
+export const dynamic = 'force-dynamic';
 
 // This layout simply returns its children directly, no Fragment needed
 export default function LoginLayout({ children }: { children: React.ReactNode }) {
