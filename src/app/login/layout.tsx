@@ -8,6 +8,12 @@ import GlobalProvider from '@/layout/GlobalProvider';
 import { DEFAULT_VARIANTS } from '@/utils/server/routeVariants';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const revalidate = 0;
+
+export const generateStaticParams = () => {
+  return [];
+};
 
 // This layout simply returns its children directly, no Fragment needed
 export default function LoginLayout({ children }: { children: React.ReactNode }) {
