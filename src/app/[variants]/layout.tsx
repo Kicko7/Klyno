@@ -17,6 +17,9 @@ import { RouteVariants } from '@/utils/server/routeVariants';
 
 const inVercel = process.env.VERCEL === '1';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // RootLayoutProps extends DynamicLayoutProps to ensure type compatibility with Next.js
 interface RootLayoutProps extends DynamicLayoutProps {
   children: ReactNode;
