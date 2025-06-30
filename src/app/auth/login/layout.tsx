@@ -10,10 +10,6 @@ import { DEFAULT_VARIANTS } from '@/utils/server/routeVariants';
 export const dynamic = 'force-dynamic';
 export const runtime = 'edge';
 
-export async function generateStaticParams() {
-  return [];
-}
-
 export default function LoginLayout({ children }: { children: React.ReactNode }) {
   return (
     <NuqsAdapter>
