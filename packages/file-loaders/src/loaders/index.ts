@@ -1,19 +1,48 @@
 import { FileLoaderInterface, SupportedFileType } from '../types';
-import { DocxLoader } from './docx';
-// import { EpubLoader } from './epub';
-import { ExcelLoader } from './excel';
-import { PdfLoader } from './pdf';
-import { PptxLoader } from './pptx';
-import { TextLoader } from './text';
 
-// Loader configuration map
-// Key: file extension (lowercase, without leading dot) or specific type name
-// Value: Loader Class implementing FileLoaderInterface
-export const fileLoaders: Record<SupportedFileType, new () => FileLoaderInterface> = {
-  docx: DocxLoader,
-  // epub: EpubLoader,
-  excel: ExcelLoader,
-  pdf: PdfLoader,
-  pptx: PptxLoader,
-  txt: TextLoader,
+// Dynamically import heavy loaders to reduce initial bundle size
+const loadDocxLoader = async () => {
+  const { DocxLoader } = await import('./docx');
+  return DocxLoader;
+};
+
+const loadExcelLoader = async () => {
+  const { ExcelLoader } = await import('./excel');
+  return ExcelLoader;
+};
+
+const loadPdfLoader = async () => {
+  const { PdfLoader } = await import('./pdf');
+  return PdfLoader;
+};
+
+const loadPptxLoader = async () => {
+  const { PptxLoader } = await import('./pptx');
+  return PptxLoader;
+};
+
+const loadTextLoader = async () => {
+  const { TextLoader } = await import('./text');
+  return TextLoader;
+};
+
+// Loader configuration map with dynamic imports
+export const fileLoaders: Record<SupportedFileType, () => Promise<new () => FileLoaderInterface>> =
+  {
+    docx: loadDocxLoader,
+    excel: loadExcelLoader,
+    pdf: loadPdfLoader,
+    pptx: loadPptxLoader,
+    txt: loadTextLoader,
+  };
+
+// Helper function to get loader instance
+export const getFileLoader = async (
+  fileType: SupportedFileType,
+): Promise<new () => FileLoaderInterface> => {
+  const loaderFactory = fileLoaders[fileType];
+  if (!loaderFactory) {
+    throw new Error(`Unsupported file type: ${fileType}`);
+  }
+  return await loaderFactory();
 };

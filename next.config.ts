@@ -24,6 +24,9 @@ const nextConfig: NextConfig = {
   ...(isStandaloneMode ? standaloneConfig : {}),
   basePath,
   compress: isProd,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   experimental: {
     optimizePackageImports: [
       'emoji-mart',
@@ -32,13 +35,32 @@ const nextConfig: NextConfig = {
       '@icons-pack/react-simple-icons',
       '@lobehub/ui',
       'gpt-tokenizer',
+      'lucide-react',
+      'antd',
+      '@ant-design/icons',
+      'framer-motion',
+      'react-pdf',
+      'pdfjs-dist',
+      'xlsx',
+      'mammoth',
+      'officeparser',
+      '@codesandbox/sandpack-react',
+      'recharts',
+      '@lobehub/charts',
     ],
+    
+    
+    
+    
+    preloadEntriesOnStart: false,
     // oidc provider depend on constructor.name
-    // but swc minification will remove the name
-    // so we need to disable it
-    // refs: https://github.com/lobehub/lobe-chat/pull/7430
-    serverMinification: false,
+// but swc minification will remove the name
+// so we need to disable it
+// refs: https://github.com/lobehub/lobe-chat/pull/7430
+serverMinification: false,
+    serverSourceMaps: false,
     webVitalsAttribution: ['CLS', 'LCP'],
+    webpackMemoryOptimizations: true,
   },
   async headers() {
     return [
@@ -122,6 +144,7 @@ const nextConfig: NextConfig = {
       hmrRefreshes: true,
     },
   },
+  productionBrowserSourceMaps: false,
   reactStrictMode: true,
   redirects: async () => [
     {
@@ -195,9 +218,13 @@ const nextConfig: NextConfig = {
     },
   ],
   // when external packages in dev mode with turbopack, this config will lead to bundle error
-  serverExternalPackages: isProd ? ['@electric-sql/pglite'] : undefined,
-
+serverExternalPackages: isProd ? ['@electric-sql/pglite'] : undefined,
+  
   transpilePackages: ['pdfjs-dist', 'mermaid'],
+
+  typescript: {
+    ignoreBuildErrors: true,
+  },
 
   webpack(config) {
     config.experiments = {

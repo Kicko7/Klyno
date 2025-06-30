@@ -1,9 +1,15 @@
-import { Icon, Modal } from '@lobehub/ui';
+import { Icon } from '@lobehub/ui';
 import { createStyles } from 'antd-style';
 import { LucideIcon } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { rgba } from 'polished';
 import { ReactNode, memo } from 'react';
 import { Flexbox } from 'react-layout-kit';
+
+// Dynamically import the heavy Modal component
+const Modal = dynamic(() => import('@lobehub/ui').then((mod) => ({ default: mod.Modal })), {
+  ssr: false,
+});
 
 const useStyles = createStyles(({ css, token, prefixCls, isDarkMode }) => ({
   modalTitle: css`

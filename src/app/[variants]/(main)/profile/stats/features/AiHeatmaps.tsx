@@ -1,7 +1,7 @@
-import { Heatmaps, HeatmapsProps } from '@lobehub/charts';
 import { FormGroup, Icon, Tag } from '@lobehub/ui';
 import { useTheme } from 'antd-style';
 import { FlameIcon } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { readableColor } from 'polished';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,17 @@ import { Flexbox } from 'react-layout-kit';
 import { FORM_STYLE } from '@/const/layoutTokens';
 import { useClientDataSWR } from '@/libs/swr';
 import { messageService } from '@/services/message';
+
+// Dynamically import the heavy charts component
+const Heatmaps = dynamic(
+  () => import('@lobehub/charts').then((mod) => ({ default: mod.Heatmaps })),
+  {
+    loading: () => <div>Loading heatmap...</div>,
+    ssr: false,
+  },
+);
+
+export type HeatmapsProps = import('@lobehub/charts').HeatmapsProps;
 
 const AiHeatmaps = memo<Omit<HeatmapsProps, 'data'> & { inShare?: boolean; mobile?: boolean }>(
   ({ inShare, mobile, ...rest }) => {

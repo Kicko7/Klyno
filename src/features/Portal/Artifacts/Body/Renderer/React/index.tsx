@@ -1,10 +1,35 @@
-import { SandpackLayout, SandpackPreview, SandpackProvider } from '@codesandbox/sandpack-react';
+'use client';
+
+import dynamic from 'next/dynamic';
 import { memo } from 'react';
 
 import { useChatStore } from '@/store/chat';
 import { chatPortalSelectors } from '@/store/chat/selectors';
 
 import { createTemplateFiles } from './template';
+
+// Dynamically import the heavy Sandpack components
+const SandpackProvider = dynamic(
+  () => import('@codesandbox/sandpack-react').then((mod) => ({ default: mod.SandpackProvider })),
+  {
+    loading: () => <div>Loading code editor...</div>,
+    ssr: false,
+  },
+);
+
+const SandpackLayout = dynamic(
+  () => import('@codesandbox/sandpack-react').then((mod) => ({ default: mod.SandpackLayout })),
+  {
+    ssr: false,
+  },
+);
+
+const SandpackPreview = dynamic(
+  () => import('@codesandbox/sandpack-react').then((mod) => ({ default: mod.SandpackPreview })),
+  {
+    ssr: false,
+  },
+);
 
 interface ReactRendererProps {
   code: string;
