@@ -48,16 +48,13 @@ const nextConfig: NextConfig = {
       'recharts',
       '@lobehub/charts',
     ],
-    
-    
-    
-    
+
     preloadEntriesOnStart: false,
     // oidc provider depend on constructor.name
-// but swc minification will remove the name
-// so we need to disable it
-// refs: https://github.com/lobehub/lobe-chat/pull/7430
-serverMinification: false,
+    // but swc minification will remove the name
+    // so we need to disable it
+    // refs: https://github.com/lobehub/lobe-chat/pull/7430
+    serverMinification: false,
     serverSourceMaps: false,
     webVitalsAttribution: ['CLS', 'LCP'],
     webpackMemoryOptimizations: true,
@@ -218,8 +215,8 @@ serverMinification: false,
     },
   ],
   // when external packages in dev mode with turbopack, this config will lead to bundle error
-serverExternalPackages: isProd ? ['@electric-sql/pglite'] : undefined,
-  
+  serverExternalPackages: isProd ? ['@electric-sql/pglite'] : undefined,
+
   transpilePackages: ['pdfjs-dist', 'mermaid'],
 
   typescript: {
@@ -256,8 +253,25 @@ serverExternalPackages: isProd ? ['@electric-sql/pglite'] : undefined,
     // refs: https://github.com/lobehub/lobe-chat/discussions/6769
     config.resolve.fallback = {
       ...config.resolve.fallback,
+      constants: false,
+      crypto: false,
+      domain: false,
+      events: false,
+      fs: false,
+      os: false,
+      path: false,
+      punycode: false,
+      querystring: false,
+      string_decoder: false,
+      sys: false,
+      timers: false,
+      tty: false,
+      url: false,
+      vm: false,
       zipfile: false,
+      zlib: false,
     };
+
     return config;
   },
 };

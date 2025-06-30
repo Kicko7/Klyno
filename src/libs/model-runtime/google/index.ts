@@ -10,7 +10,7 @@ import {
   SchemaType,
 } from '@google/generative-ai';
 
-import { imageUrlToBase64 } from '@/utils/imageToBase64';
+import { imageUrlToBase64Server } from '@/utils/imageToBase64.server';
 import { safeParseJSON } from '@/utils/safeParseJSON';
 
 import { LobeRuntimeAI } from '../BaseAI';
@@ -140,7 +140,9 @@ export class LobeGoogleAI implements LobeRuntimeAI {
                 return Math.min(budget, 24_576);
               })()
             : thinking?.type === 'disabled'
-              ? model.includes('-2.5-pro') ? 128 : 0
+              ? model.includes('-2.5-pro')
+                ? 128
+                : 0
               : undefined,
       };
 
@@ -347,34 +349,18 @@ export class LobeGoogleAI implements LobeRuntimeAI {
   private convertContentToGooglePart = async (
     content: UserMessageContentPart,
   ): Promise<Part | undefined> => {
-    switch (content.type) {
-      default: {
-        return undefined;
-      }
+    const { type } = content;
 
-      case 'text': {
-        return { text: content.text };
-      }
+    if (type === 'text') {
+      return { text: content.text };
+    }
 
-      case 'image_url': {
-        const { mimeType, base64, type } = parseDataUri(content.image_url.url);
+    if (type === 'image_url') {
+      const { url } = content.image_url;
 
-        if (type === 'base64') {
-          if (!base64) {
-            throw new TypeError("Image URL doesn't contain base64 data");
-          }
-
-          return {
-            inlineData: {
-              data: base64,
-              mimeType: mimeType || 'image/png',
-            },
-          };
-        }
-
-        if (type === 'url') {
-          const { base64, mimeType } = await imageUrlToBase64(content.image_url.url);
-
+      if (url.startsWith('data:')) {
+        const { base64, mimeType } = parseDataUri(url);
+        if (base64 && mimeType) {
           return {
             inlineData: {
               data: base64,
@@ -382,10 +368,18 @@ export class LobeGoogleAI implements LobeRuntimeAI {
             },
           };
         }
-
-        throw new TypeError(`currently we don't support image url: ${content.image_url.url}`);
       }
+
+      const { base64, mimeType } = await imageUrlToBase64Server(url);
+      return {
+        inlineData: {
+          data: base64,
+          mimeType,
+        },
+      };
     }
+
+    return undefined;
   };
 
   private convertOAIMessagesToGoogleMessage = async (

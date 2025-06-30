@@ -1,7 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { Anthropic } from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 
-import { imageUrlToBase64 } from '@/utils/imageToBase64';
+import { imageUrlToBase64Server } from '@/utils/imageToBase64.server';
 
 import { OpenAIChatMessage, UserMessageContentPart } from '../types';
 import { parseDataUri } from './uriParser';
@@ -35,7 +35,7 @@ export const buildAnthropicBlock = async (
         };
 
       if (type === 'url') {
-        const { base64, mimeType } = await imageUrlToBase64(content.image_url.url);
+        const { base64, mimeType } = await imageUrlToBase64Server(content.image_url.url);
         return {
           source: {
             data: base64 as string,

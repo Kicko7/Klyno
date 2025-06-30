@@ -1,7 +1,7 @@
 import { OpenAI } from 'openai';
 import { describe, expect, it } from 'vitest';
 
-import { imageUrlToBase64 } from '@/utils/imageToBase64';
+import { imageUrlToBase64Server } from '@/utils/imageToBase64.server';
 
 import { OpenAIChatMessage, UserMessageContentPart } from '../types/chat';
 import {
@@ -20,7 +20,7 @@ vi.mock('./uriParser', () => ({
     type: 'base64',
   }),
 }));
-vi.mock('@/utils/imageToBase64');
+vi.mock('@/utils/imageToBase64.server');
 
 describe('anthropicHelpers', () => {
   describe('buildAnthropicBlock', () => {
@@ -53,7 +53,7 @@ describe('anthropicHelpers', () => {
         base64: null,
         type: 'url',
       });
-      vi.mocked(imageUrlToBase64).mockResolvedValue({
+      vi.mocked(imageUrlToBase64Server).mockResolvedValue({
         base64: 'convertedBase64String',
         mimeType: 'image/jpg',
       });
@@ -66,7 +66,7 @@ describe('anthropicHelpers', () => {
       const result = await buildAnthropicBlock(content);
 
       expect(parseDataUri).toHaveBeenCalledWith(content.image_url.url);
-      expect(imageUrlToBase64).toHaveBeenCalledWith(content.image_url.url);
+      expect(imageUrlToBase64Server).toHaveBeenCalledWith(content.image_url.url);
       expect(result).toEqual({
         source: {
           data: 'convertedBase64String',
@@ -83,7 +83,7 @@ describe('anthropicHelpers', () => {
         base64: null,
         type: 'url',
       });
-      vi.mocked(imageUrlToBase64).mockResolvedValue({
+      vi.mocked(imageUrlToBase64Server).mockResolvedValue({
         base64: 'convertedBase64String',
         mimeType: 'image/png',
       });

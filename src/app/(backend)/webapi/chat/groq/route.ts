@@ -1,6 +1,7 @@
 import { POST as UniverseRoute } from '../[provider]/route';
 
-export const runtime = 'edge';
+// Use Node.js runtime instead of Edge Runtime to avoid browser API issues
+export const runtime = 'nodejs';
 
 export const preferredRegion = [
   'bom1',

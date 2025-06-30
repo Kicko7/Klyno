@@ -39,6 +39,9 @@ export const imageToBase64 = ({
 export const imageUrlToBase64 = async (
   imageUrl: string,
 ): Promise<{ base64: string; mimeType: string }> => {
+  if (typeof window === 'undefined') {
+    throw new Error('imageUrlToBase64 can only be used in the browser environment.');
+  }
   try {
     const res = await fetch(imageUrl);
     const blob = await res.blob();

@@ -2,6 +2,8 @@
  * file copy from https://github.com/Azure/fetch-event-source/blob/45ac3cfffd30b05b79fbf95c21e67d4ef59aa56a/src/fetch.ts
  * and remove some code
  */
+import { isOnServerSide } from '@/utils/env';
+
 import { EventSourceMessage, getBytes, getLines, getMessages } from './parse';
 
 export const EventStreamContentType = 'text/event-stream';
@@ -71,7 +73,9 @@ export function fetchEventSource(
       headers.accept = EventStreamContentType;
     }
 
-    const fetch = inputFetch ?? window.fetch;
+    // Use provided fetch or default to window.fetch only on client side
+    const fetch = inputFetch ?? (isOnServerSide ? globalThis.fetch : window.fetch);
+
     async function create() {
       try {
         const response = await fetch(input, {

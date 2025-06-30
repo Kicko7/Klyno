@@ -3,7 +3,7 @@
 import { SignUp } from '@clerk/nextjs';
 
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 export default function SignupPage() {
   return <SignUp />;

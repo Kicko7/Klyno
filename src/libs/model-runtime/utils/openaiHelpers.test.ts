@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { imageUrlToBase64 } from '@/utils/imageToBase64';
+import { imageUrlToBase64Server } from '@/utils/imageToBase64.server';
 
 import {
   convertMessageContent,
@@ -39,7 +39,7 @@ describe('convertMessageContent', () => {
     } as OpenAI.ChatCompletionContentPart;
 
     vi.mocked(parseDataUri).mockReturnValue({ type: 'url', base64: null, mimeType: null });
-    vi.mocked(imageUrlToBase64).mockResolvedValue({
+    vi.mocked(imageUrlToBase64Server).mockResolvedValue({
       base64: 'base64String',
       mimeType: 'image/jpeg',
     });
@@ -52,7 +52,7 @@ describe('convertMessageContent', () => {
     });
 
     expect(parseDataUri).toHaveBeenCalledWith('https://example.com/image.jpg');
-    expect(imageUrlToBase64).toHaveBeenCalledWith('https://example.com/image.jpg');
+    expect(imageUrlToBase64Server).toHaveBeenCalledWith('https://example.com/image.jpg');
   });
 
   it('should not convert image URL when not necessary', async () => {
@@ -68,7 +68,7 @@ describe('convertMessageContent', () => {
     const result = await convertMessageContent(content);
 
     expect(result).toEqual(content);
-    expect(imageUrlToBase64).not.toHaveBeenCalled();
+    expect(imageUrlToBase64Server).not.toHaveBeenCalled();
   });
 });
 
@@ -97,7 +97,7 @@ describe('convertOpenAIMessages', () => {
 
     vi.spyOn(Promise, 'all');
     vi.mocked(parseDataUri).mockReturnValue({ type: 'url', base64: null, mimeType: null });
-    vi.mocked(imageUrlToBase64).mockResolvedValue({
+    vi.mocked(imageUrlToBase64Server).mockResolvedValue({
       base64: 'base64String',
       mimeType: 'image/jpeg',
     });
@@ -136,7 +136,7 @@ describe('convertOpenAIMessages', () => {
 
     vi.spyOn(Promise, 'all');
     vi.mocked(parseDataUri).mockReturnValue({ type: 'url', base64: null, mimeType: null });
-    vi.mocked(imageUrlToBase64).mockResolvedValue({
+    vi.mocked(imageUrlToBase64Server).mockResolvedValue({
       base64: 'base64String',
       mimeType: 'image/jpeg',
     });

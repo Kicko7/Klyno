@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 
 import { disableStreamModels, systemToUserModels } from '@/const/models';
 import { ChatStreamPayload, OpenAIChatMessage } from '@/libs/model-runtime';
-import { imageUrlToBase64 } from '@/utils/imageToBase64';
+import { imageUrlToBase64Server } from '@/utils/imageToBase64.server';
 
 import { parseDataUri } from './uriParser';
 
@@ -13,7 +13,7 @@ export const convertMessageContent = async (
     const { type } = parseDataUri(content.image_url.url);
 
     if (type === 'url' && process.env.LLM_VISION_IMAGE_USE_BASE64 === '1') {
-      const { base64, mimeType } = await imageUrlToBase64(content.image_url.url);
+      const { base64, mimeType } = await imageUrlToBase64Server(content.image_url.url);
 
       return {
         ...content,
@@ -118,4 +118,39 @@ export const pruneReasoningPayload = (payload: ChatStreamPayload) => {
     temperature: 1,
     top_p: 1,
   };
+};
+
+export const convertOAIMessagesToOpenAIMessages = async (
+  messages: OpenAIChatMessage[],
+): Promise<OpenAIChatMessage[]> => {
+  const convertedMessages = await Promise.all(
+    messages.map(async (message) => {
+      if (message.role === 'user' && Array.isArray(message.content)) {
+        const convertedContent = await Promise.all(
+          message.content.map(async (content) => {
+            if (content.type === 'image_url' && content.image_url.url.startsWith('http')) {
+              const { base64, mimeType } = await imageUrlToBase64Server(content.image_url.url);
+              return {
+                ...content,
+                image_url: {
+                  ...content.image_url,
+                  url: `data:${mimeType};base64,${base64}`,
+                },
+              };
+            }
+            return content;
+          }),
+        );
+
+        return {
+          ...message,
+          content: convertedContent,
+        };
+      }
+
+      return message;
+    }),
+  );
+
+  return convertedMessages;
 };

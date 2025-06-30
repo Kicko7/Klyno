@@ -1,49 +1,49 @@
-import { OpenAISTTPayload } from '@lobehub/tts';
-import { createOpenaiAudioTranscriptions } from '@lobehub/tts/server';
+import OpenAI from 'openai';
 
-import { createBizOpenAI } from '@/app/(backend)/_deprecated/createBizOpenAI';
+import { checkAuth } from '@/app/(backend)/middleware/auth';
+import { ChatErrorType } from '@/types/fetch';
+import { createErrorResponse } from '@/utils/errorResponse';
 
-export const runtime = 'edge';
+// Use Node.js runtime instead of Edge Runtime to avoid browser API issues
+export const runtime = 'nodejs';
 
-export const preferredRegion = [
-  'arn1',
-  'bom1',
-  'cdg1',
-  'cle1',
-  'cpt1',
-  'dub1',
-  'fra1',
-  'gru1',
-  'hnd1',
-  'iad1',
-  'icn1',
-  'kix1',
-  'lhr1',
-  'pdx1',
-  'sfo1',
-  'sin1',
-  'syd1',
-];
+export const POST = checkAuth(async (req: Request, { jwtPayload }) => {
+  try {
+    if (!jwtPayload.apiKey) {
+      return createErrorResponse(ChatErrorType.InvalidUserKey, {
+        error: new Error('No API key provided'),
+        provider: 'openai',
+      });
+    }
 
-export const POST = async (req: Request) => {
-  const formData = await req.formData();
-  const speechBlob = formData.get('speech') as Blob;
-  const optionsString = formData.get('options') as string;
-  const payload = {
-    options: JSON.parse(optionsString),
-    speech: speechBlob,
-  } as OpenAISTTPayload;
+    const openai = new OpenAI({
+      apiKey: jwtPayload.apiKey,
+      baseURL: jwtPayload.baseURL,
+    });
 
-  const openaiOrErrResponse = createBizOpenAI(req);
+    const formData = await req.formData();
+    const audio = formData.get('audio') as File;
 
-  // if resOrOpenAI is a Response, it means there is an error,just return it
-  if (openaiOrErrResponse instanceof Response) return openaiOrErrResponse;
+    if (!audio) {
+      return createErrorResponse(ChatErrorType.BadRequest, {
+        error: new Error('No audio file provided'),
+        provider: 'openai',
+      });
+    }
 
-  const res = await createOpenaiAudioTranscriptions({ openai: openaiOrErrResponse, payload });
+    const transcription = await openai.audio.transcriptions.create({
+      file: audio,
+      model: 'whisper-1',
+    });
 
-  return new Response(JSON.stringify(res), {
-    headers: {
-      'content-type': 'application/json;charset=UTF-8',
-    },
-  });
-};
+    return Response.json({ text: transcription.text });
+  } catch (e) {
+    const error = e as Error;
+    console.error('STT error:', error);
+
+    return createErrorResponse(ChatErrorType.InternalServerError, {
+      error,
+      provider: 'openai',
+    });
+  }
+});

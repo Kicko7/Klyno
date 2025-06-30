@@ -4,7 +4,7 @@ import OpenAI from 'openai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { OpenAIChatMessage } from '@/libs/model-runtime';
-import * as imageToBase64Module from '@/utils/imageToBase64';
+import * as imageToBase64ServerModule from '@/utils/imageToBase64.server';
 
 import * as debugStreamModule from '../utils/debugStream';
 import { LobeGoogleAI } from './index';
@@ -481,7 +481,7 @@ describe('LobeGoogleAI', () => {
         const mockBase64 = 'mockBase64Data';
 
         // Mock the imageUrlToBase64 function
-        vi.spyOn(imageToBase64Module, 'imageUrlToBase64').mockResolvedValueOnce({
+        vi.spyOn(imageToBase64ServerModule, 'imageUrlToBase64Server').mockResolvedValueOnce({
           base64: mockBase64,
           mimeType: 'image/png',
         });
@@ -498,7 +498,7 @@ describe('LobeGoogleAI', () => {
           },
         });
 
-        expect(imageToBase64Module.imageUrlToBase64).toHaveBeenCalledWith(imageUrl);
+        expect(imageToBase64ServerModule.imageUrlToBase64Server).toHaveBeenCalledWith(imageUrl);
       });
 
       it('should throw TypeError for unsupported image URL types', async () => {

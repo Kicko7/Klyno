@@ -8,7 +8,7 @@ import GlobalProvider from '@/layout/GlobalProvider';
 import { DEFAULT_VARIANTS } from '@/utils/server/routeVariants';
 
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 export default function LoginLayout({ children }: { children: React.ReactNode }) {
   return (

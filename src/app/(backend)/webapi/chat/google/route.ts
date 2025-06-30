@@ -1,6 +1,7 @@
 import { POST as UniverseRoute } from '../[provider]/route';
 
-export const runtime = 'edge';
+// Use Node.js runtime instead of Edge Runtime to avoid browser API issues
+export const runtime = 'nodejs';
 
 // due to Gemini-1.5-pro is not available in Hong Kong, we need to set the preferred region to exclude "Hong Kong (hkg1)".
 // the paid service of the Gemini API is required in the following regions until 8 July 2024. The free service is not available. Therefore, the regions is temporarily disabled.

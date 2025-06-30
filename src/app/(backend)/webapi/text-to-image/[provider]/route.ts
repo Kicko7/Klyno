@@ -1,28 +1,22 @@
-import { NextResponse } from 'next/server';
-
 import { checkAuth } from '@/app/(backend)/middleware/auth';
-import { ChatCompletionErrorPayload } from '@/libs/model-runtime';
+import { AgentRuntime, ChatCompletionErrorPayload } from '@/libs/model-runtime';
 import { TextToImagePayload } from '@/libs/model-runtime/types';
 import { initAgentRuntimeWithUserPayload } from '@/server/modules/AgentRuntime';
 import { ChatErrorType } from '@/types/fetch';
 import { createErrorResponse } from '@/utils/errorResponse';
 
-export const runtime = 'edge';
+// Use Node.js runtime instead of Edge Runtime to avoid browser API issues
+export const runtime = 'nodejs';
 
 export const preferredRegion = [
-  'arn1',
   'bom1',
-  'cdg1',
   'cle1',
   'cpt1',
-  'dub1',
-  'fra1',
   'gru1',
   'hnd1',
   'iad1',
   'icn1',
   'kix1',
-  'lhr1',
   'pdx1',
   'sfo1',
   'sin1',
@@ -51,16 +45,13 @@ export const POST = checkAuth(async (req: Request, { params, jwtPayload }) => {
   const { provider } = await params;
 
   try {
-    // ============  1. init chat model   ============ //
-    const agentRuntime = await initAgentRuntimeWithUserPayload(provider, jwtPayload);
-
-    // ============  2. create chat completion   ============ //
+    const agentRuntime: AgentRuntime = await initAgentRuntimeWithUserPayload(provider, jwtPayload);
 
     const data = (await req.json()) as TextToImagePayload;
 
     const images = await agentRuntime.textToImage(data);
 
-    return NextResponse.json(images);
+    return Response.json(images);
   } catch (e) {
     const {
       errorType = ChatErrorType.InternalServerError,

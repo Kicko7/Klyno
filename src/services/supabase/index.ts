@@ -2,25 +2,28 @@ import { SupabaseDatabaseAdapter, supabaseDB } from '@/database/core/supabase';
 import { supabase } from '@/libs/supabase';
 import type { Database } from '@/types/supabase';
 
+// Define missing types locally
+type TeamRole = 'owner' | 'admin' | 'member';
+type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer';
+
+interface RealtimeEvent<T = unknown> {
+  oldRecord?: T;
+  record: T;
+  table: string;
+  type: 'insert' | 'update' | 'delete';
+}
+
 export const SupabaseService = {
-  async addTeamMember(
-    teamId: string,
-    userId: string,
-    role: 'owner' | 'admin' | 'member' = 'member',
-  ) {
+  async addTeamMember(teamId: string, userId: string, role: TeamRole = 'member') {
     return await supabaseDB.addTeamMember(teamId, userId, role);
   },
 
-  async addWorkspaceMember(
-    workspaceId: string,
-    userId: string,
-    role: 'owner' | 'admin' | 'member' | 'viewer' = 'member',
-  ) {
+  async addWorkspaceMember(workspaceId: string, userId: string, role: WorkspaceRole = 'member') {
     return await supabaseDB.addWorkspaceMember(workspaceId, userId, role);
   },
 
   // Prompt templates
-  async createPromptTemplate(templateData: any) {
+  async createPromptTemplate(templateData: Record<string, unknown>) {
     return await supabaseDB.createPromptTemplate(templateData);
   },
 
@@ -30,12 +33,12 @@ export const SupabaseService = {
   },
 
   // Conversation services
-  async createTeamConversation(conversationData: any) {
+  async createTeamConversation(conversationData: Record<string, unknown>) {
     return await supabaseDB.createTeamConversation(conversationData);
   },
 
   // Message services
-  async createTeamMessage(messageData: any) {
+  async createTeamMessage(messageData: Record<string, unknown>) {
     return await supabaseDB.createTeamMessage(messageData);
   },
 
@@ -86,7 +89,10 @@ export const SupabaseService = {
   },
 
   // Real-time subscriptions
-  subscribeToTeamMessages(teamId: string, callback: (payload: any) => void) {
+  subscribeToTeamMessages(
+    teamId: string,
+    callback: (payload: RealtimeEvent<Record<string, unknown>>) => void,
+  ) {
     return supabase
       .channel(`team-messages-${teamId}`)
       .on(
@@ -97,12 +103,23 @@ export const SupabaseService = {
           schema: 'public',
           table: 'team_messages',
         },
-        callback,
+        (payload) => {
+          const event: RealtimeEvent<Record<string, unknown>> = {
+            oldRecord: payload.old as Record<string, unknown>,
+            record: payload.new as Record<string, unknown>,
+            table: 'team_messages',
+            type: payload.eventType as 'insert' | 'update' | 'delete',
+          };
+          callback(event);
+        },
       )
       .subscribe();
   },
 
-  subscribeToTeamUpdates(teamId: string, callback: (payload: any) => void) {
+  subscribeToTeamUpdates(
+    teamId: string,
+    callback: (payload: RealtimeEvent<Database['public']['Tables']['teams']['Row']>) => void,
+  ) {
     return supabase
       .channel(`team-updates-${teamId}`)
       .on(
@@ -113,12 +130,23 @@ export const SupabaseService = {
           schema: 'public',
           table: 'teams',
         },
-        callback,
+        (payload) => {
+          const event: RealtimeEvent<Database['public']['Tables']['teams']['Row']> = {
+            oldRecord: payload.old as Database['public']['Tables']['teams']['Row'],
+            record: payload.new as Database['public']['Tables']['teams']['Row'],
+            table: 'teams',
+            type: payload.eventType as 'insert' | 'update' | 'delete',
+          };
+          callback(event);
+        },
       )
       .subscribe();
   },
 
-  subscribeToWorkspaceMessages(workspaceId: string, callback: (payload: any) => void) {
+  subscribeToWorkspaceMessages(
+    workspaceId: string,
+    callback: (payload: RealtimeEvent<Record<string, unknown>>) => void,
+  ) {
     return supabase
       .channel(`workspace-messages-${workspaceId}`)
       .on(
@@ -129,29 +157,37 @@ export const SupabaseService = {
           schema: 'public',
           table: 'team_messages',
         },
-        callback,
+        (payload) => {
+          const event: RealtimeEvent<Record<string, unknown>> = {
+            oldRecord: payload.old as Record<string, unknown>,
+            record: payload.new as Record<string, unknown>,
+            table: 'team_messages',
+            type: payload.eventType as 'insert' | 'update' | 'delete',
+          };
+          callback(event);
+        },
       )
       .subscribe();
   },
 
   // User services
-  async syncUserWithClerk(clerkUser: any) {
+  async syncUserWithClerk(clerkUser: Record<string, unknown>) {
     try {
       // First, ensure the user exists in the base users table
-      await supabaseDB.ensureUserExists(clerkUser.id, {
-        avatar: clerkUser.imageUrl,
-        email: clerkUser.emailAddresses?.[0]?.emailAddress,
-        firstName: clerkUser.firstName,
-        lastName: clerkUser.lastName,
+      await supabaseDB.ensureUserExists(clerkUser.id as string, {
+        avatar: clerkUser.imageUrl as string,
+        email: (clerkUser.emailAddresses as Array<{ emailAddress: string }>)?.[0]?.emailAddress,
+        firstName: clerkUser.firstName as string,
+        lastName: clerkUser.lastName as string,
       });
 
       // Then sync with Klyno user profile
-      return await supabaseDB.syncKlynoUser(clerkUser.id, {
-        avatar: clerkUser.imageUrl,
-        clerkId: clerkUser.id,
-        email: clerkUser.emailAddresses?.[0]?.emailAddress,
-        firstName: clerkUser.firstName,
-        lastName: clerkUser.lastName,
+      return await supabaseDB.syncKlynoUser(clerkUser.id as string, {
+        avatar: clerkUser.imageUrl as string,
+        clerkId: clerkUser.id as string,
+        email: (clerkUser.emailAddresses as Array<{ emailAddress: string }>)?.[0]?.emailAddress,
+        firstName: clerkUser.firstName as string,
+        lastName: clerkUser.lastName as string,
       });
     } catch (error) {
       console.error('Error syncing user with Clerk:', error);
@@ -176,7 +212,7 @@ export const SupabaseService = {
   },
 
   // Usage tracking
-  async trackUsage(usageData: any) {
+  async trackUsage(usageData: Record<string, unknown>) {
     return await supabaseDB.trackUsage(usageData);
   },
 

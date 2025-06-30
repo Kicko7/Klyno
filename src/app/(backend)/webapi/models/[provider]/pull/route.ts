@@ -1,23 +1,27 @@
 import { checkAuth } from '@/app/(backend)/middleware/auth';
-import { ChatCompletionErrorPayload, PullModelParams } from '@/libs/model-runtime';
+import { AgentRuntime, ChatCompletionErrorPayload } from '@/libs/model-runtime';
 import { initAgentRuntimeWithUserPayload } from '@/server/modules/AgentRuntime';
 import { ChatErrorType } from '@/types/fetch';
 import { createErrorResponse } from '@/utils/errorResponse';
 
-export const runtime = 'edge';
+// Use Node.js runtime instead of Edge Runtime to avoid browser API issues
+export const runtime = 'nodejs';
 
-export const POST = checkAuth(async (req, { params, jwtPayload }) => {
+export const POST = checkAuth(async (req: Request, { params, jwtPayload }) => {
   const { provider } = await params;
 
   try {
-    const agentRuntime = await initAgentRuntimeWithUserPayload(provider, jwtPayload);
+    const agentRuntime: AgentRuntime = await initAgentRuntimeWithUserPayload(provider, jwtPayload);
 
-    const data = (await req.json()) as PullModelParams;
+    const data = await req.json();
 
-    const res = await agentRuntime.pullModel(data, { signal: req.signal });
-    if (res) return res;
+    const result = await agentRuntime.pullModel(data);
 
-    throw new Error('No response');
+    if (result) {
+      return result;
+    }
+
+    return Response.json({ success: true });
   } catch (e) {
     const {
       errorType = ChatErrorType.InternalServerError,

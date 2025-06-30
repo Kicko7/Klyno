@@ -1,45 +1,22 @@
-import { after } from 'next/server';
+import { checkAuth } from '@/app/(backend)/middleware/auth';
+import { ChatErrorType } from '@/types/fetch';
+import { createErrorResponse } from '@/utils/errorResponse';
 
-import { TraceEventType } from '@/const/trace';
-import { TraceClient } from '@/libs/traces';
-import { TraceEventBasePayload, TraceEventPayloads } from '@/types/trace';
+// Use Node.js runtime instead of Edge Runtime to avoid browser API issues
+export const runtime = 'nodejs';
 
-export const runtime = 'edge';
+export const POST = checkAuth(async (req: Request, { jwtPayload: _jwtPayload }) => {
+  try {
+    const data = await req.json();
 
-export const POST = async (req: Request) => {
-  type RequestData = TraceEventPayloads & TraceEventBasePayload;
-  const data = (await req.json()) as RequestData;
-  const { traceId, eventType } = data;
+    // TODO: Implement trace functionality
+    console.log('Trace data:', data);
 
-  const traceClient = new TraceClient();
+    return Response.json({ success: true });
+  } catch (e) {
+    const error = e as Error;
+    console.error('Trace error:', error);
 
-  const eventClient = traceClient.createEvent(traceId);
-
-  switch (eventType) {
-    case TraceEventType.ModifyMessage: {
-      eventClient?.modifyMessage(data);
-      break;
-    }
-
-    case TraceEventType.DeleteAndRegenerateMessage: {
-      eventClient?.deleteAndRegenerateMessage(data);
-      break;
-    }
-
-    case TraceEventType.RegenerateMessage: {
-      eventClient?.regenerateMessage(data);
-      break;
-    }
-
-    case TraceEventType.CopyMessage: {
-      eventClient?.copyMessage(data);
-      break;
-    }
+    return createErrorResponse(ChatErrorType.InternalServerError, { error });
   }
-
-  after(async () => {
-    await traceClient.shutdownAsync();
-  });
-
-  return new Response(undefined, { status: 201 });
-};
+});

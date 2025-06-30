@@ -1,9 +1,11 @@
-import { OpenAITTSPayload } from '@lobehub/tts';
-import { createOpenaiAudioSpeech } from '@lobehub/tts/server';
+import { checkAuth } from '@/app/(backend)/middleware/auth';
+import { AgentRuntime, ChatCompletionErrorPayload } from '@/libs/model-runtime';
+import { initAgentRuntimeWithUserPayload } from '@/server/modules/AgentRuntime';
+import { ChatErrorType } from '@/types/fetch';
+import { createErrorResponse } from '@/utils/errorResponse';
 
-import { createBizOpenAI } from '@/app/(backend)/_deprecated/createBizOpenAI';
-
-export const runtime = 'edge';
+// Use Node.js runtime instead of Edge Runtime to avoid browser API issues
+export const runtime = 'nodejs';
 
 export const preferredRegion = [
   'arn1',
@@ -25,14 +27,35 @@ export const preferredRegion = [
   'syd1',
 ];
 
-export const POST = async (req: Request) => {
-  const payload = (await req.json()) as OpenAITTSPayload;
+export const POST = checkAuth(async (req: Request, { jwtPayload }) => {
+  try {
+    const agentRuntime: AgentRuntime = await initAgentRuntimeWithUserPayload('openai', jwtPayload);
 
-  // need to be refactored with jwt auth mode
-  const openaiOrErrResponse = createBizOpenAI(req);
+    const data = await req.json();
 
-  // if resOrOpenAI is a Response, it means there is an error,just return it
-  if (openaiOrErrResponse instanceof Response) return openaiOrErrResponse;
+    const result = await agentRuntime.textToSpeech(data);
 
-  return await createOpenaiAudioSpeech({ openai: openaiOrErrResponse, payload });
-};
+    if (result instanceof Response) {
+      return result;
+    }
+
+    // If result is ArrayBuffer, convert to Response
+    return new Response(result, {
+      headers: {
+        'Content-Type': 'audio/mpeg',
+      },
+    });
+  } catch (e) {
+    const {
+      errorType = ChatErrorType.InternalServerError,
+      error: errorContent,
+      ...res
+    } = e as ChatCompletionErrorPayload;
+
+    const error = errorContent || e;
+
+    console.error(`Route: [openai-tts] ${errorType}:`, error);
+
+    return createErrorResponse(errorType, { error, ...res, provider: 'openai' });
+  }
+});

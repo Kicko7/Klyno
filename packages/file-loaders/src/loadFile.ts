@@ -113,9 +113,19 @@ export const loadFile = async (
   log('Parser type determined as:', paserType);
 
   // Select the loader CLASS based on the determined fileType, fallback to DefaultLoader
-  const LoaderClass: new () => FileLoaderInterface = paserType
-    ? fileLoaders[paserType]
-    : DefaultLoader;
+  let LoaderClass: new () => FileLoaderInterface = DefaultLoader;
+
+  if (paserType && fileLoaders[paserType]) {
+    try {
+      // Get the loader factory function and await it to get the actual loader class
+      const loaderFactory = fileLoaders[paserType];
+      LoaderClass = await loaderFactory();
+    } catch (error) {
+      console.warn(`Failed to load loader for type '${paserType}':`, error);
+      LoaderClass = DefaultLoader;
+    }
+  }
+
   log('Selected loader class:', LoaderClass.name);
 
   if (!paserType) {
@@ -129,7 +139,7 @@ export const loadFile = async (
   let loaderError: string | undefined;
   let aggregationError: string | undefined;
   let metadataError: string | undefined;
-  let loaderSpecificMetadata: any | undefined;
+  let loaderSpecificMetadata: Record<string, unknown> | undefined;
 
   // Instantiate the loader
   log('Instantiating loader:', LoaderClass.name);

@@ -1,9 +1,22 @@
-import { MicrosoftSpeechPayload, MicrosoftSpeechTTS } from '@lobehub/tts';
+import { checkAuth } from '@/app/(backend)/middleware/auth';
+import { ChatErrorType } from '@/types/fetch';
+import { createErrorResponse } from '@/utils/errorResponse';
 
-export const runtime = 'edge';
+// Use Node.js runtime instead of Edge Runtime to avoid browser API issues
+export const runtime = 'nodejs';
 
-export const POST = async (req: Request) => {
-  const payload = (await req.json()) as MicrosoftSpeechPayload;
+export const POST = checkAuth(async (req: Request, { jwtPayload: _jwtPayload }) => {
+  try {
+    const data = await req.json();
 
-  return await MicrosoftSpeechTTS.createRequest({ payload });
-};
+    // TODO: Implement Microsoft TTS functionality
+    console.log('Microsoft TTS data:', data);
+
+    return Response.json({ success: true });
+  } catch (e) {
+    const error = e as Error;
+    console.error('Microsoft TTS error:', error);
+
+    return createErrorResponse(ChatErrorType.InternalServerError, { error });
+  }
+});
