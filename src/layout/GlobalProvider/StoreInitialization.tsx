@@ -63,10 +63,11 @@ const StoreInitialization = memo(() => {
 
   // init user state
   useInitUserState(isLoginOnInit, serverConfig, {
-    onSuccess: (state) => {
-      if (state.isOnboard === false) {
-        router.push('/onboard');
-      }
+    onSuccess: () => {
+      // TODO: If onboarding UI is present, keep this redirect. Otherwise, comment out to avoid 404.
+      // if (state.isOnboard === false) {
+      //   router.push('/onboard');
+      // }
     },
   });
 

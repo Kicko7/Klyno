@@ -145,13 +145,7 @@ const isPublicRoute = createRouteMatcher([
   '/signup',
 ]);
 
-const isProtectedRoute = createRouteMatcher([
-  '/settings(.*)',
-  '/files(.*)',
-  '/onboard(.*)',
-  '/oauth(.*)',
-  // ↓ cloud ↓
-]);
+const isProtectedRoute = createRouteMatcher(['/settings(.*)', '/files(.*)']);
 
 // Initialize an Edge compatible NextAuth middleware
 const nextAuthMiddleware = NextAuthEdge.auth((req) => {

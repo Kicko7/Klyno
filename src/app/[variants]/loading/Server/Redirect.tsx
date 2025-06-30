@@ -45,11 +45,11 @@ const Redirect = memo<RedirectProps>(({ setLoadingStage }) => {
       return;
     }
 
-    // user need to onboard
-    if (!isOnboard) {
-      router.replace('/onboard');
-      return;
-    }
+    // Remove or update onboarding redirect
+    // if (!isOnboard) {
+    //   router.replace('/onboard');
+    //   return;
+    // }
 
     // finally go to chat
     navToChat();
