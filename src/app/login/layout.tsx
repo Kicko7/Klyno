@@ -12,16 +12,18 @@ export const dynamic = 'force-dynamic';
 // This layout simply returns its children directly, no Fragment needed
 export default function LoginLayout({ children }: { children: React.ReactNode }) {
   return (
-    <NuqsAdapter>
-      <GlobalProvider
-        appearance={DEFAULT_VARIANTS.theme}
-        isMobile={DEFAULT_VARIANTS.isMobile}
-        locale={DEFAULT_VARIANTS.locale}
-        neutralColor={undefined}
-        primaryColor={undefined}
-      >
-        <AuthProvider>{children}</AuthProvider>
-      </GlobalProvider>
-    </NuqsAdapter>
+    <div style={{ background: '#f0f6ff', minHeight: '100vh' }}>
+      <NuqsAdapter>
+        <GlobalProvider
+          appearance={DEFAULT_VARIANTS.theme}
+          isMobile={DEFAULT_VARIANTS.isMobile}
+          locale={DEFAULT_VARIANTS.locale}
+          neutralColor={undefined}
+          primaryColor={undefined}
+        >
+          <AuthProvider>{children}</AuthProvider>
+        </GlobalProvider>
+      </NuqsAdapter>
+    </div>
   );
 }
