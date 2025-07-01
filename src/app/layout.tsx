@@ -1,6 +1,6 @@
 import { ClerkProvider } from '@clerk/nextjs';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
-import React, { ReactNode } from 'react';
+import { ReactNode } from 'react';
 
 import AuthProvider from '@/layout/AuthProvider';
 import GlobalProvider from '@/layout/GlobalProvider';

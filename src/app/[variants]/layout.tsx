@@ -72,8 +72,8 @@ export const generateViewport = async (props: DynamicLayoutProps): ResolvingView
     initialScale: 1,
     minimumScale: 1,
     themeColor: [
-      { color: '#f8f8f8', media: '(prefers-color-scheme: light)' },
-      { color: '#000', media: '(prefers-color-scheme: dark)' },
+      { color: '#ffffff', media: '(prefers-color-scheme: light)' },
+      { color: '#000000', media: '(prefers-color-scheme: dark)' },
     ],
     viewportFit: 'cover',
     width: 'device-width',
@@ -90,7 +90,7 @@ export const generateStaticParams = () => {
 
   const themes: ThemeAppearance[] = ['dark', 'light'];
   const mobileOptions = isDesktop ? [false] : [true, false];
-  // only static for serveral page, other go to dynamtic
+  // only static for several page, other go to dynamic
   const staticLocales: Locales[] = [DEFAULT_LANG, 'zh-CN'];
 
   const variants: { variants: string }[] = [];

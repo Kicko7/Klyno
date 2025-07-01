@@ -9,7 +9,6 @@ import { Center, Flexbox } from 'react-layout-kit';
 import { Virtuoso } from 'react-virtuoso';
 import useSWR from 'swr';
 
-
 import EmptyStatus from './EmptyStatus';
 import FileListItem, { FILE_DATE_WIDTH, FILE_SIZE_WIDTH } from './FileListItem';
 import FileSkeleton from './FileSkeleton';
@@ -71,7 +70,7 @@ const FileList = memo<FileListProps>(({ knowledgeBaseId, category }) => {
           setSelectedFileIds={setSelectedFileIds}
           showConfig={!knowledgeBaseId}
           total={data?.length}
-          totalFileIds={data?.map((item) => item.id) || []}
+          totalFileIds={data?.map((item: { id: string }) => item.id) || []}
         />
         <Flexbox align={'center'} className={styles.header} horizontal paddingInline={8}>
           <Flexbox className={styles.headerItem} flex={1} style={{ paddingInline: 32 }}>
@@ -104,7 +103,7 @@ const FileList = memo<FileListProps>(({ knowledgeBaseId, category }) => {
               index={index}
               key={item.id}
               knowledgeBaseId={knowledgeBaseId}
-              onSelectedChange={(id, checked) => {
+              onSelectedChange={(id: string, checked: boolean) => {
                 setSelectedFileIds((prev) => {
                   if (checked) {
                     return [...prev, id];

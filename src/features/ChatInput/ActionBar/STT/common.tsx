@@ -16,7 +16,7 @@ const useStyles = createStyles(({ css, token }) => ({
   `,
 }));
 
-const CommonSTT = memo<{
+const commonstt = memo<{
   desc: string;
   error?: ChatMessageError;
   formattedTime: string;
@@ -51,7 +51,6 @@ const CommonSTT = memo<{
     return (
       <Dropdown
         menu={{
-          activeKey: 'time',
           items: [
             {
               key: 'title',
@@ -123,4 +122,4 @@ const CommonSTT = memo<{
   },
 );
 
-export default CommonSTT;
+export default commonstt;

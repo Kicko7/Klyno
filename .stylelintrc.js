@@ -1,9 +1,7 @@
-const config = require('@lobehub/lint').stylelint;
-
+/* stylelint-disable */
 module.exports = {
-  ...config,
+  extends: ['stylelint-config-standard', 'stylelint-config-recommended'],
   rules: {
-    'selector-id-pattern': null,
-    ...config.rules,
+    // Add only rules you know exist in v16+
   },
 };

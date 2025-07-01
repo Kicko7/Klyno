@@ -38,7 +38,7 @@ const useStyles = createStyles(({ css, prefixCls }) => ({
   `,
 }));
 
-const menuKey = (provider: string, model: string) => `${provider}-${model}`;
+const menukey = (provider: string, model: string) => `${provider}-${model}`;
 
 interface IProps {
   children?: ReactNode;
@@ -50,7 +50,7 @@ interface IProps {
 const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open }) => {
   const { t } = useTranslation('components');
   const { styles, theme } = useStyles();
-  const [model, provider, updateAgentConfig] = useAgentStore((s) => [
+  const [_, __, updateAgentConfig] = useAgentStore((s) => [
     agentSelectors.currentAgentModel(s),
     agentSelectors.currentAgentModelProvider(s),
     s.updateAgentConfig,
@@ -62,7 +62,7 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open }) => {
   const items = useMemo<ItemType[]>(() => {
     const getModelItems = (provider: EnabledProviderWithModels) => {
       const items = provider.children.map((model) => ({
-        key: menuKey(provider.id, model.id),
+        key: menukey(provider.id, model.id),
         label: <ModelItemRender {...model} {...model.abilities} />,
         onClick: async () => {
           await updateAgentConfig({ model: model.id, provider: provider.id });
@@ -141,7 +141,6 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open }) => {
   return (
     <ActionDropdown
       menu={{
-        activeKey: menuKey(provider, model),
         className: styles.menu,
         items,
         // 不加限高就会导致面板超长，顶部的内容会被隐藏
