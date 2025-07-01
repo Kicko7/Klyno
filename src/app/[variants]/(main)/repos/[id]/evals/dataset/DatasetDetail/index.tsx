@@ -5,7 +5,7 @@ import { ActionIcon, Button } from '@lobehub/ui';
 import { Typography, Upload } from 'antd';
 import { createStyles } from 'antd-style';
 import { Edit2Icon, Trash2Icon } from 'lucide-react';
-import { parseAsInteger, useQueryState } from 'nuqs';
+import { useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Center, Flexbox } from 'react-layout-kit';
 
@@ -43,7 +43,9 @@ const DatasetDetail = () => {
   const { styles } = useStyles();
   const [importDataset] = useKnowledgeBaseStore((s) => [s.importDataset]);
 
-  const [activeDatasetId] = useQueryState('id', parseAsInteger);
+  const searchParams = useSearchParams();
+  const id = searchParams.get('id');
+  const activeDatasetId = id ? parseInt(id, 10) : undefined;
 
   const columns: ProColumns[] = [
     {

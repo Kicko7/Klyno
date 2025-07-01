@@ -1,7 +1,7 @@
 'use client';
 
 import { SearchBar } from '@lobehub/ui';
-import { useQueryState } from 'nuqs';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,10 +13,18 @@ const FilesSearchBar = memo<{ mobile?: boolean }>(({ mobile }) => {
   const { t } = useTranslation('file');
   const hotkey = useUserStore(settingsSelectors.getHotkeyById(HotkeyEnum.Search));
   const [keywords, setKeywords] = useState<string>('');
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
-  const [, setQuery] = useQueryState('q', {
-    clearOnDefault: true,
-  });
+  const setQuery = (value: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set('q', value);
+    } else {
+      params.delete('q');
+    }
+    router.replace(`?${params.toString()}`);
+  };
 
   return (
     <SearchBar

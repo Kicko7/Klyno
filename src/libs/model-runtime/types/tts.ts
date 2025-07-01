@@ -1,12 +1,13 @@
-export interface TextToSpeechPayload {
+export interface texttospeechpayload {
   input: string;
   model: string;
   voice: string;
 }
 
-export interface TextToSpeechOptions {
-  headers?: Record<string, any>;
-  signal?: AbortSignal;
+export interface texttospeechoptions {
+  headers?: record<string, any>;
+  signal?: abortsignal;
+
   /**
    * userId for the embeddings
    */

@@ -1,11 +1,11 @@
-export interface ExportDatabaseData {
-  data: Record<string, object[]>;
-  schemaHash?: string;
+export interface exportdatabasedata {
+  data: record<string, object[]>;
+  schemahash?: string;
   url?: string;
 }
 
-export interface ImportPgDataStructure {
-  data: Record<string, object[]>;
-  mode: 'pglite' | 'postgres';
-  schemaHash: string;
+export interface importpgdatastructure {
+  data: record<string, object[]>;
+  mode: "pglite" | "postgres";
+  schemahash: string;
 }

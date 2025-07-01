@@ -1,21 +1,21 @@
-export interface AnspireSearchParameters {
-  FromTime?: string;
-  Insite?: string;
-  ToTime?: string;
+export interface anspiresearchparameters {
+  fromtime?: string;
+  insite?: string;
+  totime?: string;
   mode?: number;
   query: string;
   top_k?: number;
 }
 
-interface AnspireResults {
+interface anspireresults {
   content?: string;
   score?: number;
   title: string;
   url: string;
 }
 
-export interface AnspireResponse {
-  Uuid?: string;
+export interface anspireresponse {
+  uuid?: string;
   query?: string;
-  results?: AnspireResults[];
+  results?: anspireresults[];
 }

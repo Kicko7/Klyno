@@ -1,4 +1,4 @@
-export interface TavilySearchParameters {
+export interface tavilysearchparameters {
   chunks_per_source?: number;
   days?: number;
   exclude_domains?: string[];
@@ -14,12 +14,12 @@ export interface TavilySearchParameters {
   topic?: string;
 }
 
-interface TavilyImages {
+interface tavilyimages {
   description?: string;
   url: string;
 }
 
-interface TavilyResults {
+interface tavilyresults {
   content?: string;
   raw_content?: string | null;
   score?: number;
@@ -27,10 +27,10 @@ interface TavilyResults {
   url: string;
 }
 
-export interface TavilyResponse {
+export interface tavilyresponse {
   answer?: string;
-  images?: TavilyImages[];
+  images?: tavilyimages[];
   query: string;
   response_time: number;
-  results: TavilyResults[];
+  results: tavilyresults[];
 }

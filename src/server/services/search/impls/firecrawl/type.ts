@@ -1,35 +1,35 @@
-interface FirecrawlScrapeOptions {
+interface firecrawlscrapeoptions {
   formats: string[];
 }
 
-export interface FirecrawlSearchParameters {
+export interface firecrawlsearchparameters {
   country?: string;
   lang?: string;
   limit?: number;
   query: string;
-  scrapeOptions?: FirecrawlScrapeOptions;
+  scrapeoptions?: firecrawlscrapeoptions;
   tbs?: string;
   timeout?: number;
 }
 
-interface FirecrawlMetadata {
+interface firecrawlmetadata {
   description?: string;
-  sourceURL?: string;
-  statusCode?: number;
+  sourceurl?: string;
+  statuscode?: number;
   title: string;
 }
 
-interface FirecrawlData {
+interface firecrawldata {
   description?: string;
   html?: string;
   links?: string[];
   markdown?: string;
-  metadata?: FirecrawlMetadata;
+  metadata?: firecrawlmetadata;
   title?: string;
   url: string;
 }
 
-export interface FirecrawlResponse {
-  data: FirecrawlData[];
+export interface firecrawlresponse {
+  data: firecrawldata[];
   success?: boolean;
 }

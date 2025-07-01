@@ -2,8 +2,8 @@ import { Avatar, Tooltip } from '@lobehub/ui';
 import { Divider } from 'antd';
 import { createStyles } from 'antd-style';
 import isEqual from 'fast-deep-equal';
-import { parseAsBoolean, useQueryState } from 'nuqs';
 import { Flexbox } from 'react-layout-kit';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 import { useSwitchSession } from '@/hooks/useSwitchSession';
 import { useSessionStore } from '@/store/session';
@@ -71,7 +71,18 @@ const PinList = () => {
   const switchSession = useSwitchSession();
   const hotkey = useUserStore(settingsSelectors.getHotkeyById(HotkeyEnum.SwitchAgent));
   const hasList = list.length > 0;
-  const [isPinned, setPinned] = useQueryState('pinned', parseAsBoolean);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const isPinned = searchParams.get('pinned') === 'true';
+  const setPinned = (value: boolean) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set('pinned', 'true');
+    } else {
+      params.delete('pinned');
+    }
+    router.replace(`?${params.toString()}`);
+  };
 
   const switchAgent = (id: string) => {
     switchSession(id);

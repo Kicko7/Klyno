@@ -1,6 +1,6 @@
 'use client';
 
-import { useQueryState } from 'nuqs';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { memo, useEffect, useLayoutEffect } from 'react';
 import { createStoreUpdater } from 'zustand-utils';
 
@@ -10,23 +10,31 @@ import { useChatStore } from '@/store/chat';
 // sync outside state to useChatStore
 const ThreadHydration = memo(() => {
   const useStoreUpdater = createStoreUpdater(useChatStore);
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   // two-way bindings the topic params to chat store
-  const [portalThread, setThread] = useQueryState('portalThread');
+  const portalThread = searchParams.get('portalThread');
   useStoreUpdater('portalThreadId', portalThread);
 
   useLayoutEffect(() => {
     const unsubscribe = useChatStore.subscribe(
       (s) => s.portalThreadId,
       (state) => {
-        setThread(!state ? null : state);
+        const params = new URLSearchParams(searchParams.toString());
+        if (!state) {
+          params.delete('portalThread');
+        } else {
+          params.set('portalThread', state);
+        }
+        router.replace(`?${params.toString()}`);
       },
     );
 
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [searchParams, router]);
 
   // should open portal automatically when portalThread is set
   useEffect(() => {

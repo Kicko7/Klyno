@@ -1,5 +1,4 @@
 import { ClerkProvider } from '@clerk/nextjs';
-import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { ReactNode } from 'react';
 
 import AuthProvider from '@/layout/AuthProvider';
@@ -15,9 +14,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <GlobalProvider appearance="dark" isMobile={false} locale="en">
           <AuthProvider>
-            <NuqsAdapter>
-              <ClerkProvider>{children}</ClerkProvider>
-            </NuqsAdapter>
+            <ClerkProvider>{children}</ClerkProvider>
           </AuthProvider>
         </GlobalProvider>
       </body>

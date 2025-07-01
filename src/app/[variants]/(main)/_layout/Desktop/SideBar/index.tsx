@@ -2,8 +2,8 @@
 
 import { SideNav } from '@lobehub/ui';
 import { useTheme } from 'antd-style';
-import { parseAsBoolean, useQueryState } from 'nuqs';
 import { Suspense, memo } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import { isDesktop } from '@/const/version';
 import { useActiveTabKey } from '@/hooks/useActiveTabKey';
@@ -18,7 +18,8 @@ import PinList from './PinList';
 import TopActions from './TopActions';
 
 const Top = () => {
-  const [isPinned] = useQueryState('pinned', parseAsBoolean);
+  const searchParams = useSearchParams();
+  const isPinned = searchParams.get('pinned') === 'true';
   const sidebarKey = useActiveTabKey();
 
   return <TopActions isPinned={isPinned} tab={sidebarKey} />;

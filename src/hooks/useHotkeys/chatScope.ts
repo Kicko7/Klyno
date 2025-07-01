@@ -1,7 +1,7 @@
 import isEqual from 'fast-deep-equal';
-import { parseAsBoolean, useQueryState } from 'nuqs';
 import { useEffect } from 'react';
 import { useHotkeysContext } from 'react-hotkeys-hook';
+import { useSearchParams } from 'next/navigation';
 
 import { useClearCurrentMessages } from '@/features/ChatInput/ActionBar/Clear';
 import { useSendMessage } from '@/features/ChatInput/useSend';
@@ -48,7 +48,7 @@ export const useRegenerateMessageHotkey = () => {
 
 export const useToggleLeftPanelHotkey = () => {
   const isZenMode = useGlobalStore((s) => s.status.zenMode);
-  const [isPinned] = useQueryState('pinned', parseAsBoolean);
+  const [isPinned] = useSearchParams();
   const showSessionPanel = useGlobalStore(systemStatusSelectors.showSessionPanel);
   const updateSystemStatus = useGlobalStore((s) => s.updateSystemStatus);
 

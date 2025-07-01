@@ -1,4 +1,4 @@
-export interface NovitaModelCard {
+export interface novitamodelcard {
   context_size: number;
   created: number;
   description: string;

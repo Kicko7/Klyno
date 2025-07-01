@@ -1,5 +1,5 @@
-export interface UserToolConfig {
+export interface usertoolconfig {
   dalle: {
-    autoGenerate: boolean;
+    autogenerate: boolean;
   };
 }

@@ -1,24 +1,24 @@
-export interface KagiSearchParameters {
+export interface kagisearchparameters {
   limit?: number;
   q: string;
 }
 
-interface KagiThumbnail {
+interface kagithumbnail {
   height?: number | null;
   url: string;
   width?: number | null;
 }
 
-interface KagiData {
+interface kagidata {
   published?: number;
   snippet?: string;
   t: number;
-  thumbnail?: KagiThumbnail;
+  thumbnail?: kagithumbnail;
   title: string;
   url: string;
 }
 
-export interface KagiResponse {
-  data: KagiData[];
+export interface kagiresponse {
+  data: kagidata[];
   meta?: any;
 }

@@ -1,28 +1,28 @@
-export interface ExaSearchParameters {
+export interface exasearchparameters {
   category?: string;
-  endCrawlDate?: string;
-  endPublishedDate?: string;
-  excludeDomains?: string[];
-  excludeText?: string[];
-  includeDomains?: string[];
-  includeText?: string[];
-  numResults?: number;
+  endcrawldate?: string;
+  endpublisheddate?: string;
+  excludedomains?: string[];
+  excludetext?: string[];
+  includedomains?: string[];
+  includetext?: string[];
+  numresults?: number;
   query: string;
-  startCrawlDate?: string;
-  startPublishedDate?: string;
+  startcrawldate?: string;
+  startpublisheddate?: string;
   type?: string;
 }
 
-interface ExaCostDollars {
+interface exacostdollars {
   total: number;
 }
 
-interface ExaResults {
+interface exaresults {
   author?: string | null;
   favicon?: string;
   id?: string;
   image?: string;
-  publishedDate?: string | null;
+  publisheddate?: string | null;
   score?: number | null;
   summery?: string;
   text: string;
@@ -30,10 +30,10 @@ interface ExaResults {
   url: string;
 }
 
-export interface ExaResponse {
-  costDollars?: ExaCostDollars;
-  requestId?: string;
-  resolvedSearchType?: string;
-  results: ExaResults[];
-  searchType?: string;
+export interface exaresponse {
+  costdollars?: exacostdollars;
+  requestid?: string;
+  resolvedsearchtype?: string;
+  results: exaresults[];
+  searchtype?: string;
 }

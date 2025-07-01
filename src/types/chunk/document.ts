@@ -1,9 +1,9 @@
-export interface ChunkDocument {
-  compositeId?: string;
+export interface chunkdocument {
+  compositeid?: string;
   id?: string;
   index: number;
   metadata: any;
-  parentId?: string;
+  parentid?: string;
   text: string;
   type: string;
 }

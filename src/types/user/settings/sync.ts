@@ -1,10 +1,11 @@
-export interface WebRTCSyncConfig {
-  channelName?: string;
-  channelPassword?: string;
+export interface webrtcsyncconfig {
+  channelname?: string;
+  channelpassword?: string;
   enabled: boolean;
   signaling?: string;
 }
-export interface UserSyncSettings {
-  deviceName?: string;
-  webrtc: WebRTCSyncConfig;
+
+export interface usersyncsettings {
+  devicename?: string;
+  webrtc: webrtcsyncconfig;
 }

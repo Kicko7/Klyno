@@ -1,6 +1,6 @@
-export interface ChangelogIndexItem {
+export interface changelogindexitem {
   date: string;
   id: string;
   image?: string;
-  versionRange: string[];
+  versionrange: string[];
 }

@@ -1,3 +1,3 @@
-export type FieldType = {
-  includeTool: boolean;
-};
+export type fieldtype = {
+  includetool: boolean;
+}

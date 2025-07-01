@@ -1,9 +1,10 @@
-export interface FilesConfigItem {
+export interface filesconfigitem {
   model: string;
   provider: string;
 }
-export interface FilesConfig {
-  embeddingModel: FilesConfigItem;
-  queryMode: string;
-  rerankerModel: FilesConfigItem;
+
+export interface filesconfig {
+  embeddingmodel: filesconfigitem;
+  querymode: string;
+  rerankermodel: filesconfigitem;
 }

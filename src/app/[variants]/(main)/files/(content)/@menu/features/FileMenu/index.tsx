@@ -85,7 +85,7 @@ const FileMenu = memo(() => {
         compact
         items={items}
         onClick={({ key }) => {
-          setActiveKey(key);
+          setActiveKey(key as FilesTabs);
         }}
         selectable
         selectedKeys={[activeKey]}

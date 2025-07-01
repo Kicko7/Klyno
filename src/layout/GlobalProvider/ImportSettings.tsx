@@ -1,6 +1,6 @@
 'use client';
 
-import { useQueryState } from 'nuqs';
+import { useSearchParams } from 'next/navigation';
 import { memo, useEffect } from 'react';
 
 import { LOBE_URL_IMPORT_NAME } from '@/const/url';
@@ -13,10 +13,8 @@ const ImportSettings = memo(() => {
   ]);
 
   // Import settings from the url
-  const [searchParam] = useQueryState(LOBE_URL_IMPORT_NAME, {
-    clearOnDefault: true,
-    defaultValue: '',
-  });
+  const searchParams = useSearchParams();
+  const searchParam = searchParams.get(LOBE_URL_IMPORT_NAME) || '';
 
   useEffect(() => {
     // Why use `usUserStateInit`,

@@ -1,4 +1,4 @@
-export interface PPIOModelCard {
+export interface ppiomodelcard {
   context_size: number;
   created: number;
   description: string;

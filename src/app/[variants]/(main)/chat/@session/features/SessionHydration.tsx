@@ -1,6 +1,6 @@
 'use client';
 
-import { useQueryState } from 'nuqs';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { memo, useEffect } from 'react';
 import { createStoreUpdater } from 'zustand-utils';
 
@@ -14,9 +14,11 @@ const SessionHydration = memo(() => {
   const useAgentStoreUpdater = createStoreUpdater(useAgentStore);
   const useChatStoreUpdater = createStoreUpdater(useChatStore);
   const [switchTopic] = useChatStore((s) => [s.switchTopic]);
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   // two-way bindings the url and session store
-  const [session, setSession] = useQueryState('session', { history: 'replace', throttleMs: 50 });
+  const session = searchParams.get('session');
   useStoreUpdater('activeId', session);
   useAgentStoreUpdater('activeId', session);
   useChatStoreUpdater('activeId', session);
@@ -26,14 +28,20 @@ const SessionHydration = memo(() => {
       (s) => s.activeId,
       (state) => {
         switchTopic();
-        setSession(state);
+        const params = new URLSearchParams(searchParams.toString());
+        if (state) {
+          params.set('session', state);
+        } else {
+          params.delete('session');
+        }
+        router.replace(`?${params.toString()}`);
       },
     );
 
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [searchParams, router, switchTopic]);
 
   return null;
 });

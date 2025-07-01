@@ -4,7 +4,7 @@ import { Tabs } from '@lobehub/ui';
 import { Skeleton } from 'antd';
 import { useTheme } from 'antd-style';
 import isEqual from 'fast-deep-equal';
-import { useQueryState } from 'nuqs';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { memo } from 'react';
 
 import { INBOX_SESSION_ID } from '@/const/session';
@@ -17,9 +17,18 @@ import { settingsSelectors } from '@/store/user/selectors';
 
 const Page = memo(() => {
   const cateItems = useCategory();
-  const [tab, setTab] = useQueryState('tab', {
-    defaultValue: ChatSettingsTabs.Prompt,
-  });
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const tab = searchParams.get('tab') || '';
+  const setTab = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set('tab', value);
+    } else {
+      params.delete('tab');
+    }
+    router.replace(`?${params.toString()}`);
+  };
   const config = useUserStore(settingsSelectors.defaultAgentConfig, isEqual);
   const meta = useUserStore(settingsSelectors.defaultAgentMeta, isEqual);
   const [updateAgent, isUserStateInit] = useUserStore((s) => [
@@ -38,7 +47,7 @@ const Page = memo(() => {
         <Tabs
           activeKey={tab}
           compact
-          items={cateItems as any}
+          items={cateItems?.filter(Boolean) as any}
           onChange={(value) => setTab(value as ChatSettingsTabs)}
           style={{
             borderBottom: `1px solid ${theme.colorBorderSecondary}`,

@@ -1,30 +1,31 @@
-export interface TableBasicInfo {
+export interface tablebasicinfo {
   count: number;
   name: string;
-  type: 'BASE TABLE' | 'VIEW';
+  type: "BASE TABLE" | "VIEW";
 }
 
-export interface TableColumnInfo {
-  defaultValue?: string;
+export interface tablecolumninfo {
+  defaultvalue?: string;
   foreignKey?: {
     column: string;
     table: string;
   };
-  isPrimaryKey: boolean;
+
+  isprimarykey: boolean;
   name: string;
   nullable: boolean;
   type: string;
 }
 
-export interface PaginationParams {
+export interface paginationparams {
   page: number;
-  pageSize: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+  pagesize: number;
+  sortby?: string;
+  sortorder?: "asc" | "desc";
 }
 
-export interface FilterCondition {
+export interface filtercondition {
   column: string;
-  operator: 'equals' | 'contains' | 'startsWith' | 'endsWith';
+  operator: "equals" | "contains" | "startsWith" | "endsWith";
   value: any;
 }

@@ -2,8 +2,7 @@
 
 import { SearchBar, SearchBarProps } from '@lobehub/ui';
 import { createStyles } from 'antd-style';
-import { usePathname } from 'next/navigation';
-import { useQueryState } from 'nuqs';
+import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { memo, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import urlJoin from 'url-join';
@@ -36,23 +35,33 @@ const StoreSearchBar = memo<StoreSearchBarProps>(({ mobile, onBlur, onFocus, ...
   const [active, setActive] = useState(false);
   const pathname = usePathname();
   const { activeKey } = useNav();
-  const [searchKey, setSearchKey] = useQueryState('q', { clearOnDefault: true, defaultValue: '' });
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const queryRoute = useQueryRoute();
+  const searchKey = searchParams.get('q') || '';
+  const setSearchKey = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set('q', value);
+    } else {
+      params.delete('q');
+    }
+    router.replace(`?${params.toString()}`);
+  };
   const hotkey = useUserStore(settingsSelectors.getHotkeyById(HotkeyEnum.Search));
 
   const { t } = useTranslation('discover');
   const { cx, styles } = useStyles();
-  const router = useQueryRoute();
 
   const activeType = activeKey === DiscoverTab.Home ? DiscoverTab.Assistants : activeKey;
 
   useEffect(() => {
     if (!pathname.includes('/discover/search')) return;
-    // 使用 useQueryState 时，当 handleSearch 为空时无法回跳
-    if (!searchKey) router.push(urlJoin('/discover', activeType), { query: {}, replace: true });
+    if (!searchKey) queryRoute.push(urlJoin('/discover', activeType));
   }, [searchKey, pathname, activeType]);
 
   const handleSearch = (value: string) => {
-    router.push('/discover/search', { query: { q: value, type: activeType } });
+    queryRoute.push(`/discover/search?q=${encodeURIComponent(value)}&type=${encodeURIComponent(activeType)}`);
   };
 
   return (

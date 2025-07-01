@@ -1,11 +1,11 @@
-export interface ChatImageItem {
+export interface chatimageitem {
   alt: string;
   id: string;
   url: string;
 }
 
-export interface ChatImageChunk {
+export interface chatimagechunk {
   data: string;
   id: string;
-  isBase64?: boolean;
+  isbase64?: boolean;
 }

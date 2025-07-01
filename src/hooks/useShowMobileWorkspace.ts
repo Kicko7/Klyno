@@ -1,7 +1,7 @@
-import { parseAsBoolean, useQueryState } from 'nuqs';
+import { useSearchParams } from 'next/navigation';
 
 export const useShowMobileWorkspace = () => {
-  const [showMobileWorkspace] = useQueryState('showMobileWorkspace', parseAsBoolean);
-
+  const searchParams = useSearchParams();
+  const showMobileWorkspace = searchParams.get('showMobileWorkspace') === 'true';
   return showMobileWorkspace;
 };

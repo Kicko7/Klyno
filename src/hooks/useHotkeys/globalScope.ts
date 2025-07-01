@@ -1,5 +1,5 @@
 import isEqual from 'fast-deep-equal';
-import { parseAsBoolean, useQueryState } from 'nuqs';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useHotkeys } from 'react-hotkeys-hook';
 
 import { useSwitchSession } from '@/hooks/useSwitchSession';
@@ -18,8 +18,17 @@ export const useSwitchAgentHotkey = () => {
   const list = useSessionStore(sessionSelectors.pinnedSessions, isEqual);
   const hotkey = useUserStore(settingsSelectors.getHotkeyById(HotkeyEnum.SwitchAgent));
   const switchSession = useSwitchSession();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_, setPinned] = useQueryState('pinned', parseAsBoolean);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const setPinned = (value: boolean) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set('pinned', 'true');
+    } else {
+      params.delete('pinned');
+    }
+    router.replace(`?${params.toString()}`);
+  };
 
   const switchAgent = (id: string) => {
     switchSession(id);

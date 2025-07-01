@@ -3,7 +3,7 @@
 import { DraggablePanel, DraggablePanelContainer, type DraggablePanelProps } from '@lobehub/ui';
 import { createStyles, useResponsive } from 'antd-style';
 import isEqual from 'fast-deep-equal';
-import { parseAsBoolean, useQueryState } from 'nuqs';
+import { useSearchParams } from 'next/navigation';
 import { PropsWithChildren, memo, useEffect, useState } from 'react';
 
 import { withSuspense } from '@/components/withSuspense';
@@ -35,7 +35,8 @@ export const useStyles = createStyles(({ css, token }) => ({
 const SessionPanel = memo<PropsWithChildren>(({ children }) => {
   const { md = true } = useResponsive();
 
-  const [isPinned] = useQueryState('pinned', parseAsBoolean);
+  const searchParams = useSearchParams();
+  const isPinned = searchParams.get('pinned') === 'true';
 
   const { styles } = useStyles();
   const [sessionsWidth, sessionExpandable, updatePreference] = useGlobalStore((s) => [

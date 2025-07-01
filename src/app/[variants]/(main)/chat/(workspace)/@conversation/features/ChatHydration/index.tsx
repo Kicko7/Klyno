@@ -1,6 +1,6 @@
 'use client';
 
-import { useQueryState } from 'nuqs';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { memo, useLayoutEffect } from 'react';
 import { createStoreUpdater } from 'zustand-utils';
 
@@ -9,10 +9,12 @@ import { useChatStore } from '@/store/chat';
 // sync outside state to useChatStore
 const ChatHydration = memo(() => {
   const useStoreUpdater = createStoreUpdater(useChatStore);
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   // two-way bindings the topic params to chat store
-  const [topic, setTopic] = useQueryState('topic', { history: 'replace', throttleMs: 500 });
-  const [thread, setThread] = useQueryState('thread', { history: 'replace', throttleMs: 500 });
+  const topic = searchParams.get('topic');
+  const thread = searchParams.get('thread');
   useStoreUpdater('activeTopicId', topic);
   useStoreUpdater('activeThreadId', thread);
 
@@ -20,13 +22,25 @@ const ChatHydration = memo(() => {
     const unsubscribeTopic = useChatStore.subscribe(
       (s) => s.activeTopicId,
       (state) => {
-        setTopic(!state ? null : state);
+        const params = new URLSearchParams(searchParams.toString());
+        if (!state) {
+          params.delete('topic');
+        } else {
+          params.set('topic', state);
+        }
+        router.replace(`?${params.toString()}`);
       },
     );
     const unsubscribeThread = useChatStore.subscribe(
       (s) => s.activeThreadId,
       (state) => {
-        setThread(!state ? null : state);
+        const params = new URLSearchParams(searchParams.toString());
+        if (!state) {
+          params.delete('thread');
+        } else {
+          params.set('thread', state);
+        }
+        router.replace(`?${params.toString()}`);
       },
     );
 
@@ -34,7 +48,7 @@ const ChatHydration = memo(() => {
       unsubscribeTopic();
       unsubscribeThread();
     };
-  }, []);
+  }, [searchParams, router]);
 
   return null;
 });

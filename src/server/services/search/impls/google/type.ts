@@ -1,41 +1,41 @@
-export interface GoogleSearchParameters {
+export interface googlesearchparameters {
   c2coff?: number;
   cx: string;
-  dateRestrict?: string;
-  exactTerms?: string;
-  excludeTerms?: string;
-  fileType?: string;
+  daterestrict?: string;
+  exactterms?: string;
+  excludeterms?: string;
+  filetype?: string;
   filter?: string;
   gl?: string;
-  highRange?: string;
+  highrange?: string;
   hl?: string;
   hq?: string;
-  imgColorType?: string;
-  imgDominantColor?: string;
-  imgSize?: string;
-  imgType?: string;
+  imgcolortype?: string;
+  imgdominantcolor?: string;
+  imgsize?: string;
+  imgtype?: string;
   key: string;
-  linkSite?: string;
-  lowRange?: string;
+  linksite?: string;
+  lowrange?: string;
   lr?: string;
   num?: number;
-  orTerms?: string;
+  orterms?: string;
   q: string;
   rights?: string;
   safe?: string;
-  searchType?: string;
-  siteSearch?: string;
-  siteSearchFilter?: string;
+  searchtype?: string;
+  sitesearch?: string;
+  sitesearchfilter?: string;
   sort?: string;
   start?: string;
 }
 
-interface GoogleItems {
-  displayLink?: string;
-  formattedUrl?: string;
-  htmlFormattedUrl?: string;
-  htmlSnippet?: string;
-  htmlTitle?: string;
+interface googleitems {
+  displaylink?: string;
+  formattedurl?: string;
+  htmlformattedurl?: string;
+  htmlsnippet?: string;
+  htmltitle?: string;
   kind?: string;
   link: string;
   pagemap?: any;
@@ -43,11 +43,11 @@ interface GoogleItems {
   title: string;
 }
 
-export interface GoogleResponse {
+export interface googleresponse {
   context?: any;
-  items: GoogleItems[];
+  items: googleitems[];
   kind?: string;
   queries?: any;
-  searchInformation?: any;
+  searchinformation?: any;
   url?: any;
 }
