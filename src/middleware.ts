@@ -142,7 +142,17 @@ const isPublicRoute = createRouteMatcher([
   '/next-auth/(.*)',
   // clerk
   '/login',
+  '/login(.*)',
   '/signup',
+  '/signup(.*)',
+  '/auth/login',
+  '/auth/login(.*)',
+  '/auth/signup',
+  '/auth/signup(.*)',
+  '/[variants]/(auth)/login',
+  '/[variants]/(auth)/login(.*)',
+  '/[variants]/(auth)/signup',
+  '/[variants]/(auth)/signup(.*)',
 ]);
 
 const isProtectedRoute = createRouteMatcher(['/settings(.*)', '/files(.*)']);
@@ -200,25 +210,19 @@ const nextAuthMiddleware = NextAuthEdge.auth((req) => {
 const clerkAuthMiddleware = clerkMiddleware(
   async (auth, req) => {
     logClerk('Clerk middleware processing request: %s %s', req.method, req.url);
-
     // when enable auth protection, only public route is not protected, others are all protected
     const isProtected = appEnv.ENABLE_AUTH_PROTECTION ? !isPublicRoute(req) : isProtectedRoute(req);
-
     logClerk('Route protection status: %s, %s', req.url, isProtected ? 'protected' : 'public');
-
     if (isProtected) {
       logClerk('Protecting route: %s', req.url);
       await auth.protect();
     }
-
     const response = defaultMiddleware(req);
-
     const data = await auth();
     logClerk('Clerk auth status: %O', {
       isSignedIn: !!data.userId,
       userId: data.userId,
     });
-
     // If OIDC is enabled and Clerk user is logged in, add OIDC session pre-sync header
     if (oidcEnv.ENABLE_OIDC && data.userId) {
       logClerk('OIDC session pre-sync: Setting %s = %s', OIDC_SESSION_HEADER, data.userId);
@@ -226,14 +230,12 @@ const clerkAuthMiddleware = clerkMiddleware(
     } else if (oidcEnv.ENABLE_OIDC) {
       logClerk('No Clerk user detected, not setting OIDC session sync header');
     }
-
     return response;
   },
   {
-    // https://github.com/lobehub/lobe-chat/pull/3084
     clockSkewInMs: 60 * 60 * 1000,
-    signInUrl: '/login',
-    signUpUrl: '/signup',
+    signInUrl: '/login', // covers /login and /login/*
+    signUpUrl: '/signup', // covers /signup and /signup/*
   },
 );
 
