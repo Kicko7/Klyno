@@ -10,7 +10,7 @@ export default function LoginPage() {
     <div
       style={{ alignItems: 'center', display: 'flex', justifyContent: 'center', minHeight: '80vh' }}
     >
-      <SignIn />
+      <SignIn fallbackRedirectUrl="/" />
     </div>
   );
 }

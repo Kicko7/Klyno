@@ -31,7 +31,7 @@ export const generateMetadata = async ({
 export default async function Page({ params }: { params: Promise<{ [key: string]: string }> }) {
   const _resolvedParams = await params; // Intentionally unused, but must be awaited for future compatibility
   if (!enableClerk) notFound();
-  return <SignIn />;
+  return <SignIn fallbackRedirectUrl="/" />;
 }
 
 // ---

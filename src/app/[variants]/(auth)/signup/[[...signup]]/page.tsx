@@ -35,7 +35,7 @@ export default async function Page({ params }: { params: Promise<{ [key: string]
   if (!enableClerkSignUp) {
     redirect('/login');
   }
-  return <SignUp path="/signup" />;
+  return <SignUp fallbackRedirectUrl="/" path="/signup" />;
 }
 
 // ---

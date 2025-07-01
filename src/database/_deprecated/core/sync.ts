@@ -26,6 +26,13 @@ class DataSync {
 
   logger = Debug(LOG_NAME_SPACE);
 
+  // Ensure this class is only instantiated in the browser
+  constructor() {
+    if (typeof window === 'undefined') {
+      throw new Error('DataSync can only be used in the browser environment.');
+    }
+  }
+
   transact(fn: (transaction: Transaction) => unknown) {
     this._ydoc?.transact(fn);
   }
@@ -35,6 +42,9 @@ class DataSync {
   };
 
   startDataSync = async (params: StartDataSyncParams) => {
+    if (typeof window === 'undefined') {
+      throw new Error('startDataSync can only be called in the browser environment.');
+    }
     this.syncParams = params;
     this.onAwarenessChange = params.onAwarenessChange;
 
@@ -48,6 +58,9 @@ class DataSync {
   };
 
   connect = async (params: StartDataSyncParams) => {
+    if (typeof window === 'undefined') {
+      throw new Error('connect can only be called in the browser environment.');
+    }
     const { channel, onSyncEvent, onSyncStatusChange, user, onAwarenessChange, signaling } = params;
     // ====== 1. init yjs doc ====== //
 
