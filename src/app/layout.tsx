@@ -1,15 +1,16 @@
-import { ClerkProvider } from '@clerk/nextjs';
 import React from 'react';
+
+import AuthProvider from '@/layout/AuthProvider';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider>
+    <AuthProvider>
       <html lang="en">
         <body>{children}</body>
       </html>
-    </ClerkProvider>
+    </AuthProvider>
   );
 }
