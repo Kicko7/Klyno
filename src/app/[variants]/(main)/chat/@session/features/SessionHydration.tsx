@@ -1,7 +1,6 @@
 'use client';
 
 import { useQueryState } from 'nuqs';
-import { parseAsString } from 'nuqs/server';
 import { memo, useEffect } from 'react';
 import { createStoreUpdater } from 'zustand-utils';
 
@@ -17,10 +16,7 @@ const SessionHydration = memo(() => {
   const [switchTopic] = useChatStore((s) => [s.switchTopic]);
 
   // two-way bindings the url and session store
-  const [session, setSession] = useQueryState(
-    'session',
-    parseAsString.withDefault('inbox').withOptions({ history: 'replace', throttleMs: 50 }),
-  );
+  const [session, setSession] = useQueryState('session', { history: 'replace', throttleMs: 50 });
   useStoreUpdater('activeId', session);
   useAgentStoreUpdater('activeId', session);
   useChatStoreUpdater('activeId', session);
