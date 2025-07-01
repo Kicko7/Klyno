@@ -2,15 +2,13 @@
 
 import { Typography } from 'antd';
 import { createStyles } from 'antd-style';
-import { useQueryState } from 'nuqs';
 import { rgba } from 'polished';
 import { memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Center, Flexbox } from 'react-layout-kit';
 import { Virtuoso } from 'react-virtuoso';
+import useSWR from 'swr';
 
-import { useFileStore } from '@/store/file';
-import { SortType } from '@/types/files';
 
 import EmptyStatus from './EmptyStatus';
 import FileListItem, { FILE_DATE_WIDTH, FILE_SIZE_WIDTH } from './FileListItem';
@@ -40,6 +38,8 @@ interface FileListProps {
   knowledgeBaseId?: string;
 }
 
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
 const FileList = memo<FileListProps>(({ knowledgeBaseId, category }) => {
   const { t } = useTranslation('components');
   const { styles } = useStyles();
@@ -47,29 +47,12 @@ const FileList = memo<FileListProps>(({ knowledgeBaseId, category }) => {
   const [selectFileIds, setSelectedFileIds] = useState<string[]>([]);
   const [viewConfig, setViewConfig] = useState({ showFilesInKnowledgeBase: false });
 
-  const [query] = useQueryState('q', {
-    clearOnDefault: true,
-  });
+  const params = new URLSearchParams();
+  if (category) params.append('category', category);
+  if (knowledgeBaseId) params.append('knowledgeBaseId', knowledgeBaseId);
+  // Add more params as needed
 
-  const [sorter] = useQueryState('sorter', {
-    clearOnDefault: true,
-    defaultValue: 'createdAt',
-  });
-  const [sortType] = useQueryState('sortType', {
-    clearOnDefault: true,
-    defaultValue: SortType.Desc,
-  });
-
-  const useFetchFileManage = useFileStore((s) => s.useFetchFileManage);
-
-  const { data, isLoading } = useFetchFileManage({
-    category,
-    knowledgeBaseId,
-    q: query,
-    sortType,
-    sorter,
-    ...viewConfig,
-  });
+  const { data, isLoading } = useSWR(`/api/files?${params.toString()}`, fetcher);
 
   useCheckTaskStatus(data);
 
