@@ -65,6 +65,16 @@ const defaultMiddleware = (request: NextRequest) => {
     return NextResponse.next();
   }
 
+  // Bypass variant rewrite for login/signup/auth routes
+  if (
+    url.pathname.startsWith('/login') ||
+    url.pathname.startsWith('/signup') ||
+    url.pathname.startsWith('/auth/login') ||
+    url.pathname.startsWith('/auth/signup')
+  ) {
+    return NextResponse.next();
+  }
+
   // 1. Read user preferences from cookies
   const theme =
     request.cookies.get(LOBE_THEME_APPEARANCE)?.value || parseDefaultThemeFromCountry(request);

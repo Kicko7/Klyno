@@ -1,10 +1,13 @@
 'use client';
 
-import { SignIn } from '@clerk/nextjs';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export default function LoginPage() {
-  return <SignIn />;
+  return (
+    <div style={{ color: 'lime', fontSize: 32, marginTop: 100, textAlign: 'center' }}>
+      Login Page Test
+    </div>
+  );
 }
