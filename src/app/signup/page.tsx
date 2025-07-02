@@ -6,5 +6,5 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export default function SignupPage() {
-  return <SignUp fallbackRedirectUrl="/" />;
+  return <SignUp redirectUrl="/chat" />;
 }
