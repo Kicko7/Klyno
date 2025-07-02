@@ -1,16 +1,26 @@
 // CLIENT-ONLY: All sync logic here is for browser/client-side only. Never import this file on the server.
-import { dataSync } from '@/database/_deprecated/core';
+import { clientDataSync } from '@/utils/dataSync.client';
 import { StartDataSyncParams } from '@/types/sync';
 
 class SyncService {
   enabledSync = async (params: StartDataSyncParams) => {
     if (typeof window === 'undefined') return false;
-    await dataSync.startDataSync(params);
-    return true;
+    
+    try {
+      await clientDataSync.startDataSync(params);
+      return true;
+    } catch (error) {
+      console.error('Failed to enable sync:', error);
+      return false;
+    }
   };
 
   disableSync = async () => {
-    await dataSync.disconnect();
+    try {
+      await clientDataSync.disconnect();
+    } catch (error) {
+      console.error('Failed to disable sync:', error);
+    }
     return false;
   };
 }

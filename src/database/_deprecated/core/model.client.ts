@@ -4,10 +4,10 @@ import { ZodObject } from 'zod';
 import { nanoid } from '@/utils/uuid';
 
 import { BrowserDB, BrowserDBSchema, browserDB } from './db';
-import { dataSync } from './sync';
+import { clientDataSync } from '@/utils/dataSync.client';
 import { DBBaseFieldsSchema } from './types/db';
 
-export class BaseModel<N extends keyof BrowserDBSchema = keyof BrowserDBSchema, T = BrowserDBSchema[N]['table']> {
+export class BaseModelClient<N extends keyof BrowserDBSchema = keyof BrowserDBSchema, T = BrowserDBSchema[N]['table']> {
   protected readonly db: BrowserDB;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private readonly schema: ZodObject<any>;
@@ -25,7 +25,13 @@ export class BaseModel<N extends keyof BrowserDBSchema = keyof BrowserDBSchema, 
   }
 
   get yMap() {
-    return dataSync.getYMap(this._tableName);
+    // Client-only YMap access
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    
+    // This will be resolved asynchronously in the actual methods
+    return null;
   }
 
   // **************** Create *************** //
@@ -61,8 +67,8 @@ export class BaseModel<N extends keyof BrowserDBSchema = keyof BrowserDBSchema, 
 
     const newId = await this.db[tableName].add(record);
 
-    // sync data to yjs data map
-    this.updateYMapItem(newId);
+    // sync data to yjs data map (client-only)
+    await this.updateYMapItem(newId);
 
     return { id: newId };
   }
@@ -145,12 +151,12 @@ export class BaseModel<N extends keyof BrowserDBSchema = keyof BrowserDBSchema, 
     try {
       await this.table.bulkAdd(validatedData);
 
-      if (withSync) {
-        dataSync.transact(() => {
+      if (withSync && typeof window !== 'undefined') {
+        await clientDataSync.transact(async () => {
           const pools = validatedData.map(async (item) => {
             await this.updateYMapItem(item.id);
           });
-          Promise.all(pools);
+          await Promise.all(pools);
         });
       }
 
@@ -179,26 +185,34 @@ export class BaseModel<N extends keyof BrowserDBSchema = keyof BrowserDBSchema, 
 
   protected async _deleteWithSync(id: string) {
     const result = await this.table.delete(id);
-    // sync delete data to yjs data map
-    this.yMap?.delete(id);
+    // sync delete data to yjs data map (client-only)
+    if (typeof window !== 'undefined') {
+      const yMap = await clientDataSync.getYMap(this._tableName);
+      yMap?.delete(id);
+    }
     return result;
   }
 
   protected async _bulkDeleteWithSync(keys: string[]) {
     await this.table.bulkDelete(keys);
-    // sync delete data to yjs data map
-
-    dataSync.transact(() => {
-      keys.forEach((id) => {
-        this.yMap?.delete(id);
+    // sync delete data to yjs data map (client-only)
+    if (typeof window !== 'undefined') {
+      await clientDataSync.transact(async () => {
+        const yMap = await clientDataSync.getYMap(this._tableName);
+        keys.forEach((id) => {
+          yMap?.delete(id);
+        });
       });
-    });
+    }
   }
 
   protected async _clearWithSync() {
     const result = await this.table.clear();
-    // sync clear data to yjs data map
-    this.yMap?.clear();
+    // sync clear data to yjs data map (client-only)
+    if (typeof window !== 'undefined') {
+      const yMap = await clientDataSync.getYMap(this._tableName);
+      yMap?.clear();
+    }
     return result;
   }
 
@@ -222,8 +236,8 @@ export class BaseModel<N extends keyof BrowserDBSchema = keyof BrowserDBSchema, 
 
     const success = await this.table.update(id, { ...data, updatedAt: Date.now() });
 
-    // sync data to yjs data map
-    this.updateYMapItem(id);
+    // sync data to yjs data map (client-only)
+    await this.updateYMapItem(id);
 
     return { success };
   }
@@ -231,8 +245,8 @@ export class BaseModel<N extends keyof BrowserDBSchema = keyof BrowserDBSchema, 
   protected async _putWithSync(data: Record<string, unknown>, id: string) {
     const result = await this.table.put(data, id);
 
-    // sync data to yjs data map
-    this.updateYMapItem(id);
+    // sync data to yjs data map (client-only)
+    await this.updateYMapItem(id);
 
     return result;
   }
@@ -240,18 +254,29 @@ export class BaseModel<N extends keyof BrowserDBSchema = keyof BrowserDBSchema, 
   protected async _bulkPutWithSync(items: T[]) {
     await this.table.bulkPut(items);
 
-    await dataSync.transact(() => {
-      items.forEach((items) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        this.updateYMapItem((items as any).id);
+    if (typeof window !== 'undefined') {
+      await clientDataSync.transact(async () => {
+        items.forEach((items) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          this.updateYMapItem((items as any).id);
+        });
       });
-    });
+    }
   }
 
   // **************** Helper *************** //
 
   private updateYMapItem = async (id: string) => {
-    const newData = await this.table.get(id);
-    this.yMap?.set(id, newData);
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      const newData = await this.table.get(id);
+      const yMap = await clientDataSync.getYMap(this._tableName);
+      yMap?.set(id, newData);
+    } catch (error) {
+      console.error('Failed to update YMap item:', error);
+    }
   };
-}
+} 

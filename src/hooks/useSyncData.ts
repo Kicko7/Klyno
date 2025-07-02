@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useChatStore } from '@/store/chat';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
@@ -33,10 +33,11 @@ export const useSyncEvent = () => {
         break;
       }
     }
-  }, []);
+  }, [refreshMessages, refreshTopic, refreshSessions]);
 };
 
 export const useEnabledDataSync = () => {
+  // Always call hooks at the top level, regardless of environment
   const [userId, userEnableSync, useEnabledSync] = useUserStore((s) => [
     userProfileSelectors.userId(s),
     syncSettingsSelectors.enableWebRTC(s),
@@ -46,5 +47,14 @@ export const useEnabledDataSync = () => {
   const { enableWebrtc } = useServerConfigStore(featureFlagsSelectors);
   const syncEvent = useSyncEvent();
 
-  useEnabledSync(enableWebrtc, { onEvent: syncEvent, userEnableSync, userId });
+  // Use useEffect to handle browser-only logic
+  useEffect(() => {
+    // Only run in browser environment
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    // Call the sync function - this is a function from the store, not a hook
+    useEnabledSync(enableWebrtc, { onEvent: syncEvent, userEnableSync, userId });
+  }, [enableWebrtc, syncEvent, userEnableSync, userId, useEnabledSync]);
 };

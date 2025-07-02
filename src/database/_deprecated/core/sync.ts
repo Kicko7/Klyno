@@ -22,6 +22,7 @@ class DataSync {
   private syncParams!: StartDataSyncParams;
   private onAwarenessChange!: OnAwarenessChange;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private waitForConnecting: any;
 
   logger = Debug(LOG_NAME_SPACE);
@@ -226,6 +227,7 @@ class DataSync {
 
       this.logger(`[YJS] observe ${tableKey} changes:`, event.keysChanged.size);
       const pools = Array.from(event.keys).map(async ([id, payload]) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const item: any = yItemMap.get(id);
 
         switch (payload.action) {
@@ -310,7 +312,46 @@ class DataSync {
   };
 }
 
-export const dataSync = new DataSync();
+// Remove the module-level instantiation and export a factory function instead
+let dataSyncInstance: DataSync | null = null;
+
+export const getDataSync = (): DataSync => {
+  if (typeof window === 'undefined') {
+    throw new Error('DataSync can only be used in the browser environment.');
+  }
+  
+  if (!dataSyncInstance) {
+    dataSyncInstance = new DataSync();
+  }
+  
+  return dataSyncInstance;
+};
+
+// For backward compatibility, export a lazy getter
+export const dataSync = {
+  get disconnect() {
+    return this.instance.disconnect;
+  },
+  
+  
+  get getYMap() {
+    return this.instance.getYMap;
+  },
+  
+  
+get instance() {
+    return getDataSync();
+  },
+  
+  // Proxy methods to the instance
+get startDataSync() {
+    return this.instance.startDataSync;
+  },
+  
+  get transact() {
+    return this.instance.transact;
+  },
+};
 
 interface IWebsocketClient {
   binaryType: 'arraybuffer' | 'blob' | null;
@@ -320,7 +361,7 @@ interface IWebsocketClient {
   destroy(): void;
   disconnect(): void;
   lastMessageReceived: number;
-  send(message: any): void;
+  send(message: Record<string, unknown>): void;
   shouldConnect: boolean;
   unsuccessfulReconnects: number;
   url: string;

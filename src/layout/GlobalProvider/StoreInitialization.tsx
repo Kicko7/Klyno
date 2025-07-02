@@ -1,13 +1,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { createStoreUpdater } from 'zustand-utils';
 
 import { enableNextAuth } from '@/const/auth';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { useEnabledDataSync } from '@/hooks/useSyncData';
 import { useAgentStore } from '@/store/agent';
 import { useAiInfraStore } from '@/store/aiInfra';
 import { useGlobalStore } from '@/store/global';
@@ -71,7 +70,37 @@ const StoreInitialization = memo(() => {
     },
   });
 
-  useEnabledDataSync();
+  // Client-only DataSync initialization
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Dynamic import to ensure DataSync only runs in the browser
+      import('@/hooks/useSyncData').then(({ useEnabledDataSync }) => {
+        // Create a temporary component to use the hook
+        const TempComponent = () => {
+          useEnabledDataSync();
+          return null;
+        };
+        
+        // Render the temporary component
+        const { createRoot } = require('react-dom/client');
+        const container = document.createElement('div');
+        container.style.display = 'none';
+        document.body.append(container);
+        
+        const root = createRoot(container);
+        root.render(<TempComponent />);
+        
+        // Cleanup after a short delay
+        setTimeout(() => {
+          root.unmount();
+          container.remove();
+        }, 100);
+        
+      }).catch((error) => {
+        console.error('Failed to load DataSync hook:', error);
+      });
+    }
+  }, []);
 
   const useStoreUpdater = createStoreUpdater(useGlobalStore);
 
