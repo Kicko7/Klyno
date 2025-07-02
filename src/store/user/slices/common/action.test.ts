@@ -4,7 +4,7 @@ import { withSWR } from '~test-utils';
 
 import { DEFAULT_PREFERENCE } from '@/const/user';
 import { userService } from '@/services/user';
-import { ClientService } from '@/services/user/_deprecated';
+import { ClientService } from '@/services/user/clientOnly';
 import { useUserStore } from '@/store/user';
 import { preferenceSelectors } from '@/store/user/selectors';
 import { GlobalServerConfig } from '@/types/serverConfig';
@@ -54,7 +54,7 @@ describe('createCommonSlice', () => {
 
     it('should not fetch user state if user is not login', async () => {
       const mockUserConfig: any = undefined; // 模拟未初始化服务器的情况
-      vi.spyOn(userService, 'getUserState').mockResolvedValueOnce(mockUserConfig);
+      vi.spyOn(ClientService.prototype, 'getUserState').mockResolvedValueOnce(mockUserConfig);
       const successCallback = vi.fn();
 
       const { result } = renderHook(
@@ -66,7 +66,7 @@ describe('createCommonSlice', () => {
       );
 
       // 因为 initServer 为 false，所以不会触发 getUserState 的调用
-      expect(userService.getUserState).not.toHaveBeenCalled();
+      expect(ClientService.prototype.getUserState).not.toHaveBeenCalled();
       // 也不会触发 onSuccess 回调
       expect(successCallback).not.toHaveBeenCalled();
       // 确保状态未改变
@@ -86,7 +86,7 @@ describe('createCommonSlice', () => {
         email: 'test@example.com',
       };
 
-      vi.spyOn(userService, 'getUserState').mockResolvedValueOnce(mockUserState);
+      vi.spyOn(ClientService.prototype, 'getUserState').mockResolvedValueOnce(mockUserState);
       const successCallback = vi.fn();
 
       const { result } = renderHook(
@@ -119,7 +119,7 @@ describe('createCommonSlice', () => {
         settings: {},
       };
 
-      vi.spyOn(userService, 'getUserState').mockResolvedValueOnce(mockUserState);
+      vi.spyOn(ClientService.prototype, 'getUserState').mockResolvedValueOnce(mockUserState);
 
       const { result } = renderHook(() => useUserStore().useInitUserState(true, mockServerConfig), {
         wrapper: withSWR,
@@ -138,7 +138,7 @@ describe('createCommonSlice', () => {
         },
         settings: {},
       };
-      vi.spyOn(userService, 'getUserState').mockResolvedValueOnce(mockUserState);
+      vi.spyOn(ClientService.prototype, 'getUserState').mockResolvedValueOnce(mockUserState);
 
       const { result } = renderHook(() => useUserStore().useInitUserState(true, mockServerConfig));
 
@@ -162,7 +162,7 @@ describe('createCommonSlice', () => {
           general: { fontSize: 14 },
         },
       };
-      vi.spyOn(userService, 'getUserState').mockResolvedValueOnce(mockUserState);
+      vi.spyOn(ClientService.prototype, 'getUserState').mockResolvedValueOnce(mockUserState);
 
       const { result: preference } = renderHook(
         () => result.current.useInitUserState(true, mockServerConfig),
@@ -186,7 +186,7 @@ describe('createCommonSlice', () => {
         avatar: 'abc',
       };
 
-      vi.spyOn(userService, 'getUserState').mockResolvedValueOnce(mockUserState);
+      vi.spyOn(ClientService.prototype, 'getUserState').mockResolvedValueOnce(mockUserState);
 
       renderHook(() => result.current.useInitUserState(true, mockServerConfig), {
         wrapper: withSWR,
@@ -213,7 +213,7 @@ describe('createCommonSlice', () => {
         },
       };
 
-      vi.spyOn(userService, 'getUserState').mockResolvedValueOnce(mockUserState);
+      vi.spyOn(ClientService.prototype, 'getUserState').mockResolvedValueOnce(mockUserState);
 
       renderHook(() => result.current.useInitUserState(true, mockServerConfig), {
         wrapper: withSWR,

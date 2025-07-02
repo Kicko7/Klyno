@@ -2,13 +2,12 @@
  * Global error handler to catch and handle removeChild errors
  * This prevents white screens of death caused by DOM manipulation errors
  */
-
 import React from 'react';
 
 interface ErrorWithCode {
   code?: string;
-  name?: string;
   message: string;
+  name?: string;
   stack?: string;
 }
 
@@ -29,7 +28,7 @@ const isRemoveChildError = (error: ErrorWithCode): boolean => {
  */
 const handleRemoveChildError = (error: ErrorWithCode): void => {
   console.warn('Caught removeChild error, attempting to recover:', error);
-  
+
   // Try to recover by forcing a re-render
   try {
     // Dispatch a custom event that components can listen to for recovery
@@ -50,7 +49,7 @@ export const setupGlobalErrorHandlers = (): void => {
   // Handle unhandled promise rejections
   window.addEventListener('unhandledrejection', (event) => {
     const error = event.reason as ErrorWithCode;
-    
+
     if (isRemoveChildError(error)) {
       event.preventDefault();
       handleRemoveChildError(error);
@@ -60,7 +59,7 @@ export const setupGlobalErrorHandlers = (): void => {
   // Handle global errors
   window.addEventListener('error', (event) => {
     const error = event.error as ErrorWithCode;
-    
+
     if (isRemoveChildError(error)) {
       event.preventDefault();
       handleRemoveChildError(error);
@@ -71,12 +70,12 @@ export const setupGlobalErrorHandlers = (): void => {
   const originalConsoleError = console.error;
   console.error = (...args) => {
     const errorMessage = args.join(' ');
-    
+
     if (errorMessage.includes('removeChild') || errorMessage.includes('NotFoundError')) {
       console.warn('Intercepted removeChild error in console.error:', errorMessage);
       // Don't prevent the original console.error from running
     }
-    
+
     originalConsoleError.apply(console, args);
   };
 };
@@ -86,25 +85,25 @@ export const setupGlobalErrorHandlers = (): void => {
  */
 export const withErrorHandling = <T extends unknown[], R>(
   fn: (...args: T) => R,
-  fallback?: () => R
+  fallback?: () => R,
 ): ((...args: T) => R | undefined) => {
   return (...args: T): R | undefined => {
     try {
       return fn(...args);
     } catch (error) {
       const errorWithCode = error as ErrorWithCode;
-      
+
       if (isRemoveChildError(errorWithCode)) {
         console.warn('Caught removeChild error in wrapped function:', errorWithCode);
         handleRemoveChildError(errorWithCode);
-        
+
         if (fallback) {
           return fallback();
         }
-        
+
         return undefined;
       }
-      
+
       // Re-throw non-removeChild errors
       throw error;
     }
@@ -116,19 +115,19 @@ export const withErrorHandling = <T extends unknown[], R>(
  */
 export const safeRender = <P extends object>(
   Component: React.ComponentType<P>,
-  props: P
+  props: P,
 ): React.ReactElement | null => {
   try {
     return React.createElement(Component, props);
   } catch (error) {
     const errorWithCode = error as ErrorWithCode;
-    
+
     if (isRemoveChildError(errorWithCode)) {
       console.warn('Caught removeChild error in component render:', errorWithCode);
       handleRemoveChildError(errorWithCode);
       return null;
     }
-    
+
     throw error;
   }
-}; 
+};
