@@ -32,7 +32,7 @@ describe('LLMSettingsSliceAction', () => {
       });
 
       // Assert that updateUserSettings was called with the correct OpenAI configuration
-      expect(userService.updateUserSettings).toHaveBeenCalledWith(
+      expect(userService?.updateUserSettings).toHaveBeenCalledWith(
         { languageModel: { openai: openAIConfig } },
         expect.any(AbortSignal),
       );
@@ -190,7 +190,7 @@ describe('LLMSettingsSliceAction', () => {
       const { result } = renderHook(() => useUserStore());
       const model = 'gpt-3.5-turbo';
 
-      const spyOn = vi.spyOn(userService, 'updateUserSettings');
+      const spyOn = vi.spyOn(userService!, 'updateUserSettings');
 
       act(() => {
         useUserStore.setState({
@@ -244,7 +244,7 @@ describe('LLMSettingsSliceAction', () => {
         await result.current.toggleProviderEnabled('minimax', true);
       });
 
-      expect(userService.updateUserSettings).toHaveBeenCalledWith(
+      expect(userService?.updateUserSettings).toHaveBeenCalledWith(
         { languageModel: { minimax: { enabled: true } } },
         expect.any(AbortSignal),
       );
@@ -258,7 +258,7 @@ describe('LLMSettingsSliceAction', () => {
         await result.current.toggleProviderEnabled(provider, false);
       });
 
-      expect(userService.updateUserSettings).toHaveBeenCalledWith(
+      expect(userService?.updateUserSettings).toHaveBeenCalledWith(
         { languageModel: { openai: { enabled: false } } },
         expect.any(AbortSignal),
       );
@@ -277,7 +277,7 @@ describe('LLMSettingsSliceAction', () => {
         await result.current.updateEnabledModels(provider, modelKeys, options);
       });
 
-      expect(userService.updateUserSettings).toHaveBeenCalledWith(
+      expect(userService?.updateUserSettings).toHaveBeenCalledWith(
         {
           languageModel: {
             openai: {
@@ -311,7 +311,7 @@ describe('LLMSettingsSliceAction', () => {
         await result.current.updateEnabledModels(provider, modelKeys, options);
       });
 
-      expect(userService.updateUserSettings).toHaveBeenCalledWith(
+      expect(userService?.updateUserSettings).toHaveBeenCalledWith(
         {
           languageModel: { openai: { enabledModels: ['gpt-3.5-turbo'] } },
         },

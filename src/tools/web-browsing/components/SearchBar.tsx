@@ -145,14 +145,14 @@ const SearchBar = memo<SearchBarProps>(
             optionRender={(item) => (
               <Flexbox align={'center'} gap={8} horizontal>
                 <CategoryAvatar category={item.value as string} />
-                {t(`search.searchCategory.value.${item.value}` as any)}
+                {t(`search.searchCategory.value.${item.value}` as unknown as any)}
               </Flexbox>
             )}
             options={Object.keys(CATEGORY_ICON_MAP).map((item) => ({
               label: (
                 <Flexbox align={'center'} gap={8} horizontal>
-                  <CategoryAvatar category={item as any} />
-                  {t(`search.searchCategory.value.${item}` as any)}
+                  <CategoryAvatar category={item as string} />
+                  {t(`search.searchCategory.value.${item}` as unknown as any)}
                 </Flexbox>
               ),
               value: item,
@@ -172,8 +172,8 @@ const SearchBar = memo<SearchBarProps>(
               options={Object.keys(CATEGORY_ICON_MAP).map((item) => ({
                 label: (
                   <Flexbox align={'center'} gap={8} horizontal>
-                    <CategoryAvatar category={item as any} />
-                    {t(`search.searchCategory.value.${item}` as any)}
+                    <CategoryAvatar category={item as string} />
+                    {t(`search.searchCategory.value.${item}` as unknown as any)}
                   </Flexbox>
                 ),
                 value: item,

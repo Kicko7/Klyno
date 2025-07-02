@@ -1,6 +1,6 @@
-export type fieldtype = {
-  includetool: boolean;
-  includeuser: boolean;
-  withrole: boolean;
-  withsystemrole: boolean;
-}
+export type FieldType = {
+  includeTool: boolean;
+  includeUser: boolean;
+  withRole: boolean;
+  withSystemRole: boolean;
+};

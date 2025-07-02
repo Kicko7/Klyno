@@ -1,10 +1,10 @@
-interface v3generalconfig {
+export interface V3GeneralConfig {
   apikey?: string;
   enabled: boolean;
   endpoint?: string;
 }
 
-export interface v3openaiconfig {
+export interface V3OpenAIConfig {
   azureapiversion?: string;
   custommodelname?: string;
   enabled: boolean;
@@ -13,7 +13,7 @@ export interface v3openaiconfig {
   useazure?: boolean;
 }
 
-export interface v3legacyconfig {
+export interface V3LegacyConfig {
   apikey?: string;
   custommodelname?: string;
   enabled?: boolean;
@@ -21,23 +21,23 @@ export interface v3legacyconfig {
   endpoint?: string;
 }
 
-export interface v3llmconfig {
+export interface V3LLMConfig {
   bedrock: any;
-  google: v3generalconfig;
-  ollama: v3legacyconfig;
-  openai: v3openaiconfig;
-  openrouter: v3legacyconfig;
-  togetherai: v3legacyconfig;
+  google: V3GeneralConfig;
+  ollama: V3LegacyConfig;
+  openai: V3OpenAIConfig;
+  openrouter: V3LegacyConfig;
+  togetherai: V3LegacyConfig;
 }
 
 /**
  * 配置设置
  */
-export interface v3settings {
+export interface V3Settings {
   defaultagent: any;
   fontsize: number;
   language: string;
-  languagemodel?: partial<v3llmconfig>;
+  languagemodel?: Partial<V3LLMConfig>;
   neutralcolor?: string;
   password: string;
   primarycolor?: string;
@@ -47,6 +47,6 @@ export interface v3settings {
   tts: any;
 }
 
-export interface v3configstate {
-  settings?: v3settings;
+export interface V3ConfigState {
+  settings?: V3Settings;
 }

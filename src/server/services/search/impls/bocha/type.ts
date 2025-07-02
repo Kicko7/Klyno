@@ -1,4 +1,4 @@
-export interface bochasearchparameters {
+export interface BochaSearchParameters {
   count?: number;
   exclude?: string;
   freshness?: string;
@@ -7,11 +7,11 @@ export interface bochasearchparameters {
   summary?: boolean;
 }
 
-interface bochaquerycontext {
+export interface BochaQueryContext {
   originalquery: string;
 }
 
-interface bochavalue {
+export interface BochaValue {
   cachedpageurl?: string;
   datelastcrawled?: string;
   displayurl?: string;
@@ -26,22 +26,22 @@ interface bochavalue {
   url: string;
 }
 
-interface bochawebpages {
+export interface BochaWebPages {
   totalestimatedmatches?: number;
-  value?: bochavalue[];
+  value?: BochaValue[];
   websearchurl?: string;
 }
 
-interface bochadata {
+export interface BochaData {
   images?: any;
-  querycontext?: bochaquerycontext;
+  querycontext?: BochaQueryContext;
   videos?: any;
-  webpages: bochawebpages;
+  webpages: BochaWebPages;
 }
 
-export interface bocharesponse {
+export interface BochaResponse {
   code?: number;
-  data: bochadata;
+  data: BochaData;
   log_id?: string;
   msg?: string | null;
 }

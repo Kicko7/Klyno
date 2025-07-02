@@ -1,4 +1,4 @@
-export interface translate {
+export interface Translate {
   from?: string;
   to: string;
 }

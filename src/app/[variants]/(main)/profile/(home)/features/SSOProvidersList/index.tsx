@@ -25,8 +25,8 @@ export const SSOProvidersList = memo(() => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const { data, isLoading, mutate } = useOnlyFetchOnceSWR('profile-sso-providers', async () => {
-    const list = await userService.getUserSSOProviders();
-    setAllowUnlink(list?.length > 1);
+    const list = await userService?.getUserSSOProviders();
+    setAllowUnlink((list?.length || 0) > 1);
     return list;
   });
 
@@ -48,7 +48,7 @@ export const SSOProvidersList = memo(() => {
         danger: true,
       },
       onOk: async () => {
-        await userService.unlinkSSOProvider(provider, providerAccountId);
+        await userService?.unlinkSSOProvider(provider, providerAccountId);
         mutate();
       },
       title: <span style={providerNameStyle}>{t('profile.sso.unlink.title', { provider })}</span>,

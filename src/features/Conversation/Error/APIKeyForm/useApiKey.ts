@@ -8,9 +8,9 @@ import { useUserStore } from '@/store/user';
 import { keyVaultsConfigSelectors } from '@/store/user/selectors';
 
 export const useApiKey = (provider: string) => {
-  const [apiKey, baseURL, setConfig] = useUserStore((s) => [
+  const [apiKey, baseUrl, setConfig] = useUserStore((s) => [
     keyVaultsConfigSelectors.getVaultByProvider(provider as any)(s)?.apiKey,
-    keyVaultsConfigSelectors.getVaultByProvider(provider as any)(s)?.baseURL,
+    keyVaultsConfigSelectors.getVaultByProvider(provider as any)(s)?.baseUrl,
     s.updateKeyVaultConfig,
   ]);
   const { setLoading } = useContext(LoadingContext);
@@ -18,12 +18,12 @@ export const useApiKey = (provider: string) => {
   const data = useAiInfraStore(aiProviderSelectors.providerConfigById(provider), isEqual);
 
   // TODO: remove this in V2
-  if (isDeprecatedEdition) return { apiKey, baseURL, setConfig };
+  if (isDeprecatedEdition) return { apiKey, baseUrl, setConfig };
   //
 
   return {
     apiKey: data?.keyVaults.apiKey,
-    baseURL: data?.keyVaults?.baseURL,
+    baseUrl: data?.keyVaults?.baseUrl,
     setConfig: async (id: string, params: Record<string, string>) => {
       const next = { ...data?.keyVaults, ...params };
       if (isEqual(data?.keyVaults, next)) return;

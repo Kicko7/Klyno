@@ -1,5 +1,6 @@
 import type { LobeAgentSettings } from '@/types/session';
 
+import { FilesConfig } from './filesConfig';
 import { UserGeneralConfig } from './general';
 import { UserHotkeyConfig } from './hotkey';
 import { UserKeyVaults } from './keyVaults';
@@ -11,6 +12,7 @@ import { UserTTSConfig } from './tts';
 
 export type UserDefaultAgent = LobeAgentSettings;
 
+export * from './filesConfig';
 export * from './general';
 export * from './hotkey';
 export * from './keyVaults';
@@ -24,6 +26,7 @@ export * from './tts';
  */
 export interface UserSettings {
   defaultAgent: UserDefaultAgent;
+  filesConfig?: FilesConfig;
   general: UserGeneralConfig;
   hotkey: UserHotkeyConfig;
   keyVaults: UserKeyVaults;

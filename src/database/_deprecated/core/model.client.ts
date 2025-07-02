@@ -1,13 +1,16 @@
 import Dexie, { BulkError } from 'dexie';
 import { ZodObject } from 'zod';
 
+import { clientDataSync } from '@/utils/dataSync.client';
 import { nanoid } from '@/utils/uuid';
 
 import { BrowserDB, BrowserDBSchema, browserDB } from './db';
-import { clientDataSync } from '@/utils/dataSync.client';
 import { DBBaseFieldsSchema } from './types/db';
 
-export class BaseModelClient<N extends keyof BrowserDBSchema = keyof BrowserDBSchema, T = BrowserDBSchema[N]['table']> {
+export class BaseModelClient<
+  N extends keyof BrowserDBSchema = keyof BrowserDBSchema,
+  T = BrowserDBSchema[N]['table'],
+> {
   protected readonly db: BrowserDB;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private readonly schema: ZodObject<any>;
@@ -29,7 +32,7 @@ export class BaseModelClient<N extends keyof BrowserDBSchema = keyof BrowserDBSc
     if (typeof window === 'undefined') {
       return null;
     }
-    
+
     // This will be resolved asynchronously in the actual methods
     return null;
   }
@@ -188,7 +191,7 @@ export class BaseModelClient<N extends keyof BrowserDBSchema = keyof BrowserDBSc
     // sync delete data to yjs data map (client-only)
     if (typeof window !== 'undefined') {
       const yMap = await clientDataSync.getYMap(this._tableName);
-      yMap?.delete(id);
+      (yMap as any)?.delete(id);
     }
     return result;
   }
@@ -200,7 +203,7 @@ export class BaseModelClient<N extends keyof BrowserDBSchema = keyof BrowserDBSc
       await clientDataSync.transact(async () => {
         const yMap = await clientDataSync.getYMap(this._tableName);
         keys.forEach((id) => {
-          yMap?.delete(id);
+          (yMap as any)?.delete(id);
         });
       });
     }
@@ -211,7 +214,7 @@ export class BaseModelClient<N extends keyof BrowserDBSchema = keyof BrowserDBSc
     // sync clear data to yjs data map (client-only)
     if (typeof window !== 'undefined') {
       const yMap = await clientDataSync.getYMap(this._tableName);
-      yMap?.clear();
+      (yMap as any)?.clear();
     }
     return result;
   }
@@ -274,9 +277,9 @@ export class BaseModelClient<N extends keyof BrowserDBSchema = keyof BrowserDBSc
     try {
       const newData = await this.table.get(id);
       const yMap = await clientDataSync.getYMap(this._tableName);
-      yMap?.set(id, newData);
+      (yMap as any)?.set(id, newData);
     } catch (error) {
       console.error('Failed to update YMap item:', error);
     }
   };
-} 
+}

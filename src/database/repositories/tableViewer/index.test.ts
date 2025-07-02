@@ -72,9 +72,9 @@ describe('TableViewerRepo', () => {
       const tableName = 'test_table';
       const pagination = {
         page: 1,
-        pageSize: 10,
-        sortBy: 'id',
-        sortOrder: 'desc' as const,
+        pagesize: 10,
+        sortby: 'id',
+        sortorder: 'desc' as const,
       };
       const filters = [
         {
@@ -100,7 +100,7 @@ describe('TableViewerRepo', () => {
         data: mockData.rows,
         pagination: {
           page: 1,
-          pageSize: 10,
+          pagesize: 10,
           total: 1,
         },
       });
@@ -213,7 +213,7 @@ describe('TableViewerRepo', () => {
         data: mockData.rows,
         pagination: {
           page: 1,
-          pageSize: 1000,
+          pagesize: 1000,
           total: 1,
         },
       });
@@ -221,7 +221,7 @@ describe('TableViewerRepo', () => {
 
     it('should export table data with custom pagination and filters', async () => {
       const tableName = 'test_table';
-      const pagination = { page: 2, pageSize: 50 };
+      const pagination = { page: 2, pagesize: 50 };
       const filters = [
         {
           column: 'status',
@@ -247,7 +247,7 @@ describe('TableViewerRepo', () => {
         data: mockData.rows,
         pagination: {
           page: 2,
-          pageSize: 50,
+          pagesize: 50,
           total: 1,
         },
       });

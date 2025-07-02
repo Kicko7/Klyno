@@ -4,10 +4,10 @@ import { AsyncTaskStatus } from '@/types/asyncTask';
 
 export interface FileListItem {
   chunkCount: number | null;
-  chunkingError: any | null;
+  chunkingError: unknown | null;
   chunkingStatus?: AsyncTaskStatus | null;
   createdAt: Date;
-  embeddingError: any | null;
+  embeddingError: unknown | null;
   embeddingStatus?: AsyncTaskStatus | null;
   fileType: string;
   finishEmbedding: boolean;
@@ -41,4 +41,14 @@ export interface QueryFileListParams {
   showFilesInKnowledgeBase?: boolean;
   sortType?: string;
   sorter?: string;
+}
+
+export interface FileItem {
+  content: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface FileListResponse {
+  data: FileItem[];
+  metadata: Record<string, unknown>;
 }

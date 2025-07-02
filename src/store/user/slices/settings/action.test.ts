@@ -40,7 +40,7 @@ describe('SettingsAction', () => {
       expect(setSettingsSpy).toHaveBeenCalledWith(newSettings);
 
       // Assert that the state has been updated
-      expect(userService.updateUserSettings).toHaveBeenCalledWith(
+      expect(userService?.updateUserSettings).toHaveBeenCalledWith(
         { general: { themeMode: 'dark' } },
         expect.any(AbortSignal),
       );
@@ -60,7 +60,7 @@ describe('SettingsAction', () => {
       });
 
       // Assert that resetUserSettings was called
-      expect(userService.resetUserSettings).toHaveBeenCalled();
+      expect(userService?.resetUserSettings).toHaveBeenCalled();
 
       // Assert that the state has been updated to default settings
       expect(result.current.settings).toEqual({});
@@ -78,7 +78,7 @@ describe('SettingsAction', () => {
       });
 
       // Assert that updateUserSettings was called with the correct settings
-      expect(userService.updateUserSettings).toHaveBeenCalledWith(
+      expect(userService?.updateUserSettings).toHaveBeenCalledWith(
         partialSettings,
         expect.any(AbortSignal),
       );
@@ -98,7 +98,7 @@ describe('SettingsAction', () => {
       });
 
       // Assert that updateUserSettings was called with the merged agent settings
-      expect(userService.updateUserSettings).toHaveBeenCalledWith(
+      expect(userService?.updateUserSettings).toHaveBeenCalledWith(
         { defaultAgent: updatedAgent },
         expect.any(AbortSignal),
       );
@@ -126,7 +126,7 @@ describe('SettingsAction', () => {
       });
 
       // Assert that updateUserSettings was called with the correct settings
-      expect(userService.updateUserSettings).toHaveBeenCalledWith(
+      expect(userService?.updateUserSettings).toHaveBeenCalledWith(
         systemAgentSettings,
         expect.any(AbortSignal),
       );

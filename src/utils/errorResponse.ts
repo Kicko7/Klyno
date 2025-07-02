@@ -53,7 +53,7 @@ const getStatus = (errorType: ILobeAgentRuntimeErrorType | ErrorType) => {
 
 export const createErrorResponse = (
   errorType: ErrorType | ILobeAgentRuntimeErrorType,
-  body?: any,
+  body?: unknown,
 ) => {
   const statusCode = getStatus(errorType);
 

@@ -47,7 +47,7 @@ class _PluginModel extends BaseModel {
   // **************** Update *************** //
 
   update: (id: string, value: Partial<DB_Plugin>) => Promise<number> = async (id, value) => {
-    const { success } = await this._updateWithSync(id, value);
+    const { success } = await this._updateWithSync(id, value as any);
 
     return success;
   };

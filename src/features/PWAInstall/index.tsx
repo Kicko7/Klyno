@@ -2,14 +2,14 @@
 
 import dynamic from 'next/dynamic';
 import { pwaInstallHandler } from 'pwa-install-handler';
-import { memo, useEffect, useState } from 'react';
+import React, { memo, useEffect, useState } from 'react';
 
 import { usePlatform } from '@/hooks/usePlatform';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
 import { useUserStore } from '@/store/user';
 
-const Install: any = dynamic(() => import('./Install'), {
+const Install: React.ComponentType = dynamic(() => import('./Install'), {
   ssr: false,
 });
 

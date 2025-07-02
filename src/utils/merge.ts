@@ -11,7 +11,7 @@ export const merge: typeof _merge = <T = object>(target: T, source: T) =>
   });
 
 type MergeableItem = {
-  [key: string]: any;
+  [key: string]: unknown;
   id: string;
 };
 

@@ -40,6 +40,13 @@ export const ChatErrorType = {
 export type ErrorType = (typeof ChatErrorType)[keyof typeof ChatErrorType];
 
 export interface ErrorResponse {
-  body: any;
+  body: unknown;
   errorType: ErrorType | ILobeAgentRuntimeErrorType;
+}
+
+export interface FetchOptions {
+  body?: unknown;
+  headers?: Record<string, string>;
+  method?: string;
+  signal?: AbortSignal;
 }

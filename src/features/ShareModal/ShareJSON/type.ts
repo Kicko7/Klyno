@@ -1,4 +1,4 @@
-export interface fieldtype {
-  includetool: boolean;
-  withsystemrole: boolean;
+export interface FieldType {
+  includeTool: boolean;
+  withSystemRole: boolean;
 }

@@ -11,7 +11,7 @@ export const createHeaderWithOpenAI = (header?: HeadersInit): HeadersInit => {
   const openai = keyVaultsConfigSelectors.openAIConfig(useUserStore.getState());
 
   const apiKey = openai.apiKey || '';
-  const endpoint = openai.baseURL || '';
+  const endpoint = openai.baseUrl || '';
 
   // eslint-disable-next-line no-undef
   return {

@@ -1,12 +1,12 @@
-export interface openaicompatiblekeyvault {
-  apikey?: string;
-  baseurl?: string;
+export interface OpenAICompatibleKeyVault {
+  apiKey?: string;
+  baseUrl?: string;
 }
 
-export interface azureopenaikeyvault {
-  apikey?: string;
-  apiversion?: string;
-  baseurl?: string;
+export interface AzureOpenAIKeyVault {
+  apiKey?: string;
+  apiVersion?: string;
+  baseUrl?: string;
 
   /**
    * @deprecated
@@ -14,80 +14,80 @@ export interface azureopenaikeyvault {
   endpoint?: string;
 }
 
-export interface awsbedrockkeyvault {
-  accesskeyid?: string;
+export interface AWSBedrockKeyVault {
+  accessKeyId?: string;
   region?: string;
-  secretaccesskey?: string;
-  sessiontoken?: string;
+  secretAccessKey?: string;
+  sessionToken?: string;
 }
 
-export interface cloudflarekeyvault {
-  apikey?: string;
-  baseurloraccountid?: string;
+export interface CloudflareKeyVault {
+  apiKey?: string;
+  baseUrlOrAccountId?: string;
 }
 
-export interface searchenginekeyvaults {
+export interface SearchEngineKeyVaults {
   searchxng?: {
-    apikey?: string;
-    baseurl?: string;
+    apiKey?: string;
+    baseUrl?: string;
   };
 }
 
-export interface userkeyvaults extends searchenginekeyvaults {
-  ai21?: openaicompatiblekeyvault;
-  ai360?: openaicompatiblekeyvault;
-  anthropic?: openaicompatiblekeyvault;
-  azure?: azureopenaikeyvault;
-  azureai?: azureopenaikeyvault;
-  baichuan?: openaicompatiblekeyvault;
-  bedrock?: awsbedrockkeyvault;
-  cloudflare?: cloudflarekeyvault;
-  cohere?: openaicompatiblekeyvault;
-  deepseek?: openaicompatiblekeyvault;
-  fireworksai?: openaicompatiblekeyvault;
-  giteeai?: openaicompatiblekeyvault;
-  github?: openaicompatiblekeyvault;
-  google?: openaicompatiblekeyvault;
-  groq?: openaicompatiblekeyvault;
-  higress?: openaicompatiblekeyvault;
-  huggingface?: openaicompatiblekeyvault;
-  hunyuan?: openaicompatiblekeyvault;
-  infiniai?: openaicompatiblekeyvault;
-  internlm?: openaicompatiblekeyvault;
-  jina?: openaicompatiblekeyvault;
-  lmstudio?: openaicompatiblekeyvault;
+export interface UserKeyVaults extends SearchEngineKeyVaults {
+  ai21?: OpenAICompatibleKeyVault;
+  ai360?: OpenAICompatibleKeyVault;
+  anthropic?: OpenAICompatibleKeyVault;
+  azure?: AzureOpenAIKeyVault;
+  azureai?: AzureOpenAIKeyVault;
+  baichuan?: OpenAICompatibleKeyVault;
+  bedrock?: AWSBedrockKeyVault;
+  cloudflare?: CloudflareKeyVault;
+  cohere?: OpenAICompatibleKeyVault;
+  deepseek?: OpenAICompatibleKeyVault;
+  fireworksai?: OpenAICompatibleKeyVault;
+  giteeai?: OpenAICompatibleKeyVault;
+  github?: OpenAICompatibleKeyVault;
+  google?: OpenAICompatibleKeyVault;
+  groq?: OpenAICompatibleKeyVault;
+  higress?: OpenAICompatibleKeyVault;
+  huggingface?: OpenAICompatibleKeyVault;
+  hunyuan?: OpenAICompatibleKeyVault;
+  infiniai?: OpenAICompatibleKeyVault;
+  internlm?: OpenAICompatibleKeyVault;
+  jina?: OpenAICompatibleKeyVault;
+  lmstudio?: OpenAICompatibleKeyVault;
   lobehub?: any;
-  minimax?: openaicompatiblekeyvault;
-  mistral?: openaicompatiblekeyvault;
-  modelscope?: openaicompatiblekeyvault;
-  moonshot?: openaicompatiblekeyvault;
-  novita?: openaicompatiblekeyvault;
-  nvidia?: openaicompatiblekeyvault;
-  ollama?: openaicompatiblekeyvault;
-  openai?: openaicompatiblekeyvault;
-  openrouter?: openaicompatiblekeyvault;
+  minimax?: OpenAICompatibleKeyVault;
+  mistral?: OpenAICompatibleKeyVault;
+  modelscope?: OpenAICompatibleKeyVault;
+  moonshot?: OpenAICompatibleKeyVault;
+  novita?: OpenAICompatibleKeyVault;
+  nvidia?: OpenAICompatibleKeyVault;
+  ollama?: OpenAICompatibleKeyVault;
+  openai?: OpenAICompatibleKeyVault;
+  openrouter?: OpenAICompatibleKeyVault;
   password?: string;
-  perplexity?: openaicompatiblekeyvault;
-  ppio?: openaicompatiblekeyvault;
-  qiniu?: openaicompatiblekeyvault;
-  qwen?: openaicompatiblekeyvault;
-  sambanova?: openaicompatiblekeyvault;
-  search1api?: openaicompatiblekeyvault;
-  sensenova?: openaicompatiblekeyvault;
-  siliconcloud?: openaicompatiblekeyvault;
-  spark?: openaicompatiblekeyvault;
-  stepfun?: openaicompatiblekeyvault;
-  taichu?: openaicompatiblekeyvault;
-  tencentcloud?: openaicompatiblekeyvault;
-  togetherai?: openaicompatiblekeyvault;
-  upstage?: openaicompatiblekeyvault;
-  v0?: openaicompatiblekeyvault;
-  vertexai?: openaicompatiblekeyvault;
-  vllm?: openaicompatiblekeyvault;
-  volcengine?: openaicompatiblekeyvault;
-  wenxin?: openaicompatiblekeyvault;
-  xai?: openaicompatiblekeyvault;
-  xinference?: openaicompatiblekeyvault;
-  zeroone?: openaicompatiblekeyvault;
-  zhipu?: openaicompatiblekeyvault;
+  perplexity?: OpenAICompatibleKeyVault;
+  ppio?: OpenAICompatibleKeyVault;
+  qiniu?: OpenAICompatibleKeyVault;
+  qwen?: OpenAICompatibleKeyVault;
+  sambanova?: OpenAICompatibleKeyVault;
+  search1api?: OpenAICompatibleKeyVault;
+  sensenova?: OpenAICompatibleKeyVault;
+  siliconcloud?: OpenAICompatibleKeyVault;
+  spark?: OpenAICompatibleKeyVault;
+  stepfun?: OpenAICompatibleKeyVault;
+  taichu?: OpenAICompatibleKeyVault;
+  tencentcloud?: OpenAICompatibleKeyVault;
+  togetherai?: OpenAICompatibleKeyVault;
+  upstage?: OpenAICompatibleKeyVault;
+  v0?: OpenAICompatibleKeyVault;
+  vertexai?: OpenAICompatibleKeyVault;
+  vllm?: OpenAICompatibleKeyVault;
+  volcengine?: OpenAICompatibleKeyVault;
+  wenxin?: OpenAICompatibleKeyVault;
+  xai?: OpenAICompatibleKeyVault;
+  xinference?: OpenAICompatibleKeyVault;
+  zeroone?: OpenAICompatibleKeyVault;
+  zhipu?: OpenAICompatibleKeyVault;
 }

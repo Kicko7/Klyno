@@ -13,7 +13,7 @@ export default function GlobalError({ error }: { error: ErrorType; reset: () => 
   return (
     <html>
       <body>
-        <Error statusCode={undefined as any} />
+        <Error statusCode={500} />
       </body>
     </html>
   );

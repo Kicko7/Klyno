@@ -55,15 +55,15 @@ export class FileService {
   /**
    * 创建预签名上传URL
    */
-  public async createPreSignedUrl(key: string): Promise<string> {
-    return this.impl.createPreSignedUrl(key);
+  public async createPresignedUrl(key: string): Promise<string> {
+    return this.impl.createPresignedUrl(key);
   }
 
   /**
    * 创建预签名预览URL
    */
-  public async createPreSignedUrlForPreview(key: string, expiresIn?: number): Promise<string> {
-    return this.impl.createPreSignedUrlForPreview(key, expiresIn);
+  public async createPresignedUrlForPreview(key: string, expiresIn?: number): Promise<string> {
+    return this.impl.createPresignedUrlForPreview(key, expiresIn);
   }
 
   /**

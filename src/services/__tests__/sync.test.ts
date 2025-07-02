@@ -26,7 +26,7 @@ describe('SyncService', () => {
       // @ts-ignore
       global.window = undefined;
 
-      const result = await syncService.enabledSync(params);
+      const result = await syncService.enabledSync();
 
       expect(result).toBe(false);
       expect(dataSync.startDataSync).not.toHaveBeenCalled();
@@ -38,7 +38,7 @@ describe('SyncService', () => {
     it('should start data sync and return true when running on client side', async () => {
       const params = { user: { id: '123' }, authToken: 'abc' } as unknown as StartDataSyncParams;
 
-      const result = await syncService.enabledSync(params);
+      const result = await syncService.enabledSync();
 
       expect(result).toBe(true);
       expect(dataSync.startDataSync).toHaveBeenCalledWith(params);

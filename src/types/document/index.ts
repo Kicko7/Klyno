@@ -31,7 +31,7 @@ export interface LobeDocument {
     /**
      * 允许添加其他文件级别的元数据。
      */
-    [key: string]: any;
+    [key: string]: unknown;
     /**
      * 文档作者 (如果可用)。
      */
@@ -97,7 +97,7 @@ export interface LobeDocumentPage {
     /**
      * 允许添加其他特定于页/块的元数据。
      */
-    [key: string]: any;
+    [key: string]: unknown;
 
     /**
      * 如果原始文件单元被进一步分割成块，这是当前块的索引。
@@ -169,4 +169,16 @@ export enum DocumentSourceType {
    * 网页内容
    */
   WEB = 'web',
+}
+
+export interface DocumentItem {
+  content: string;
+  metadata: Record<string, unknown>;
+  score?: number;
+}
+
+export interface DocumentSearchResult {
+  content: string;
+  metadata: Record<string, unknown>;
+  score?: number;
 }

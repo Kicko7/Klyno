@@ -5,7 +5,7 @@ import urlJoin from 'url-join';
 import { SearchParams, UniformSearchResponse, UniformSearchResult } from '@/types/tool/search';
 
 import { SearchServiceImpl } from '../type';
-import { GoogleSearchParameters, GoogleResponse } from './type';
+import { GoogleResponse, GoogleSearchParameters } from './type';
 
 const log = debug('lobe-search:Google');
 
@@ -47,9 +47,9 @@ export class GoogleImpl implements SearchServiceImpl {
 
     let body: GoogleSearchParameters = {
       ...defaultQueryParams,
-      dateRestrict:
+      daterestrict:
         params?.searchTimeRange && params.searchTimeRange !== 'anytime'
-          ? timeRangeMapping[params.searchTimeRange as keyof typeof timeRangeMapping] ?? undefined
+          ? (timeRangeMapping[params.searchTimeRange as keyof typeof timeRangeMapping] ?? undefined)
           : undefined,
     };
 

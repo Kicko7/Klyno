@@ -1,4 +1,4 @@
-export interface exasearchparameters {
+export interface ExaSearchParameters {
   category?: string;
   endcrawldate?: string;
   endpublisheddate?: string;
@@ -13,11 +13,11 @@ export interface exasearchparameters {
   type?: string;
 }
 
-interface exacostdollars {
+export interface ExaCostDollars {
   total: number;
 }
 
-interface exaresults {
+export interface ExaResults {
   author?: string | null;
   favicon?: string;
   id?: string;
@@ -30,10 +30,10 @@ interface exaresults {
   url: string;
 }
 
-export interface exaresponse {
-  costdollars?: exacostdollars;
+export interface ExaResponse {
+  costdollars?: ExaCostDollars;
   requestid?: string;
   resolvedsearchtype?: string;
-  results: exaresults[];
+  results: ExaResults[];
   searchtype?: string;
 }

@@ -1148,8 +1148,8 @@ describe('AgentRuntimeOnClient', () => {
           settings: {
             keyVaults: {
               openai: {
-                apiKey: 'user-openai-key',
-                baseURL: 'user-openai-endpoint',
+                apiKey: 'test-api-key',
+                baseUrl: 'https://api.openai.com/v1',
               },
             },
           },
@@ -1157,7 +1157,7 @@ describe('AgentRuntimeOnClient', () => {
         const runtime = await initializeWithClientStore(ModelProvider.OpenAI, {});
         expect(runtime).toBeInstanceOf(AgentRuntime);
         expect(runtime['_runtime']).toBeInstanceOf(LobeOpenAI);
-        expect(runtime['_runtime'].baseURL).toBe('user-openai-endpoint');
+        expect(runtime['_runtime'].baseURL).toBe('https://api.openai.com/v1');
       });
 
       it('Azure provider: with apiKey, apiVersion, endpoint', async () => {
@@ -1230,7 +1230,7 @@ describe('AgentRuntimeOnClient', () => {
           settings: {
             keyVaults: {
               ollama: {
-                baseURL: 'http://127.0.0.1:1234',
+                baseUrl: 'http://localhost:11434',
               },
             },
           },
@@ -1335,8 +1335,8 @@ describe('AgentRuntimeOnClient', () => {
           settings: {
             keyVaults: {
               groq: {
-                apiKey: 'user-groq-key',
-                baseURL: 'user-groq-endpoint',
+                apiKey: 'test-api-key',
+                baseUrl: 'https://api.groq.com/openai/v1',
               },
             },
           },
@@ -1345,9 +1345,9 @@ describe('AgentRuntimeOnClient', () => {
         expect(runtime).toBeInstanceOf(AgentRuntime);
         const lobeOpenAICompatibleInstance = runtime['_runtime'] as LobeOpenAICompatibleRuntime;
         expect(lobeOpenAICompatibleInstance).toBeInstanceOf(LobeGroq);
-        expect(lobeOpenAICompatibleInstance.baseURL).toBe('user-groq-endpoint');
+        expect(lobeOpenAICompatibleInstance.baseURL).toBe('https://api.groq.com/openai/v1');
         expect(lobeOpenAICompatibleInstance.client).toBeInstanceOf(OpenAI);
-        expect(lobeOpenAICompatibleInstance.client.apiKey).toBe('user-groq-key');
+        expect(lobeOpenAICompatibleInstance.client.apiKey).toBe('test-api-key');
       });
 
       it('DeepSeek provider: with apiKey', async () => {

@@ -8,6 +8,7 @@ import { FormInput, FormPassword } from '@/components/FormInput';
 import { useChatStore } from '@/store/chat';
 import { useUserStore } from '@/store/user';
 import { keyVaultsConfigSelectors } from '@/store/user/selectors';
+import { GlobalLLMProviderKey } from '@/types/user/settings';
 
 import SearchXNGIcon from './SearchXNGIcon';
 import { FormAction } from './style';
@@ -17,12 +18,20 @@ interface ProviderApiKeyFormProps {
   provider: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+interface _SearchConfigFormProps {
+  config: Record<string, unknown>;
+  onConfigChange: (config: Record<string, unknown>) => void;
+}
+
 const Form = memo<ProviderApiKeyFormProps>(({ provider, id }) => {
   const { t } = useTranslation('plugin');
 
-  const [apiKey, baseURL, setConfig] = useUserStore((s) => [
-    keyVaultsConfigSelectors.getVaultByProvider(provider as any)(s)?.apiKey,
-    keyVaultsConfigSelectors.getVaultByProvider(provider as any)(s)?.baseURL,
+  const [apiKey, baseUrl, setConfig] = useUserStore((s) => [
+    keyVaultsConfigSelectors.getVaultByProvider(provider as unknown as GlobalLLMProviderKey)(s)
+      ?.apiKey,
+    keyVaultsConfigSelectors.getVaultByProvider(provider as unknown as GlobalLLMProviderKey)(s)
+      ?.baseUrl,
     s.updateKeyVaultSettings,
   ]);
 
@@ -49,11 +58,11 @@ const Form = memo<ProviderApiKeyFormProps>(({ provider, id }) => {
       >
         <FormInput
           onChange={(value) => {
-            setConfig(provider, { baseURL: value });
+            setConfig(provider, { baseUrl: value });
           }}
           placeholder={'https://searxng.xxx'}
           suffix={<div>{loading && <Icon icon={Loader2Icon} spin />}</div>}
-          value={baseURL}
+          value={baseUrl}
         />
         {showKey ? (
           <FormPassword

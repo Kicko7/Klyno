@@ -1,10 +1,10 @@
-export interface tablebasicinfo {
+export interface TableBasicInfo {
   count: number;
   name: string;
-  type: "BASE TABLE" | "VIEW";
+  type: 'BASE TABLE' | 'VIEW';
 }
 
-export interface tablecolumninfo {
+export interface TableColumnInfo {
   defaultvalue?: string;
   foreignKey?: {
     column: string;
@@ -17,15 +17,15 @@ export interface tablecolumninfo {
   type: string;
 }
 
-export interface paginationparams {
+export interface PaginationParams {
   page: number;
   pagesize: number;
   sortby?: string;
-  sortorder?: "asc" | "desc";
+  sortorder?: 'asc' | 'desc';
 }
 
-export interface filtercondition {
+export interface FilterCondition {
   column: string;
-  operator: "equals" | "contains" | "startsWith" | "endsWith";
+  operator: 'equals' | 'contains' | 'startsWith' | 'endsWith';
   value: any;
 }

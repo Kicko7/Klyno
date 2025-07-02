@@ -22,7 +22,7 @@ const n = setNamespace('g');
 export interface GlobalGeneralAction {
   switchLocale: (locale: LocaleMode) => void;
   switchThemeMode: (themeMode: ThemeMode, params?: { skipBroadcast?: boolean }) => void;
-  updateSystemStatus: (status: Partial<SystemStatus>, action?: any) => void;
+  updateSystemStatus: (status: Partial<SystemStatus>, action?: string) => void;
   useCheckLatestVersion: (enabledCheck?: boolean) => SWRResponse<string>;
   useInitSystemStatus: () => SWRResponse;
 }

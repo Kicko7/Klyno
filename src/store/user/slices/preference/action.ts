@@ -10,7 +10,7 @@ const n = setNamespace('preference');
 
 export interface PreferenceAction {
   updateGuideState: (guide: Partial<UserGuide>) => Promise<void>;
-  updatePreference: (preference: Partial<UserPreference>, action?: any) => Promise<void>;
+  updatePreference: (preference: Partial<UserPreference>, action?: string) => Promise<void>;
 }
 
 export const createPreferenceSlice: StateCreator<
@@ -30,6 +30,6 @@ export const createPreferenceSlice: StateCreator<
 
     set({ preference: nextPreference }, false, action || n('updatePreference'));
 
-    await userService.updatePreference(nextPreference);
+    await userService?.updatePreference(nextPreference);
   },
 });

@@ -10,8 +10,12 @@ import {
   Share2Icon,
   VideoIcon,
 } from 'lucide-react';
+import React from 'react';
 
-export const CATEGORY_ICON_MAP: Record<string, any> = {
+export const CATEGORY_ICON_MAP: Record<
+  string,
+  React.ComponentType<React.SVGProps<SVGSVGElement>>
+> = {
   files: FileIcon,
   general: SearchIcon,
   images: ImageIcon,

@@ -5,7 +5,7 @@ import urlJoin from 'url-join';
 import { SearchParams, UniformSearchResponse, UniformSearchResult } from '@/types/tool/search';
 
 import { SearchServiceImpl } from '../type';
-import { BochaSearchParameters, BochaResponse } from './type';
+import { BochaResponse, BochaSearchParameters } from './type';
 
 const log = debug('lobe-search:Bocha');
 
@@ -44,7 +44,7 @@ export class BochaImpl implements SearchServiceImpl {
       ...defaultQueryParams,
       freshness:
         params?.searchTimeRange && params.searchTimeRange !== 'anytime'
-          ? timeRangeMapping[params.searchTimeRange as keyof typeof timeRangeMapping] ?? undefined
+          ? (timeRangeMapping[params.searchTimeRange as keyof typeof timeRangeMapping] ?? undefined)
           : undefined,
     };
 
@@ -92,7 +92,7 @@ export class BochaImpl implements SearchServiceImpl {
 
       log('Parsed Bocha response: %o', bochaResponse);
 
-      const mappedResults = (bochaResponse.data.webPages.value || []).map(
+      const mappedResults = (bochaResponse.data.webpages.value || []).map(
         (result): UniformSearchResult => ({
           category: 'general', // Default category
           content: result.summary || result.snippet || '', // Prioritize content, fallback to snippet

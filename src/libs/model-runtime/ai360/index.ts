@@ -1,3 +1,5 @@
+import OpenAI from 'openai';
+
 import type { ChatModelCard } from '@/types/llm';
 
 import { ModelProvider } from '../types';
@@ -31,7 +33,7 @@ export const LobeAi360AI = createOpenAICompatibleRuntime({
         ...rest,
         stream: !ai360Tools,
         tools: ai360Tools,
-      } as any;
+      } as OpenAI.ChatCompletionCreateParamsStreaming;
     },
   },
   debug: {
@@ -42,7 +44,7 @@ export const LobeAi360AI = createOpenAICompatibleRuntime({
 
     const reasoningKeywords = ['360gpt2-o1', '360zhinao2-o1'];
 
-    const modelsPage = (await client.models.list()) as any;
+    const modelsPage = (await client.models.list()) as { data: Ai360ModelCard[] };
     const modelList: Ai360ModelCard[] = modelsPage.data;
 
     return modelList

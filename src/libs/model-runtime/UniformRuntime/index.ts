@@ -17,7 +17,7 @@ export interface RuntimeItem {
   runtime: LobeRuntimeAI;
 }
 
-interface ProviderInitParams extends Record<string, any> {
+interface ProviderInitParams extends Record<string, unknown> {
   accessKeyId?: string;
   accessKeySecret?: string;
   apiKey?: string;
@@ -38,7 +38,7 @@ interface ProviderInstance {
 
 interface UniformRuntimeOptions {
   chat?: {
-    handleError?: (error: any) => Omit<ChatCompletionErrorPayload, 'provider'> | undefined;
+    handleError?: (error: unknown) => Omit<ChatCompletionErrorPayload, 'provider'> | undefined;
   };
 }
 

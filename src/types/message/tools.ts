@@ -69,7 +69,7 @@ export const MessageToolCallSchema = z.object({
  * 聊天消息错误对象
  */
 export interface ChatMessagePluginError {
-  body?: any;
+  body?: unknown;
   message: string;
   type: IPluginErrorType;
 }

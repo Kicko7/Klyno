@@ -1,4 +1,4 @@
-export interface bravesearchparameters {
+export interface BraveSearchParameters {
   count?: number;
   country?: string;
   enable_rich_callback?: boolean;
@@ -18,7 +18,7 @@ export interface bravesearchparameters {
   units?: string;
 }
 
-interface braveresults {
+export interface BraveResults {
   age?: string;
   description: string;
   family_friendly?: boolean;
@@ -37,22 +37,22 @@ interface braveresults {
   video?: any;
 }
 
-interface bravevideos {
+export interface BraveVideos {
   mutated_by_goggles?: boolean;
-  results: braveresults[];
+  results: BraveResults[];
   type: string;
 }
 
-interface braveweb {
+export interface BraveWeb {
   family_friendly?: boolean;
-  results: braveresults[];
+  results: BraveResults[];
   type: string;
 }
 
-export interface braveresponse {
+export interface BraveResponse {
   mixed: any;
   query?: any;
   type: string;
-  videos?: bravevideos;
-  web: braveweb;
+  videos?: BraveVideos;
+  web: BraveWeb;
 }

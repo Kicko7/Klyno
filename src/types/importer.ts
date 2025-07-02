@@ -34,7 +34,7 @@ export interface ImportMessage {
     translate?: ChatTranslate | false | null;
     // TTS
     tts?: ChatTTS;
-  } & Record<string, any>;
+  } & Record<string, unknown>;
   files?: string[];
   id: string;
 
@@ -48,7 +48,7 @@ export interface ImportMessage {
    */
   parentId?: string;
   plugin?: ChatPluginPayload;
-  pluginState?: any;
+  pluginState?: unknown;
 
   quotaId?: string;
   role: MessageRoleType;
@@ -152,12 +152,12 @@ export interface OnImportCallbacks {
 export type ImportResultData = ImportSuccessResult | ImportErrorResult;
 
 export interface ImportSuccessResult {
-  results: Record<string, any>;
+  results: Record<string, unknown>;
   success: true;
 }
 
 export interface ImportErrorResult {
   error: { details?: string; message: string };
-  results: Record<string, any>;
+  results: Record<string, unknown>;
   success: false;
 }

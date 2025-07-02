@@ -61,7 +61,7 @@ export const formatTime = (timeInSeconds: number): string => {
   }
 };
 
-export const formatShortenNumber = (num: any) => {
+export const formatShortenNumber = (num: unknown) => {
   if (!num && num !== 0) return '--';
   if (!isNumber(num)) return num;
 
@@ -80,16 +80,18 @@ export const formatShortenNumber = (num: any) => {
   }
 };
 
-export const formatNumber = (num: any, fractionDigits?: number) => {
+export const formatNumber = (num: unknown, fractionDigits?: number) => {
   if (!num && num !== 0) return '--';
+  if (!isNumber(num)) return String(num);
 
   if (!fractionDigits) return new Intl.NumberFormat('en-US').format(num);
   const [a, b] = num.toFixed(fractionDigits).split('.');
   return `${numeral(a).format('0,0')}.${b}`;
 };
 
-export const formatIntergerNumber = (num?: any) => {
+export const formatIntergerNumber = (num?: unknown) => {
   if (!num && num !== 0) return '--';
+  if (!isNumber(num)) return String(num);
 
   return numeral(num).format('0,0');
 };

@@ -6,13 +6,13 @@ export const downloadFile = async (url: string, fileName: string) => {
     const blob = await res.blob();
 
     const blobUrl = window.URL.createObjectURL(blob);
-    const link = safeCreateElement('a');
+    const link = safeCreateElement('a') as HTMLAnchorElement | null;
     if (!link) {
       console.error('Failed to create anchor element for file download');
       window.open(url);
       return;
     }
-    
+
     link.href = blobUrl;
     link.download = fileName;
     link.style.display = 'none';

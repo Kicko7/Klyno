@@ -21,14 +21,14 @@ export const pgTableRouter = router({
     .input(
       z.object({
         page: z.number(),
-        pageSize: z.number(),
+        pagesize: z.number(),
         tableName: z.string(),
       }),
     )
     .query(async ({ input, ctx }) => {
       return ctx.tableViewerRepo.getTableData(input.tableName, {
         page: input.page,
-        pageSize: input.pageSize,
+        pagesize: input.pagesize,
       });
     }),
   getTableDetails: pgTableProcedure

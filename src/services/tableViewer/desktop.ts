@@ -10,6 +10,6 @@ export class DesktopService {
   };
 
   getTableData = async (tableName: string) => {
-    return desktopClient.pgTable.getTableData.query({ page: 1, pageSize: 300, tableName });
+    return desktopClient.pgTable.getTableData.query({ page: 1, pagesize: 300, tableName });
   };
 }

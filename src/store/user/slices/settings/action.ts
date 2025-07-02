@@ -73,7 +73,7 @@ export const createSettingsSlice: StateCreator<
   },
 
   resetSettings: async () => {
-    await userService.resetUserSettings();
+    await userService?.resetUserSettings();
     await get().refreshUserState();
   },
   setSettings: async (settings) => {
@@ -87,7 +87,7 @@ export const createSettingsSlice: StateCreator<
     set({ settings: diffs }, false, 'optimistic_updateSettings');
 
     const abortController = get().internal_createSignal();
-    await userService.updateUserSettings(diffs, abortController.signal);
+    await userService?.updateUserSettings(diffs, abortController.signal);
     await get().refreshUserState();
   },
   updateDefaultAgent: async (defaultAgent) => {

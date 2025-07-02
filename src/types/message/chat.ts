@@ -15,7 +15,7 @@ import { Translate } from './translate';
  * 聊天消息错误对象
  */
 export interface ChatMessageError {
-  body?: any;
+  body?: unknown;
   message: string;
   type: ErrorType | IPluginErrorType | ILobeAgentRuntimeErrorType;
 }
@@ -89,8 +89,8 @@ export interface ChatMessage {
    */
   parentId?: string;
   plugin?: ChatPluginPayload;
-  pluginError?: any;
-  pluginState?: any;
+  pluginError?: unknown;
+  pluginState?: unknown;
   /**
    * quoted other message's id
    */

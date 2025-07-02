@@ -92,7 +92,7 @@ export class TableViewerRepo {
     return columns.rows.map((col: any) => ({
       defaultValue: col.column_default,
       foreignKey: col.foreign_key,
-      isPrimaryKey: !!col.is_primary_key,
+      isprimarykey: col.is_primary_key,
       name: col.column_name,
       nullable: col.is_nullable === 'YES',
       type: col.data_type,
@@ -103,7 +103,7 @@ export class TableViewerRepo {
    * 获取表数据，支持分页、排序和筛选
    */
   async getTableData(tableName: string, pagination: PaginationParams, filters?: FilterCondition[]) {
-    const offset = (pagination.page - 1) * pagination.pageSize;
+    const offset = (pagination.page - 1) * pagination.pagesize;
 
     // 构建基础查询
     let baseQuery = sql`SELECT * FROM ${sql.identifier(tableName)}`;
@@ -136,13 +136,13 @@ export class TableViewerRepo {
     }
 
     // 添加排序
-    if (pagination.sortBy) {
-      const direction = pagination.sortOrder === 'desc' ? sql`DESC` : sql`ASC`;
-      baseQuery = sql`${baseQuery} ORDER BY ${sql.identifier(pagination.sortBy)} ${direction}`;
+    if (pagination.sortby) {
+      const direction = pagination.sortorder === 'desc' ? sql`DESC` : sql`ASC`;
+      baseQuery = sql`${baseQuery} ORDER BY ${sql.identifier(pagination.sortby)} ${direction}`;
     }
 
     // 添加分页
-    const query = sql`${baseQuery} LIMIT ${pagination.pageSize} OFFSET ${offset}`;
+    const query = sql`${baseQuery} LIMIT ${pagination.pagesize} OFFSET ${offset}`;
 
     // 获取总数
     const countQuery = sql`SELECT COUNT(*) as total FROM ${sql.identifier(tableName)}`;
@@ -154,7 +154,7 @@ export class TableViewerRepo {
       data: data.rows,
       pagination: {
         page: pagination.page,
-        pageSize: pagination.pageSize,
+        pagesize: pagination.pagesize,
         total: Number(count.rows[0].total),
       },
     };
@@ -246,6 +246,6 @@ export class TableViewerRepo {
     pagination?: PaginationParams,
     filters?: FilterCondition[],
   ) {
-    return this.getTableData(tableName, pagination || { page: 1, pageSize: 1000 }, filters);
+    return this.getTableData(tableName, pagination || { page: 1, pagesize: 1000 }, filters);
   }
 }

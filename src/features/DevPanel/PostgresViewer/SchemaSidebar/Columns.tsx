@@ -51,7 +51,7 @@ const Columns = ({ tableName }: TableColumnsProps) => {
                 <Flexbox>{column.name}</Flexbox>
                 <span className={styles.type}>{column.type}</span>
               </Flexbox>
-              {column.isPrimaryKey && (
+              {column.isprimarykey && (
                 <div>
                   <Tag bordered={false} color={'cyan'}>
                     Primary

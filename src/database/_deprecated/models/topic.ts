@@ -216,7 +216,7 @@ class _TopicModel extends BaseModel {
 
   // **************** Update *************** //
   async update(id: string, data: Partial<DB_Topic>) {
-    return super._updateWithSync(id, data);
+    return super._updateWithSync(id, data as any);
   }
 
   async toggleFavorite(id: string, newState?: boolean) {

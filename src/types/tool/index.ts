@@ -7,7 +7,7 @@ export interface LobeTool {
   customParams?: CustomPluginParams | null;
   identifier: string;
   manifest?: LobeChatPluginManifest | null;
-  settings?: any;
+  settings?: unknown;
   type: LobeToolType;
 }
 

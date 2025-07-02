@@ -1,44 +1,44 @@
 /**
  * S3文件服务实现
  */
-export interface fileserviceimpl {
+export interface FileServiceImpl {
   /**
    * 创建预签名上传URL
    */
-  createpresignedurl(key: string): promise<string>;
+  createPresignedUrl(key: string): Promise<string>;
 
   /**
    * 创建预签名预览URL
    */
-  createpresignedurlforpreview(key: string, expiresin?: number): promise<string>;
+  createPresignedUrlForPreview(key: string, expiresIn?: number): Promise<string>;
 
   /**
    * 删除文件
    */
-  deletefile(key: string): promise<any>;
+  deleteFile(key: string): Promise<any>;
 
   /**
    * 批量删除文件
    */
-  deletefiles(keys: string[]): promise<any>;
+  deleteFiles(keys: string[]): Promise<any>;
 
   /**
    * 获取文件字节数组
    */
-  getfilebytearray(key: string): promise<uint8array>;
+  getFileByteArray(key: string): Promise<Uint8Array>;
 
   /**
    * 获取文件内容
    */
-  getfilecontent(key: string): promise<string>;
+  getFileContent(key: string): Promise<string>;
 
   /**
    * 获取完整文件URL
    */
-  getfullfileurl(url?: string | null, expiresin?: number): promise<string>;
+  getFullFileUrl(url?: string | null, expiresIn?: number): Promise<string>;
 
   /**
    * 上传内容
    */
-  uploadcontent(path: string, content: string): promise<any>;
+  uploadContent(path: string, content: string): Promise<any>;
 }

@@ -1,4 +1,4 @@
-export interface googlesearchparameters {
+export interface GoogleSearchParameters {
   c2coff?: number;
   cx: string;
   daterestrict?: string;
@@ -30,7 +30,7 @@ export interface googlesearchparameters {
   start?: string;
 }
 
-interface googleitems {
+export interface GoogleItems {
   displaylink?: string;
   formattedurl?: string;
   htmlformattedurl?: string;
@@ -43,9 +43,9 @@ interface googleitems {
   title: string;
 }
 
-export interface googleresponse {
+export interface GoogleResponse {
   context?: any;
-  items: googleitems[];
+  items: GoogleItems[];
   kind?: string;
   queries?: any;
   searchinformation?: any;

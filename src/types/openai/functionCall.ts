@@ -1,10 +1,10 @@
-export interface openaifunctioncall {
+export interface OpenAIFunctionCall {
   arguments: string;
   name: string;
 }
 
-export interface openaitoolcall {
-  function: openaifunctioncall;
+export interface OpenAIToolCall {
+  function: OpenAIFunctionCall;
   id: string;
-  type: "function";
+  type: 'function';
 }

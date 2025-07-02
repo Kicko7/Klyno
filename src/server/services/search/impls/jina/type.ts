@@ -1,26 +1,26 @@
-export interface jinasearchparameters {
+export interface JinaSearchParameters {
   q: string;
 }
 
-interface jinausage {
+export interface JinaUsage {
   tokens: number;
 }
 
-interface jinameta {
-  usage: jinausage;
+export interface JinaMeta {
+  usage: JinaUsage;
 }
 
-interface jinadata {
+export interface JinaData {
   content?: string;
   description?: string;
   title: string;
   url: string;
-  usage?: jinausage;
+  usage?: JinaUsage;
 }
 
-export interface jinaresponse {
+export interface JinaResponse {
   code?: number;
-  data: jinadata[];
-  meta?: jinameta;
+  data: JinaData[];
+  meta?: JinaMeta;
   status?: number;
 }

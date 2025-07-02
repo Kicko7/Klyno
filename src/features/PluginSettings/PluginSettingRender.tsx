@@ -3,6 +3,7 @@ import { Slider, Switch } from 'antd';
 import { JSONSchema7Type } from 'json-schema';
 import { memo } from 'react';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface PluginSettingsProps {
   defaultValue?: any;
   enum?: JSONSchema7Type[];

@@ -22,7 +22,7 @@ export interface LobeRuntimeAI {
 
   embeddings?(payload: EmbeddingsPayload, options?: EmbeddingsOptions): Promise<Embeddings[]>;
 
-  models?(): Promise<any>;
+  models?(): Promise<ChatModelCard[]>;
 
   textToImage?: (payload: TextToImagePayload) => Promise<string[]>;
 

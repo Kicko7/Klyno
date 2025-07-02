@@ -21,12 +21,12 @@ export class MigrationV3ToV4 implements Migration {
   }
 
   static migrateSettings = (settings: V3Settings): V4Settings => {
-    const { languageModel } = settings;
+    const { languagemodel } = settings;
 
-    if (!languageModel) return { ...settings, languageModel: undefined };
+    if (!languagemodel) return { ...settings, languageModel: undefined };
 
-    const { openAI, togetherai, openrouter, ollama, ...res } = languageModel;
-    const { openai, azure } = this.migrateOpenAI(openAI);
+    const { openai, togetherai, openrouter, ollama, ...res } = languagemodel;
+    const { openai: openaiConfig, azure } = this.migrateOpenAI(openai);
 
     return {
       ...settings,
@@ -34,7 +34,7 @@ export class MigrationV3ToV4 implements Migration {
         ...res,
         azure,
         ollama: ollama && this.migrateProvider(ollama),
-        openai,
+        openai: openaiConfig,
         openrouter: openrouter && this.migrateProvider(openrouter),
         togetherai: togetherai && this.migrateProvider(togetherai),
       },
@@ -50,11 +50,11 @@ export class MigrationV3ToV4 implements Migration {
         openai: { apiKey: '', enabled: true },
       };
 
-    if (openai.useAzure) {
+    if (openai.useazure) {
       return {
         azure: {
-          apiKey: openai.OPENAI_API_KEY,
-          apiVersion: openai.azureApiVersion,
+          apiKey: openai.openai_api_key,
+          apiVersion: openai.azureapiversion,
           enabled: true,
           endpoint: openai.endpoint,
         },
@@ -64,7 +64,7 @@ export class MigrationV3ToV4 implements Migration {
 
     const customModelCards = transformToChatModelCards({
       defaultChatModels: [],
-      modelString: openai.customModelName,
+      modelString: openai.custommodelname,
     });
 
     return {
@@ -74,7 +74,7 @@ export class MigrationV3ToV4 implements Migration {
         endpoint: '',
       },
       openai: {
-        apiKey: openai.OPENAI_API_KEY,
+        apiKey: openai.openai_api_key,
         customModelCards:
           customModelCards && customModelCards.length > 0 ? customModelCards : undefined,
         enabled: true,
@@ -86,11 +86,11 @@ export class MigrationV3ToV4 implements Migration {
   static migrateProvider = (provider: V3LegacyConfig): V4ProviderConfig => {
     const customModelCards = transformToChatModelCards({
       defaultChatModels: [],
-      modelString: provider.customModelName,
+      modelString: provider.custommodelname,
     });
 
     return {
-      apiKey: provider.apiKey,
+      apiKey: provider.apikey,
       customModelCards:
         customModelCards && customModelCards.length > 0 ? customModelCards : undefined,
       enabled: provider.enabled,

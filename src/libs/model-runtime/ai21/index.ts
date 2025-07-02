@@ -1,3 +1,5 @@
+import OpenAI from 'openai';
+
 import { ModelProvider } from '../types';
 import { createOpenAICompatibleRuntime } from '../utils/openaiCompatibleFactory';
 
@@ -8,7 +10,7 @@ export const LobeAi21AI = createOpenAICompatibleRuntime({
       return {
         ...payload,
         stream: !payload.tools,
-      } as any;
+      } as OpenAI.ChatCompletionCreateParamsStreaming;
     },
   },
   debug: {

@@ -35,7 +35,7 @@ const defaultAgentMeta = (s: UserStore) => merge(DEFAULT_AGENT_META, defaultAgen
 const exportSettings = currentSettings;
 
 const dalleConfig = (s: UserStore) => currentSettings(s).tool?.dalle || {};
-const isDalleAutoGenerating = (s: UserStore) => currentSettings(s).tool?.dalle?.autoGenerate;
+const isDalleAutoGenerating = (s: UserStore) => currentSettings(s).tool?.dalle?.autogenerate;
 
 const currentSystemAgent = (s: UserStore) =>
   merge(DEFAULT_SYSTEM_AGENT_CONFIG, currentSettings(s).systemAgent);

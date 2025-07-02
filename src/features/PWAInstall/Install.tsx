@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { memo, useEffect, useLayoutEffect } from 'react';
+import React, { memo, useEffect, useLayoutEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { BRANDING_NAME } from '@/const/branding';
@@ -12,9 +12,10 @@ import { systemStatusSelectors } from '@/store/global/selectors';
 import { useUserStore } from '@/store/user';
 
 // @ts-ignore
-const PWA: any = dynamic(() => import('@khmyznikov/pwa-install/dist/pwa-install.react.js'), {
-  ssr: false,
-});
+const PWA: React.ComponentType<{ 'description': string; 'id': string; 'manifest-url': string }> =
+  dynamic(() => import('@khmyznikov/pwa-install/dist/pwa-install.react.js'), {
+    ssr: false,
+  });
 
 const PWAInstall = memo(() => {
   const { t } = useTranslation('metadata');

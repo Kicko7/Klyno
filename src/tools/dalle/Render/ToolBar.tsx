@@ -38,7 +38,7 @@ const ToolBar = memo<ToolBarProps>(({ content, messageId }) => {
         <Checkbox
           checked={isAutoGenerate}
           onChange={(e) => {
-            setSettings({ tool: { dalle: { autoGenerate: e.target.checked } } });
+            setSettings({ tool: { dalle: { autogenerate: e.target.checked } } });
           }}
         >
           {t('dalle.autoGenerate')}

@@ -166,9 +166,9 @@ export class ChangelogService {
       .map((item) => ({
         ...item,
         date: dayjs(item.date).format('YYYY-MM-DD'),
-        versionRange: this.formatVersionRange(item.versionRange),
+        versionrange: this.formatVersionRange(item.versionrange),
       }))
-      .sort((a, b) => semver.rcompare(a.versionRange[0], b.versionRange[0]));
+      .sort((a, b) => semver.rcompare(a.versionrange[0], b.versionrange[0]));
   }
 
   private formatVersionRange(range: string[]): string[] {

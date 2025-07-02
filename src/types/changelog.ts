@@ -1,4 +1,4 @@
-export interface changelogindexitem {
+export interface ChangelogIndexItem {
   date: string;
   id: string;
   image?: string;

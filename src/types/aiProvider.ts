@@ -111,6 +111,9 @@ const AiProviderSettingsSchema = z.object({
 });
 
 export interface AiProviderConfig {
+  /**
+   * whether enable response api
+   */
   enableResponseApi?: boolean;
 }
 
@@ -184,7 +187,7 @@ export interface AiProviderDetailItem {
    */
   homeUrl?: string;
   id: string;
-  keyVaults?: Record<string, any>;
+  keyVaults?: Record<string, unknown>;
   logo?: string;
   /**
    * the url show the all models in the provider
@@ -257,3 +260,8 @@ export interface AiProviderRuntimeState {
   enabledAiProviders: EnabledProvider[];
   runtimeConfig: Record<string, AiProviderRuntimeConfig>;
 }
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+type _DecryptUserKeyVaults = (
+  encryptKeyVaultsStr: string | null,
+) => Promise<Record<string, unknown>>;

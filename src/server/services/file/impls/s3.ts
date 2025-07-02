@@ -31,6 +31,10 @@ export class S3StaticFileImpl implements FileServiceImpl {
     return this.s3.getFileByteArray(key);
   }
 
+  async uploadContent(path: string, content: string) {
+    return this.s3.uploadContent(path, content);
+  }
+
   async createPreSignedUrl(key: string): Promise<string> {
     return this.s3.createPreSignedUrl(key);
   }
@@ -39,8 +43,12 @@ export class S3StaticFileImpl implements FileServiceImpl {
     return this.s3.createPreSignedUrlForPreview(key, expiresIn);
   }
 
-  async uploadContent(path: string, content: string) {
-    return this.s3.uploadContent(path, content);
+  async createPresignedUrl(key: string): Promise<string> {
+    return this.s3.createPreSignedUrl(key);
+  }
+
+  async createPresignedUrlForPreview(key: string, expiresIn?: number): Promise<string> {
+    return this.s3.createPreSignedUrlForPreview(key, expiresIn);
   }
 
   async getFullFileUrl(url?: string | null, expiresIn?: number): Promise<string> {

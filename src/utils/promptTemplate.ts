@@ -1,6 +1,6 @@
 import { get } from 'lodash-es';
 
-export const hydrationPrompt = (prompt: string, context: any) => {
+export const hydrationPrompt = (prompt: string, context: Record<string, unknown>) => {
   const regex = /{{([\S\s]+?)}}/g;
 
   // Use String.prototype.replace with a replacer function

@@ -1,4 +1,4 @@
-export interface modeldetail {
+export interface ModelDetail {
   details?: {
     families?: string[];
     family?: string;
@@ -9,12 +9,12 @@ export interface modeldetail {
 
   digest?: string;
   id: string;
-  modified_at?: date;
+  modified_at?: Date;
   name?: string;
   size?: number;
 }
 
-export interface modelprogressresponse {
+export interface ModelProgressResponse {
   completed?: number;
   digest?: string;
   model?: string;
@@ -22,24 +22,24 @@ export interface modelprogressresponse {
   total?: number;
 }
 
-export interface modelsparams {
+export interface ModelsParams {
   name?: string;
 }
 
-export interface pullmodelparams {
+export interface PullModelParams {
   insecure?: boolean;
   model: string;
   stream?: boolean;
 }
 
-export interface modeldetailparams {
+export interface ModelDetailParams {
   model: string;
 }
 
-export interface deletemodelparams {
+export interface DeleteModelParams {
   model: string;
 }
 
-export interface modelrequestoptions {
-  signal?: abortsignal;
+export interface ModelRequestOptions {
+  signal?: AbortSignal;
 }

@@ -8,12 +8,12 @@ export const exportFile = (content: string, filename?: string) => {
   const url = URL.createObjectURL(blob);
 
   // 创建一个 <a> 元素，设置下载链接和文件名
-  const a = safeCreateElement('a');
+  const a = safeCreateElement('a') as HTMLAnchorElement | null;
   if (!a) {
     console.error('Failed to create anchor element for file export');
     return;
   }
-  
+
   a.href = url;
   a.download = filename || 'file.txt';
 
@@ -34,12 +34,12 @@ export const exportJSONFile = (data: object, fileName: string) => {
   const url = URL.createObjectURL(blob);
 
   // 创建一个 <a> 元素，设置下载链接和文件名
-  const a = safeCreateElement('a');
+  const a = safeCreateElement('a') as HTMLAnchorElement | null;
   if (!a) {
     console.error('Failed to create anchor element for JSON file export');
     return;
   }
-  
+
   a.href = url;
   a.download = fileName;
 

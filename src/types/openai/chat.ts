@@ -118,7 +118,7 @@ export interface ChatCompletionFunctions {
    * @memberof ChatCompletionFunctions
    */
   parameters?: {
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 

@@ -52,26 +52,26 @@ export const getProviderAuthPayload = (
         apiVersion: keyVaults.apiVersion,
         /** @deprecated */
         azureApiVersion: keyVaults.apiVersion,
-        baseURL: keyVaults.baseURL || keyVaults.endpoint,
+        baseURL: keyVaults.baseUrl || keyVaults.endpoint,
       };
     }
 
     case ModelProvider.Ollama: {
-      return { baseURL: keyVaults?.baseURL };
+      return { baseURL: keyVaults?.baseUrl };
     }
 
     case ModelProvider.Cloudflare: {
       return {
         apiKey: keyVaults?.apiKey,
 
-        baseURLOrAccountID: keyVaults?.baseURLOrAccountID,
+        baseURLOrAccountID: keyVaults?.baseUrlOrAccountId,
         /** @deprecated */
-        cloudflareBaseURLOrAccountID: keyVaults?.baseURLOrAccountID,
+        cloudflareBaseURLOrAccountID: keyVaults?.baseUrlOrAccountId,
       };
     }
 
     default: {
-      return { apiKey: keyVaults?.apiKey, baseURL: keyVaults?.baseURL };
+      return { apiKey: keyVaults?.apiKey, baseURL: keyVaults?.baseUrl };
     }
   }
 };

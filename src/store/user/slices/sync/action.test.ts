@@ -86,7 +86,7 @@ describe('createSyncSlice', () => {
         enabled: true,
       });
       vi.spyOn(syncSettingsSelectors, 'deviceName').mockReturnValueOnce(deviceName);
-      const enabledSyncSpy = vi.spyOn(syncService, 'enabledSync').mockResolvedValueOnce(true);
+      const enabledSyncSpy = vi.spyOn(syncService, 'enabledSync').mockResolvedValueOnce();
       const { result } = renderHook(() => useUserStore());
 
       const data = await act(async () => {
@@ -123,7 +123,7 @@ describe('createSyncSlice', () => {
     });
 
     it('should call syncService.disableSync when userEnableSync is false', async () => {
-      const disableSyncSpy = vi.spyOn(syncService, 'disableSync').mockResolvedValueOnce(false);
+      const disableSyncSpy = vi.spyOn(syncService, 'disableSync').mockResolvedValueOnce();
 
       const { result } = renderHook(
         () =>

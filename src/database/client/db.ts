@@ -235,10 +235,10 @@ export class DatabaseManager {
         // https://github.com/lobehub/lobe-chat/issues/5785
         if (typeof Worker !== 'undefined' && typeof navigator.locks !== 'undefined') {
           db = await initPgliteWorker({
-            dbName: DB_NAME,
-            fsBundle: fsBundle as Blob,
-            vectorBundlePath: DatabaseManager.VECTOR_CDN_URL,
-            wasmModule,
+            dbname: DB_NAME,
+            fsbundle: fsBundle as Blob,
+            vectorbundlepath: DatabaseManager.VECTOR_CDN_URL,
+            wasmmodule: wasmModule as WebAssembly.Module,
           });
         } else {
           // in edge runtime or test runtime, we don't have worker

@@ -229,7 +229,7 @@ class _SessionModel extends BaseModel {
   // **************** Update *************** //
 
   async update(id: string, data: Partial<DB_Session>) {
-    return super._updateWithSync(id, data);
+    return super._updateWithSync(id, data as any);
   }
 
   async updateConfig(id: string, data: DeepPartial<LobeAgentConfig>) {

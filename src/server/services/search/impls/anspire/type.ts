@@ -1,4 +1,4 @@
-export interface anspiresearchparameters {
+export interface AnspireSearchParameters {
   fromtime?: string;
   insite?: string;
   mode?: number;
@@ -7,15 +7,15 @@ export interface anspiresearchparameters {
   totime?: string;
 }
 
-interface anspireresults {
+export interface AnspireResults {
   content?: string;
   score?: number;
   title: string;
   url: string;
 }
 
-export interface anspireresponse {
+export interface AnspireResponse {
   query?: string;
-  results?: anspireresults[];
+  results?: AnspireResults[];
   uuid?: string;
 }

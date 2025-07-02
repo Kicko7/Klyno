@@ -14,7 +14,7 @@ interface PluginDetailModalProps {
   onClose: () => void;
   onTabChange?: (key: string) => void;
   open?: boolean;
-  schema: any;
+  schema: unknown;
   tab?: string;
 }
 

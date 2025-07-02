@@ -106,7 +106,7 @@ export const parseMcpInput = (value: string): ParseResult => {
       if (topLevelKeys.length === 1) {
         const identifier = topLevelKeys[0];
         // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-        const mcpConfig = (parsedJson as any)[identifier];
+        const mcpConfig = (parsedJson as Record<string, unknown>)[identifier];
 
         if (mcpConfig && typeof mcpConfig === 'object' && !Array.isArray(mcpConfig)) {
           let type: 'stdio' | 'http' | undefined;

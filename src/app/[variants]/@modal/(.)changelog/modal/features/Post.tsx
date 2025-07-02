@@ -17,7 +17,7 @@ import VersionTag from './VersionTag';
 
 const Post = async ({
   id,
-  versionRange,
+  versionrange,
   locale,
 }: ChangelogIndexItem & { branch?: string; locale: Locales; mobile?: boolean }) => {
   const changelogService = new ChangelogService();
@@ -41,7 +41,7 @@ const Post = async ({
           <CustomMDX source={data.content} />
         </Typography>
         <Flexbox align={'center'} gap={8} horizontal justify={'space-between'} width={'100%'}>
-          <VersionTag range={versionRange} />
+          <VersionTag range={versionrange} />
           <PublishedTime
             date={data.date.toISOString()}
             style={{ fontSize: 12, opacity: 0.5 }}

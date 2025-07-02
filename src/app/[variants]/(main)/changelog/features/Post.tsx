@@ -17,7 +17,7 @@ import VersionTag from './VersionTag';
 const Post = async ({
   id,
   mobile,
-  versionRange,
+  versionrange,
   locale,
 }: ChangelogIndexItem & { branch?: string; locale: Locales; mobile?: boolean }) => {
   const changelogService = new ChangelogService();
@@ -45,7 +45,7 @@ const Post = async ({
           <Image alt={data.title} src={data.image} />
           <CustomMDX source={data.content} />
           <Link href={urlJoin(OFFICIAL_SITE, '/changelog', id)} style={{ color: 'inherit' }}>
-            <VersionTag range={versionRange} />
+            <VersionTag range={versionrange} />
           </Link>
         </Typography>
       </GridLayout>

@@ -121,9 +121,9 @@ describe('getProviderAuthPayload', () => {
     // 假设的 Ollama 配置
     const mockOllamaProxyUrl = 'ollama-proxy-url';
 
-    const payload = getProviderAuthPayload(ModelProvider.Ollama, { baseURL: mockOllamaProxyUrl });
+    const payload = getProviderAuthPayload(ModelProvider.Ollama, { baseUrl: mockOllamaProxyUrl });
     expect(payload).toEqual({
-      baseURL: mockOllamaProxyUrl,
+      baseUrl: mockOllamaProxyUrl,
     });
   });
 

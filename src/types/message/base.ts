@@ -63,7 +63,7 @@ export interface MessageItem {
   clientId: string | null;
   content: string | null;
   createdAt: Date;
-  error: any | null;
+  error: unknown | null;
   favorite: boolean | null;
   id: string;
   metadata?: MessageMetadata | null;
@@ -77,7 +77,7 @@ export interface MessageItem {
   search: GroundingSearch | null;
   sessionId: string | null;
   threadId: string | null;
-  tools: any | null;
+  tools: unknown | null;
   topicId: string | null;
   // jsonb type
   traceId: string | null;
@@ -91,7 +91,7 @@ export interface NewMessage {
   content?: string | null;
   createdAt?: Date;
   // optional because it has a default value
-  error?: any | null;
+  error?: unknown | null;
   favorite?: boolean;
   id?: string;
   model?: string | null;
@@ -104,7 +104,7 @@ export interface NewMessage {
   // required because it's notNull
   sessionId?: string | null;
   threadId?: string | null;
-  tools?: any | null;
+  tools?: unknown | null;
   topicId?: string | null;
   traceId?: string | null;
   // optional because it's generated

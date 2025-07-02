@@ -25,7 +25,7 @@ const ProviderApiKeyForm = memo<ProviderApiKeyFormProps>(
     const { t: errorT } = useTranslation('error');
     const [showProxy, setShow] = useState(false);
 
-    const { apiKey, baseURL, setConfig } = useApiKey(provider);
+    const { apiKey, baseUrl, setConfig } = useApiKey(provider);
     const { showOpenAIProxyUrl } = useServerConfigStore(featureFlagsSelectors);
     const providerName = useProviderName(provider);
     const { loading } = useContext(LoadingContext);
@@ -51,11 +51,11 @@ const ProviderApiKeyForm = memo<ProviderApiKeyFormProps>(
           (showProxy ? (
             <FormInput
               onChange={(value) => {
-                setConfig(provider, { baseURL: value });
+                setConfig(provider, { baseUrl: value });
               }}
               placeholder={'https://api.openai.com/v1'}
               suffix={<div>{loading && <Icon icon={Loader2Icon} spin />}</div>}
-              value={baseURL}
+              value={baseUrl}
             />
           ) : (
             <Button

@@ -1,6 +1,6 @@
-export interface initmeta {
+export interface InitMeta {
   dbname: string;
-  fsbundle: blob;
+  fsbundle: Blob;
   vectorbundlepath: string;
-  wasmmodule: webassembly.module;
+  wasmmodule: WebAssembly.Module;
 }

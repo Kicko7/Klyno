@@ -36,9 +36,9 @@ const PagesContent = memo<PagesContentProps>(({ results, messageId, urls }) => {
             result.data ||
             // TODO: Remove this in v2 as it's deprecated
             ({
-              content: (result as any)?.content,
-              errorMessage: (result as any)?.errorMessage,
-              errorType: (result as any)?.errorType,
+              content: (result as unknown as { content?: string })?.content,
+              errorMessage: (result as unknown as { errorMessage?: string })?.errorMessage,
+              errorType: (result as unknown as { errorType?: string })?.errorType,
               url: result.originalUrl,
             } as CrawlErrorResult)
           }

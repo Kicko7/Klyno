@@ -1,6 +1,6 @@
-export interface batchtaskresult {
+export interface BatchTaskResult {
   added: number;
-  errors?: error[];
+  errors?: Error[];
   ids: string[];
   skips: string[];
   success: boolean;

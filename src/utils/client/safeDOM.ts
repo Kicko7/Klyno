@@ -18,7 +18,7 @@ export const safeRemoveChild = (parent: Node | null, child: Node | null): boolea
   try {
     // Check if the child is actually a child of the parent
     if (parent.contains(child)) {
-      child.remove();
+      (child as Element).remove();
       return true;
     } else {
       console.warn('safeRemoveChild: Child is not a descendant of parent');
@@ -43,7 +43,7 @@ export const safeAppendChild = (parent: Node | null, child: Node | null): boolea
   }
 
   try {
-    parent.append(child);
+    (parent as Element).append(child as Element);
     return true;
   } catch (error) {
     console.error('safeAppendChild: Error appending child:', error);
@@ -69,7 +69,7 @@ export const safeInsertBefore = (
   }
 
   try {
-    referenceNode.before(newNode);
+    (referenceNode as Element).before(newNode as Element);
     return true;
   } catch (error) {
     console.error('safeInsertBefore: Error inserting node:', error);
@@ -96,7 +96,7 @@ export const safeReplaceChild = (
 
   try {
     if (parent.contains(oldChild)) {
-      oldChild.replaceWith(newChild);
+      (oldChild as Element).replaceWith(newChild as Element);
       return true;
     } else {
       console.warn('safeReplaceChild: Old child is not a descendant of parent');

@@ -50,7 +50,7 @@ export interface ModelListAction {
     config: Partial<UserKeyVaults[T]>,
   ) => Promise<void>;
 
-  updateKeyVaultSettings: (key: string, config: any) => Promise<void>;
+  updateKeyVaultSettings: (key: string, config: unknown) => Promise<void>;
 
   useFetchProviderModelList: (
     provider: GlobalLLMProviderKey,

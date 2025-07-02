@@ -10,7 +10,7 @@ export interface EvalDatasetRecord {
   id: number;
   ideal?: string | null;
 
-  metadata: any;
+  metadata: Record<string, unknown>;
 
   question?: string | null;
 
@@ -45,3 +45,8 @@ export const insertEvalDatasetsSchema = z.object({
 });
 
 export type CreateNewEvalDatasets = z.infer<typeof insertEvalDatasetsSchema>;
+
+export interface EvalDataset {
+  data: Record<string, unknown>;
+  name: string;
+}

@@ -31,7 +31,7 @@ const Welcome = memo<{ mobile?: boolean }>(({ mobile }) => {
   ]);
 
   const { data, isLoading } = useClientDataSWR('welcome', async () =>
-    userService.getUserRegistrationDuration(),
+    userService?.getUserRegistrationDuration(),
   );
 
   return (

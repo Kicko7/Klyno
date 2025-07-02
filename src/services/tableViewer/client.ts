@@ -12,5 +12,5 @@ export class ClientService extends BaseClientService {
   getTableDetails = async (tableName: string) => this.tableViewerRepo.getTableDetails(tableName);
 
   getTableData = async (tableName: string) =>
-    this.tableViewerRepo.getTableData(tableName, { page: 1, pageSize: 300 });
+    this.tableViewerRepo.getTableData(tableName, { page: 1, pagesize: 300 });
 }

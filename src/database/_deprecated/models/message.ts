@@ -190,7 +190,7 @@ class _MessageModel extends BaseModel {
   // **************** Update *************** //
 
   async update(id: string, data: DeepPartial<DB_Message>) {
-    return super._updateWithSync(id, data);
+    return super._updateWithSync(id, data as any);
   }
 
   async updatePluginState(id: string, value: any) {

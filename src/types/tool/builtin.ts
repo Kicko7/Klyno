@@ -28,19 +28,19 @@ export interface LobeBuiltinTool {
   type: 'builtin';
 }
 
-export interface BuiltinRenderProps<Content = any, Arguments = any, State = any> {
+export interface BuiltinRenderProps<Content = unknown, Arguments = unknown, State = unknown> {
   apiName?: string;
   args: Arguments;
   content: Content;
   identifier?: string;
   messageId: string;
-  pluginError?: any;
+  pluginError?: unknown;
   pluginState?: State;
 }
 
-export type BuiltinRender = <T = any>(props: BuiltinRenderProps<T>) => ReactNode;
+export type BuiltinRender = <T = unknown>(props: BuiltinRenderProps<T>) => ReactNode;
 
-export interface BuiltinPortalProps<Arguments = Record<string, any>, State = any> {
+export interface BuiltinPortalProps<Arguments = Record<string, unknown>, State = unknown> {
   apiName?: string;
   arguments: Arguments;
   identifier: string;
@@ -48,4 +48,4 @@ export interface BuiltinPortalProps<Arguments = Record<string, any>, State = any
   state: State;
 }
 
-export type BuiltinPortal = <T = any>(props: BuiltinPortalProps<T>) => ReactNode;
+export type BuiltinPortal = <T = unknown>(props: BuiltinPortalProps<T>) => ReactNode;

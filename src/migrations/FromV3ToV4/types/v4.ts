@@ -1,6 +1,6 @@
 import { ChatModelCard } from '@/types/llm';
 
-import { V3LLMConfig, V3Settings } from './v3';
+import { V3Settings } from './v3';
 
 export interface V4ProviderConfig {
   apiKey?: string;
@@ -16,11 +16,10 @@ export interface V4AzureOpenAIConfig extends V4ProviderConfig {
   apiVersion?: string;
 }
 
-export interface V4lLLMConfig
-  extends Omit<Partial<V3LLMConfig>, 'ollama' | 'openAI' | 'openrouter' | 'togetherai'> {
+export interface V4LLMConfig {
   azure?: V4AzureOpenAIConfig;
   ollama?: V4ProviderConfig;
-  openai: V4ProviderConfig;
+  openai?: V4ProviderConfig;
   openrouter?: V4ProviderConfig;
   togetherai?: V4ProviderConfig;
 }
@@ -29,7 +28,7 @@ export interface V4lLLMConfig
  * 配置设置
  */
 export interface V4Settings extends Omit<V3Settings, 'languageModel'> {
-  languageModel?: V4lLLMConfig;
+  languageModel?: V4LLMConfig;
 }
 
 export interface V4ConfigState {

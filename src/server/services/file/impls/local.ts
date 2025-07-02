@@ -76,7 +76,7 @@ export class DesktopLocalFileImpl implements FileServiceImpl {
   /**
    * 创建预签名预览URL（本地版是通过Electron获取本地文件URL）
    */
-  async createPreSignedUrlForPreview(key: string): Promise<string> {
+  async createPreSignedUrlForPreview(key: string, _expiresIn?: number): Promise<string> {
     return this.getLocalFileUrl(key);
   }
 
@@ -179,5 +179,15 @@ export class DesktopLocalFileImpl implements FileServiceImpl {
     // 例如: return electronIpcClient.uploadContent(filePath, content);
     console.warn('uploadContent not implemented for Desktop local file service', filePath, content);
     return;
+  }
+
+  async createPresignedUrl(key: string): Promise<string> {
+    // For local implementation, return a local file URL
+    return `/api/files/${key}`;
+  }
+
+  async createPresignedUrlForPreview(key: string, _expiresIn?: number): Promise<string> {
+    // For local implementation, return a local file URL
+    return `/api/files/${key}`;
   }
 }

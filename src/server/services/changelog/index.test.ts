@@ -122,13 +122,13 @@ describe('ChangelogService', () => {
   describe('getIndexItemById', () => {
     it('should return the correct item by id', async () => {
       const mockIndex = [
-        { id: 'item1', date: '2023-01-01', versionRange: ['1.0.0'] },
-        { id: 'item2', date: '2023-01-02', versionRange: ['1.1.0'] },
+        { id: 'item1', date: '2023-01-01', versionrange: ['1.0.0'] },
+        { id: 'item2', date: '2023-01-02', versionrange: ['1.1.0'] },
       ];
       vi.spyOn(service, 'getChangelogIndex').mockResolvedValue(mockIndex as ChangelogIndexItem[]);
 
       const result = await service.getIndexItemById('item2');
-      expect(result).toEqual({ id: 'item2', date: '2023-01-02', versionRange: ['1.1.0'] });
+      expect(result).toEqual({ id: 'item2', date: '2023-01-02', versionrange: ['1.1.0'] });
     });
 
     it('should return undefined for non-existent id', async () => {
@@ -144,7 +144,7 @@ describe('ChangelogService', () => {
       vi.spyOn(service, 'getIndexItemById').mockResolvedValue({
         id: 'post1',
         date: '2023-01-01',
-        versionRange: ['1.0.0'],
+        versionrange: ['1.0.0'],
       } as ChangelogIndexItem);
 
       const mockResponse = {
@@ -179,7 +179,7 @@ describe('ChangelogService', () => {
       vi.spyOn(service, 'getIndexItemById').mockResolvedValue({
         id: 'post1',
         date: '2023-01-01',
-        versionRange: ['1.0.0'],
+        versionrange: ['1.0.0'],
       } as ChangelogIndexItem);
 
       const mockResponse = {
@@ -203,8 +203,8 @@ describe('ChangelogService', () => {
   describe('private methods', () => {
     describe('mergeChangelogs', () => {
       it('should merge and sort changelogs correctly', () => {
-        const cloud = [{ id: 'cloud1', date: '2023-01-01', versionRange: ['1.0.0'] }];
-        const community = [{ id: 'community1', date: '2023-01-02', versionRange: ['1.1.0'] }];
+        const cloud = [{ id: 'cloud1', date: '2023-01-01', versionrange: ['1.0.0'] }];
+        const community = [{ id: 'community1', date: '2023-01-02', versionrange: ['1.1.0'] }];
 
         // @ts-ignore - accessing private method for testing
         const result = service.mergeChangelogs(cloud, community);
@@ -214,9 +214,9 @@ describe('ChangelogService', () => {
       });
 
       it('should override community items with cloud items when ids match', () => {
-        const cloud = [{ id: 'item1', date: '2023-01-01', versionRange: ['1.0.0'], type: 'cloud' }];
+        const cloud = [{ id: 'item1', date: '2023-01-01', versionrange: ['1.0.0'], type: 'cloud' }];
         const community = [
-          { id: 'item1', date: '2023-01-01', versionRange: ['1.0.0'], type: 'community' },
+          { id: 'item1', date: '2023-01-01', versionrange: ['1.0.0'], type: 'community' },
         ];
 
         // @ts-ignore - accessing private method for testing
