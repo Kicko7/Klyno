@@ -1,16 +1,24 @@
+import { safeAppendChild, safeCreateElement, safeRemoveChild } from '@/utils/client/safeDOM';
+
 export const downloadFile = async (url: string, fileName: string) => {
   try {
     const res = await fetch(url);
     const blob = await res.blob();
 
     const blobUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = safeCreateElement('a');
+    if (!link) {
+      console.error('Failed to create anchor element for file download');
+      window.open(url);
+      return;
+    }
+    
     link.href = blobUrl;
     link.download = fileName;
     link.style.display = 'none';
-    document.body.append(link);
+    safeAppendChild(document.body, link);
     link.click();
-    link.remove();
+    safeRemoveChild(document.body, link);
     window.URL.revokeObjectURL(blobUrl);
   } catch (error) {
     console.log('Download failed:', error);

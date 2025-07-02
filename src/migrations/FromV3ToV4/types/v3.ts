@@ -5,11 +5,11 @@ interface v3generalconfig {
 }
 
 export interface v3openaiconfig {
-  openai_api_key: string;
   azureapiversion?: string;
   custommodelname?: string;
   enabled: boolean;
   endpoint?: string;
+  openai_api_key: string;
   useazure?: boolean;
 }
 

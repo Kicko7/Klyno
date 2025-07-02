@@ -47,7 +47,7 @@ const Page = memo(() => {
         <Tabs
           activeKey={tab}
           compact
-          items={cateItems?.filter(Boolean) as any}
+          items={cateItems?.filter(Boolean) as Array<{ children: React.ReactNode, key: string; label: string; }>}
           onChange={(value) => setTab(value as ChatSettingsTabs)}
           style={{
             borderBottom: `1px solid ${theme.colorBorderSecondary}`,

@@ -1,7 +1,14 @@
+import { safeAppendChild, safeCreateElement, safeRemoveChild } from '@/utils/client/safeDOM';
+
 const copyUsingFallback = (imageUrl: string) => {
   const img = new Image();
   img.addEventListener('load', function () {
-    const canvas = document.createElement('canvas');
+    const canvas = safeCreateElement('canvas');
+    if (!canvas) {
+      console.error('Failed to create canvas element');
+      return;
+    }
+    
     canvas.width = img.width;
     canvas.height = img.height;
     const ctx = canvas.getContext('2d');
@@ -18,14 +25,19 @@ const copyUsingFallback = (imageUrl: string) => {
     } catch {
       // 如果 toBlob 或 ClipboardItem 不被支持，使用 data URL
       const dataURL = canvas.toDataURL('image/png');
-      const textarea = document.createElement('textarea');
+      const textarea = safeCreateElement('textarea');
+      if (!textarea) {
+        console.error('Failed to create textarea element');
+        return;
+      }
+      
       textarea.value = dataURL;
-      document.body.append(textarea);
+      safeAppendChild(document.body, textarea);
       textarea.select();
 
       document.execCommand('copy');
 
-      textarea.remove();
+      safeRemoveChild(document.body, textarea);
     }
   });
   img.src = imageUrl;

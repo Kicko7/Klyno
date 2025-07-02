@@ -45,7 +45,7 @@ const Main = memo<{ className?: string }>(({ className }) => {
   const { styles } = useStyles();
   useInitAgentConfig();
   const searchParams = useSearchParams();
-  const isPinned = searchParams.get('pinned') === 'true';
+  const _isPinned = searchParams.get('pinned') === 'true';
 
   const [init, isInbox, title, avatar, backgroundColor] = useSessionStore((s) => [
     sessionSelectors.isSomeSessionActive(s),
@@ -63,7 +63,7 @@ const Main = memo<{ className?: string }>(({ className }) => {
   if (!init)
     return (
       <Flexbox align={'center'} className={className} gap={8} horizontal>
-        {!isPinned && !showSessionPanel && <TogglePanelButton />}
+        {!_isPinned && !showSessionPanel && <TogglePanelButton />}
         <Skeleton
           active
           avatar={{ shape: 'circle', size: 28 }}
@@ -75,7 +75,7 @@ const Main = memo<{ className?: string }>(({ className }) => {
 
   return (
     <Flexbox align={'center'} className={className} gap={12} horizontal>
-      {!isPinned && !showSessionPanel && <TogglePanelButton />}
+      {!_isPinned && !showSessionPanel && <TogglePanelButton />}
       <Avatar
         avatar={avatar}
         background={backgroundColor}

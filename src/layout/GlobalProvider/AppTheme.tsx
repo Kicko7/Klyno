@@ -25,6 +25,7 @@ import { useUserStore } from '@/store/user';
 import { userGeneralSettingsSelectors } from '@/store/user/selectors';
 import { GlobalStyle } from '@/styles';
 import { setCookie } from '@/utils/client/cookie';
+import { setupGlobalErrorHandlers } from '@/utils/client/globalErrorHandler';
 
 const useStyles = createStyles(({ css, token }) => ({
   app: css`
@@ -119,6 +120,11 @@ const AppTheme = memo<AppThemeProps>(
     useEffect(() => {
       setCookie(LOBE_THEME_NEUTRAL_COLOR, neutralColor);
     }, [neutralColor]);
+
+    // Setup global error handlers to catch removeChild errors
+    useEffect(() => {
+      setupGlobalErrorHandlers();
+    }, []);
 
     return (
       <ThemeProvider

@@ -5,6 +5,7 @@ import { ReactNode } from 'react';
 import { isRtlLang } from 'rtl-detect';
 
 import Analytics from '@/components/Analytics';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { DEFAULT_LANG } from '@/const/locale';
 import { isDesktop } from '@/const/version';
 import PWAInstall from '@/features/PWAInstall';
@@ -35,21 +36,23 @@ const RootLayout = async ({ children, params, modal }: RootLayoutProps) => {
   return (
     <html dir={direction} lang={locale} suppressHydrationWarning>
       <body>
-        <GlobalProvider
-          appearance={theme}
-          isMobile={isMobile}
-          locale={locale}
-          neutralColor={neutralColor}
-          primaryColor={primaryColor}
-        >
-          <AuthProvider>
-            {children}
-            {!isMobile && modal}
-          </AuthProvider>
-          <PWAInstall />
-        </GlobalProvider>
-        <Analytics />
-        {inVercel && <SpeedInsights />}
+        <ErrorBoundary>
+          <GlobalProvider
+            appearance={theme}
+            isMobile={isMobile}
+            locale={locale}
+            neutralColor={neutralColor}
+            primaryColor={primaryColor}
+          >
+            <AuthProvider>
+              {children}
+              {!isMobile && modal}
+            </AuthProvider>
+            <PWAInstall />
+          </GlobalProvider>
+          <Analytics />
+          {inVercel && <SpeedInsights />}
+        </ErrorBoundary>
       </body>
     </html>
   );

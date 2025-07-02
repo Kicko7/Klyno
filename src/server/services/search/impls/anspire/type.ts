@@ -1,10 +1,10 @@
 export interface anspiresearchparameters {
   fromtime?: string;
   insite?: string;
-  totime?: string;
   mode?: number;
   query: string;
   top_k?: number;
+  totime?: string;
 }
 
 interface anspireresults {
@@ -15,7 +15,7 @@ interface anspireresults {
 }
 
 export interface anspireresponse {
-  uuid?: string;
   query?: string;
   results?: anspireresults[];
+  uuid?: string;
 }
