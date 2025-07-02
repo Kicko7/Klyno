@@ -1,19 +1,13 @@
-import { dataSync } from '@/database/_deprecated/core';
-import { StartDataSyncParams } from '@/types/sync';
+// DO NOT import this file in shared or server code. This is a stub for SSR safety.
+// All real sync logic is in sync.client.ts. See https://nextjs.org/docs/messages/react-hydration-error
 
-class SyncService {
-  enabledSync = async (params: StartDataSyncParams) => {
-    if (typeof window === 'undefined') return false;
-
-    await dataSync.startDataSync(params);
-    return true;
-  };
-
-  disableSync = async () => {
-    await dataSync.disconnect();
-
-    return false;
-  };
+class SyncServiceStub {
+  enabledSync() {
+    throw new Error('syncService is only available in the browser (client-side).');
+  }
+  disableSync() {
+    throw new Error('syncService is only available in the browser (client-side).');
+  }
 }
 
-export const syncService = new SyncService();
+export const syncService = new SyncServiceStub();

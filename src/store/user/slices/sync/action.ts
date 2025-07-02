@@ -52,7 +52,8 @@ export const createSyncSlice: StateCreator<
     const defaultUserName = `My ${browserInfo.browser} (${browserInfo.os})`;
 
     set({ syncStatus: PeerSyncStatus.Connecting });
-    const { syncService } = await import('@/services/sync');
+    // Use client-only sync service to avoid SSR errors
+    const { syncService } = await import('@/services/sync.client');
 
     return syncService.enabledSync({
       channel: {
@@ -85,7 +86,8 @@ export const createSyncSlice: StateCreator<
 
         // if user don't enable sync, stop sync
         if (!userEnableSync) {
-          const { syncService } = await import('@/services/sync');
+          // Use client-only sync service to avoid SSR errors
+          const { syncService } = await import('@/services/sync.client');
           return syncService.disableSync();
         }
 
