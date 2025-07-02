@@ -1,0 +1,55 @@
+# Version control and config
+.git
+.github
+.husky
+.devcontainer
+.cursor
+
+# Build output and caches
+.next
+out
+dist
+build
+.cache
+coverage
+*.log
+
+# Package manager caches
+node_modules
+.pnpm
+.npm
+.yarn
+
+# Test and mock files
+tests
+__mocks__
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Documentation and examples
+docs
+changelog
+examples
+*.md
+*.mdx
+
+# Scripts and CI/CD files
+scripts
+Dockerfile*
+*.sh
+*.ps1
+
+# Local env files
+.env
+.env.*
+*.local
+
+# Other large or unnecessary files
+*.sqlite
+*.db
+*.bak
+*.zip
+*.tar
+*.gz
