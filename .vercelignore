@@ -36,7 +36,6 @@ examples
 *.mdx
 
 # Scripts and CI/CD files
-scripts
 Dockerfile*
 *.sh
 *.ps1
