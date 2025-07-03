@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ChangelogIndexItem } from '@/types/changelog';
 
-import { ChangelogService } from './index';
+import ChangelogService from './index';
 
 // Mock external dependencies
 vi.mock('dayjs', () => ({

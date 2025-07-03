@@ -220,3 +220,5 @@ export class ChangelogService {
     return urlJoin(docCdnPrefix, this.cdnUrls[url]);
   }
 }
+
+export default ChangelogService;
