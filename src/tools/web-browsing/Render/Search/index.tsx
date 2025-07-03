@@ -21,7 +21,7 @@ const Search = memo<SearchProps>(({ messageId, searchQuery, searchResponse, plug
 
   if (pluginError) {
     if (pluginError?.type === 'PluginSettingsInvalid') {
-      return <ConfigForm id={messageId} provider={pluginError.body?.provider} />;
+      return <ConfigForm id={messageId} provider={(pluginError.body as any)?.provider} />;
     }
 
     return (
@@ -29,7 +29,7 @@ const Search = memo<SearchProps>(({ messageId, searchQuery, searchResponse, plug
         extra={
           <Flexbox>
             <Highlighter actionIconSize={'small'} language={'json'} variant={'borderless'}>
-              {JSON.stringify(pluginError.body?.data || pluginError.body, null, 2)}
+              {JSON.stringify((pluginError.body as any)?.data || pluginError.body, null, 2)}
             </Highlighter>
           </Flexbox>
         }

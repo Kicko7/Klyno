@@ -67,12 +67,12 @@ export const parseMcpInput = (value: string): ParseResult => {
           let type: 'stdio' | 'http' | undefined;
           let resultMcpConfig: McpConfig & { type?: 'stdio' | 'http' } = {};
 
-          if (mcpConfig.command && Array.isArray(mcpConfig.args)) {
+          if ((mcpConfig as any).command && Array.isArray((mcpConfig as any).args)) {
             type = 'stdio';
             resultMcpConfig = { ...mcpConfig, type };
-          } else if (mcpConfig.url) {
+          } else if ((mcpConfig as any).url) {
             type = 'http';
-            resultMcpConfig = { type, url: mcpConfig.url };
+            resultMcpConfig = { type, url: (mcpConfig as any).url };
           } else {
             return {
               errorCode: McpParseErrorCode.InvalidMcpStructure,
@@ -113,13 +113,13 @@ export const parseMcpInput = (value: string): ParseResult => {
           let resultMcpConfig: McpConfig & { type?: 'stdio' | 'http' } = {};
 
           // Explicitly check properties of mcpConfig
-          if (mcpConfig.command && Array.isArray(mcpConfig.args)) {
+          if ((mcpConfig as any).command && Array.isArray((mcpConfig as any).args)) {
             type = 'stdio';
             resultMcpConfig = { ...mcpConfig, type };
-          } else if (mcpConfig.url) {
+          } else if ((mcpConfig as any).url) {
             type = 'http';
             // For the flat structure, ensure only 'url' is included for http type
-            resultMcpConfig = { type, url: mcpConfig.url };
+            resultMcpConfig = { type, url: (mcpConfig as any).url };
           } else {
             // Invalid structure within the identifier's value
             return {

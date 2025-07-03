@@ -44,7 +44,7 @@ export const LobeAi360AI = createOpenAICompatibleRuntime({
 
     const reasoningKeywords = ['360gpt2-o1', '360zhinao2-o1'];
 
-    const modelsPage = (await client.models.list()) as { data: Ai360ModelCard[] };
+    const modelsPage = (await client.models.list()) as unknown as { data: Ai360ModelCard[] };
     const modelList: Ai360ModelCard[] = modelsPage.data;
 
     return modelList

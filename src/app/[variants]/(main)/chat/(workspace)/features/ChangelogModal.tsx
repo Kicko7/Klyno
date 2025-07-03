@@ -1,5 +1,5 @@
 import ChangelogModal from '@/features/ChangelogModal';
-import { ChangelogService } from '@/server/services/changelog';
+import { ChangelogService } from '@/server/services/changelog/index';
 
 const Changelog = async () => {
   const service = new ChangelogService();

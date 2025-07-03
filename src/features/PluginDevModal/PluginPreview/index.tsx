@@ -64,7 +64,7 @@ const PluginPreview = memo<{ form: FormInstance }>(({ form }) => {
           </ManifestPreviewer>
         )}
       </Block>
-      {manifest && <ApiVisualizer apis={manifest.api} />}
+      {manifest && <ApiVisualizer apis={manifest.api as any} />}
     </Flexbox>
   );
 });

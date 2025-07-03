@@ -40,7 +40,7 @@ const CheckError = ({
   error?: ChatMessageError;
   setError: (error?: ChatMessageError) => void;
 }) => {
-  const errorBody: OllamaErrorResponse = error?.body;
+  const errorBody: OllamaErrorResponse = error?.body as OllamaErrorResponse;
 
   const errorMessage = errorBody.error?.message;
 

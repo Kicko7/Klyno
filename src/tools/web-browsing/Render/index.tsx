@@ -16,7 +16,7 @@ const WebBrowsing = memo<BuiltinRenderProps<SearchContent[]>>(
         return (
           <Search
             messageId={messageId}
-            pluginError={pluginError}
+            pluginError={pluginError as any}
             searchQuery={args as SearchQuery}
             searchResponse={pluginState as UniformSearchResponse}
           />

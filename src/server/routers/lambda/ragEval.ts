@@ -107,7 +107,7 @@ export const ragEvalRouter = router({
   getDatasetRecords: ragEvalProcedure
     .input(z.object({ datasetId: z.number() }))
     .query(async ({ ctx, input }): Promise<EvalDatasetRecord[]> => {
-      return ctx.datasetRecordModel.query(input.datasetId);
+      return ctx.datasetRecordModel.query(input.datasetId) as Promise<EvalDatasetRecord[]>;
     }),
 
   removeDatasetRecords: ragEvalProcedure

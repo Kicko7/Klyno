@@ -102,7 +102,7 @@ describe('AiInfraRepos', () => {
         },
       ];
 
-      vi.spyOn(repo.aiProviderModel, 'getAiProviderList').mockResolvedValue(mockProviders);
+      vi.spyOn(repo.aiProviderModel, 'getAiProviderList').mockResolvedValue(mockProviders as any);
 
       const result = await repo.getUserEnabledProviderList();
 
@@ -124,7 +124,7 @@ describe('AiInfraRepos', () => {
         { id: 'gpt-4', providerId: 'openai', enabled: true },
       ] as EnabledAiModel[];
 
-      vi.spyOn(repo, 'getAiProviderList').mockResolvedValue(mockProviders);
+      vi.spyOn(repo, 'getAiProviderList').mockResolvedValue(mockProviders as any);
       vi.spyOn(repo.aiModelModel, 'getAllModels').mockResolvedValue(mockAllModels);
       vi.spyOn(repo as any, 'fetchBuiltinModels').mockResolvedValue([
         { id: 'gpt-4', enabled: true, type: 'chat' },
@@ -158,7 +158,7 @@ describe('AiInfraRepos', () => {
         },
       ];
 
-      vi.spyOn(repo, 'getAiProviderList').mockResolvedValue(mockProviders);
+      vi.spyOn(repo, 'getAiProviderList').mockResolvedValue(mockProviders as any);
       vi.spyOn(repo.aiModelModel, 'getAllModels').mockResolvedValue(mockAllModels);
       vi.spyOn(repo as any, 'fetchBuiltinModels').mockResolvedValue([
         {

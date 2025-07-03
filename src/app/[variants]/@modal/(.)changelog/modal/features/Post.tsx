@@ -7,7 +7,7 @@ import { CustomMDX } from '@/components/mdx';
 import Image from '@/components/mdx/Image';
 import { OFFICIAL_SITE } from '@/const/url';
 import { Locales } from '@/locales/resources';
-import { ChangelogService } from '@/server/services/changelog';
+import { ChangelogService } from '@/server/services/changelog/index';
 import { ChangelogIndexItem } from '@/types/changelog';
 
 import Cover from './Cover';

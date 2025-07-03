@@ -61,9 +61,9 @@ export const formatTime = (timeInSeconds: number): string => {
   }
 };
 
-export const formatShortenNumber = (num: unknown) => {
+export const formatShortenNumber = (num: unknown): string | number => {
   if (!num && num !== 0) return '--';
-  if (!isNumber(num)) return num;
+  if (!isNumber(num)) return String(num);
 
   // 使用Intl.NumberFormat来添加千分号
   const formattedWithComma = new Intl.NumberFormat('en-US').format(num);

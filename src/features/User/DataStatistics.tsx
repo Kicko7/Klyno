@@ -112,7 +112,7 @@ const DataStatistics = memo<Omit<FlexboxProps, 'children'>>(({ style, ...rest })
               key={item.key}
             >
               <Flexbox gap={2}>
-                <div className={styles.count}>{formatShortenNumber(item.count)}</div>
+                <div className={styles.count}>{String(formatShortenNumber(item.count))}</div>
                 <div className={styles.title}>{item.title}</div>
               </Flexbox>
               {showBadge && (
@@ -134,7 +134,7 @@ const DataStatistics = memo<Omit<FlexboxProps, 'children'>>(({ style, ...rest })
         return (
           <Flexbox className={styles.card} flex={1} gap={2} key={item.key}>
             <Flexbox horizontal>
-              <div className={styles.count}>{formatShortenNumber(item.count)}</div>
+              <div className={styles.count}>{String(formatShortenNumber(item.count))}</div>
             </Flexbox>
             <div className={styles.title}>{item.title}</div>
           </Flexbox>

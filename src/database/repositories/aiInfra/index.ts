@@ -60,7 +60,7 @@ export class AiInfraRepos {
       source: 'builtin',
     })) as AiProviderListItem[];
 
-    const mergedProviders = mergeArrayById(builtinProviders, userProviders);
+    const mergedProviders = mergeArrayById(builtinProviders as any[], userProviders as any[]);
 
     // 3. 根据 orderMap 排序
     return mergedProviders.sort((a, b) => {
@@ -77,13 +77,13 @@ export class AiInfraRepos {
     const list = await this.getAiProviderList();
     return list
       .filter((item) => item.enabled)
-      .sort((a, b) => a.sort! - b.sort!)
+      .sort((a, b) => (a.sort || 0) - (b.sort || 0))
       .map(
         (item): EnabledProvider => ({
           id: item.id,
-          logo: item.logo,
-          name: item.name,
-          source: item.source,
+          logo: item.logo as string | undefined,
+          name: item.name as string | undefined,
+          source: item.source as any,
         }),
       );
   };
@@ -163,7 +163,7 @@ export class AiInfraRepos {
     const defaultModels: AiProviderModelListItem[] =
       (await this.fetchBuiltinModels(providerId)) || [];
 
-    return mergeArrayById(defaultModels, aiModels) as AiProviderModelListItem[];
+    return mergeArrayById(defaultModels as any[], aiModels as any[]) as AiProviderModelListItem[];
   };
 
   /**

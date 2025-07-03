@@ -26,10 +26,10 @@ const LocalFilesRender = memo<BuiltinRenderProps<LocalFileItem[]>>(
 
     return (
       <Render
-        args={args}
+        args={args as any}
         messageId={messageId}
-        pluginError={pluginError}
-        pluginState={pluginState}
+        pluginError={pluginError as any}
+        pluginState={pluginState as any}
       />
     );
   },

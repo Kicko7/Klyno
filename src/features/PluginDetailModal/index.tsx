@@ -31,7 +31,7 @@ const PluginDetailModal = memo<PluginDetailModalProps>(
     });
     const { t } = useTranslation('plugin');
 
-    const hasSettings = pluginHelpers.isSettingSchemaNonEmpty(schema);
+    const hasSettings = pluginHelpers.isSettingSchemaNonEmpty(schema as any);
 
     return (
       <Modal
@@ -67,7 +67,7 @@ const PluginDetailModal = memo<PluginDetailModalProps>(
           value={tabKey}
         />
         {tabKey === 'settings' ? (
-          hasSettings && <PluginSettingsConfig id={id} schema={schema} />
+          hasSettings && <PluginSettingsConfig id={id} schema={schema as any} />
         ) : (
           <APIs id={id} />
         )}

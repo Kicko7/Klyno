@@ -1,7 +1,7 @@
 import { ActionIcon, Alert, Button, Dropdown, Highlighter } from '@lobehub/ui';
 import { createStyles } from 'antd-style';
 import { Mic, MicOff } from 'lucide-react';
-import { memo, useState } from 'react';
+import React, { memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Flexbox } from 'react-layout-kit';
 
@@ -85,15 +85,17 @@ const commonstt = memo<{
                   }
                   closable
                   extra={
-                    error.body && (
-                      <Highlighter
-                        actionIconSize={'small'}
-                        language={'json'}
-                        variant={'borderless'}
-                      >
-                        {JSON.stringify(error.body, null, 2)}
-                      </Highlighter>
-                    )
+                    error.body
+                      ? ((
+                          <Highlighter
+                            actionIconSize={'small'}
+                            language={'json'}
+                            variant={'borderless'}
+                          >
+                            {JSON.stringify(error.body as any, null, 2)}
+                          </Highlighter>
+                        ) as React.ReactNode)
+                      : null
                   }
                   message={error.message}
                   onClose={handleCloseError}

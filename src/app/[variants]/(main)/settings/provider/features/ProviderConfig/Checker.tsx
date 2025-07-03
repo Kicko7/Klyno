@@ -17,7 +17,7 @@ import { ChatMessageError } from '@/types/message';
 
 const Error = memo<{ error: ChatMessageError }>(({ error }) => {
   const { t } = useTranslation('error');
-  const providerName = useProviderName(error.body?.provider);
+  const providerName = useProviderName((error.body as any)?.provider);
 
   return (
     <Flexbox gap={8} style={{ width: '100%' }}>

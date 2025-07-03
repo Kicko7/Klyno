@@ -44,7 +44,7 @@ const enabledSystemRoles =
         if (systemRole) {
           const context = globalAgentContextManager.getContext();
 
-          systemRole = hydrationPrompt(systemRole, context);
+          systemRole = hydrationPrompt(systemRole, context as any);
         }
 
         return {

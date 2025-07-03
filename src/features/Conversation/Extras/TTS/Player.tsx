@@ -27,11 +27,11 @@ const Player = memo<PlayerProps>(({ onRetry, error, onDelete, audio, isLoading, 
           }
           closable
           extra={
-            error.body && (
+            error.body ? (
               <Highlighter actionIconSize={'small'} language={'json'} variant={'borderless'}>
                 {JSON.stringify(error.body, null, 2)}
               </Highlighter>
-            )
+            ) : null
           }
           message={error.message}
           onClose={onDelete}

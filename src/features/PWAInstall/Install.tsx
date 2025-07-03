@@ -11,11 +11,9 @@ import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
 import { useUserStore } from '@/store/user';
 
-// @ts-ignore
-const PWA: React.ComponentType<{ 'description': string; 'id': string; 'manifest-url': string }> =
-  dynamic(() => import('@khmyznikov/pwa-install/dist/pwa-install.react.js'), {
-    ssr: false,
-  });
+const PWA = dynamic(() => import('@khmyznikov/pwa-install/dist/pwa-install.react.js'), {
+  ssr: false,
+});
 
 const PWAInstall = memo(() => {
   const { t } = useTranslation('metadata');

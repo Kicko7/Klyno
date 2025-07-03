@@ -89,7 +89,7 @@ const IFrameRender = memo<IFrameRenderProps>(({ url, id, payload, width = 600, h
       const message = getMessage(id);
       if (!message) return;
 
-      sendPluginStateToPlugin(iframeWin, key, message.pluginState?.[key]);
+      sendPluginStateToPlugin(iframeWin, key, (message.pluginState as any)?.[key]);
     }
   });
 

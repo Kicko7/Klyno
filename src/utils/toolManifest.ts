@@ -140,5 +140,8 @@ export const convertPluginManifestToToolsCalling = (
     })),
   );
 
-  return uniqBy(list, 'name').map((i) => ({ function: i, type: 'function' }));
+  return uniqBy(list, 'name').map((i) => ({
+    function: i,
+    type: 'function',
+  })) as unknown as ChatCompletionTool[];
 };

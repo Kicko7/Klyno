@@ -103,9 +103,9 @@ const SelectWithTTSPreview = forwardRef<RefSelectProps, SelectWithTTSPreviewProp
             }
             closable
             extra={
-              error.body && (
+              (error.body as any) && (
                 <Highlighter actionIconSize={'small'} language={'json'} variant={'borderless'}>
-                  {JSON.stringify(error.body, null, 2)}
+                  {JSON.stringify(error.body as any, null, 2)}
                 </Highlighter>
               )
             }

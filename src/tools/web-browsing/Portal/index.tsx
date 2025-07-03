@@ -14,7 +14,13 @@ const Inspector = memo<BuiltinPortalProps>(({ arguments: args, messageId, state,
     // 兼容旧版数据
     case 'searchWithSearXNG':
     case WebBrowsingApiName.search: {
-      return <Search messageId={messageId} query={args as SearchQuery} response={state} />;
+      return (
+        <Search
+          messageId={messageId}
+          query={args as unknown as SearchQuery}
+          response={state as any}
+        />
+      );
     }
 
     case WebBrowsingApiName.crawlSinglePage: {
@@ -31,7 +37,7 @@ const Inspector = memo<BuiltinPortalProps>(({ arguments: args, messageId, state,
         <PageContents
           messageId={messageId}
           results={(state as CrawlPluginState).results}
-          urls={args.urls}
+          urls={args.urls as any}
         />
       );
     }

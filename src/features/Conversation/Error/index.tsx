@@ -108,18 +108,18 @@ const ErrorMessageExtra = memo<{ data: ChatMessage }>(({ data }) => {
     }
 
     case ChatErrorType.InvalidAccessCode: {
-      return <InvalidAccessCode id={data.id} provider={data.error?.body?.provider} />;
+      return <InvalidAccessCode id={data.id} provider={(data.error?.body as any)?.provider} />;
     }
 
     case AgentRuntimeErrorType.NoOpenAIAPIKey: {
       {
-        return <InvalidAPIKey id={data.id} provider={data.error?.body?.provider} />;
+        return <InvalidAPIKey id={data.id} provider={(data.error?.body as any)?.provider} />;
       }
     }
   }
 
   if (error.type.toString().includes('Invalid')) {
-    return <InvalidAPIKey id={data.id} provider={data.error?.body?.provider} />;
+    return <InvalidAPIKey id={data.id} provider={(data.error?.body as any)?.provider} />;
   }
 
   return <ErrorJsonViewer error={data.error} id={data.id} />;

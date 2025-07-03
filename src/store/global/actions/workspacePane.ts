@@ -41,14 +41,14 @@ export const globalWorkspaceSlice: StateCreator<
           [agentId]: nextExpanded,
         },
       },
-      n('toggleAgentSystemRoleExpand', { agentId, expanded: nextExpanded }),
+      n('toggleAgentSystemRoleExpand') as string,
     );
   },
   toggleChatSideBar: (newValue) => {
     const showChatSideBar =
       typeof newValue === 'boolean' ? newValue : !get().status.showChatSideBar;
 
-    get().updateSystemStatus({ showChatSideBar }, n('toggleAgentPanel', newValue));
+    get().updateSystemStatus({ showChatSideBar }, n('toggleAgentPanel') as string);
   },
   toggleExpandSessionGroup: (id, expand) => {
     const { status } = get();
@@ -67,23 +67,23 @@ export const globalWorkspaceSlice: StateCreator<
     const mobileShowPortal =
       typeof newValue === 'boolean' ? newValue : !get().status.mobileShowPortal;
 
-    get().updateSystemStatus({ mobileShowPortal }, n('toggleMobilePortal', newValue));
+    get().updateSystemStatus({ mobileShowPortal }, n('toggleMobilePortal') as string);
   },
   toggleMobileTopic: (newValue) => {
     const mobileShowTopic =
       typeof newValue === 'boolean' ? newValue : !get().status.mobileShowTopic;
 
-    get().updateSystemStatus({ mobileShowTopic }, n('toggleMobileTopic', newValue));
+    get().updateSystemStatus({ mobileShowTopic }, n('toggleMobileTopic') as string);
   },
   toggleSystemRole: (newValue) => {
     const showSystemRole = typeof newValue === 'boolean' ? newValue : !get().status.mobileShowTopic;
 
-    get().updateSystemStatus({ showSystemRole }, n('toggleMobileTopic', newValue));
+    get().updateSystemStatus({ showSystemRole }, n('toggleMobileTopic') as string);
   },
   toggleZenMode: () => {
     const { status } = get();
     const nextZenMode = !status.zenMode;
 
-    get().updateSystemStatus({ zenMode: nextZenMode }, n('toggleZenMode'));
+    get().updateSystemStatus({ zenMode: nextZenMode }, n('toggleZenMode') as string);
   },
 });

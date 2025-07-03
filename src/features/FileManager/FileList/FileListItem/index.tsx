@@ -195,9 +195,9 @@ const FileRenderItem = memo<FileRenderItemProps>(
               <div style={{ cursor: 'default' }}>
                 <ChunksBadge
                   chunkCount={chunkCount}
-                  chunkingError={chunkingError}
+                  chunkingError={chunkingError as any}
                   chunkingStatus={chunkingStatus}
-                  embeddingError={embeddingError}
+                  embeddingError={embeddingError as any}
                   embeddingStatus={embeddingStatus}
                   finishEmbedding={finishEmbedding}
                   id={id}
