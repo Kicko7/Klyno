@@ -1,3 +1,5 @@
+'use server';
+
 import ChangelogModal from '@/features/ChangelogModal';
 import ChangelogService from '@/server/services/changelog/index';
 
