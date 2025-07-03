@@ -30,7 +30,6 @@ __mocks__
 
 # Documentation and examples
 docs
-changelog
 examples
 *.md
 *.mdx
