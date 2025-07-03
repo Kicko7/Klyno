@@ -148,17 +148,19 @@ export class ChangelogService {
     community: ChangelogIndexItem[],
   ): ChangelogIndexItem[] {
     if (this.config.type === 'community') {
-      return community;
+      return Array.isArray(community) ? community : [];
     }
 
-    const merged = [...community];
+    const merged = Array.isArray(community) ? [...community] : [];
 
-    for (const cloudItem of cloud) {
-      const index = merged.findIndex((item) => item.id === cloudItem.id);
-      if (index !== -1) {
-        merged[index] = cloudItem;
-      } else {
-        merged.push(cloudItem);
+    if (Array.isArray(cloud)) {
+      for (const cloudItem of cloud) {
+        const index = merged.findIndex((item) => item.id === cloudItem.id);
+        if (index !== -1) {
+          merged[index] = cloudItem;
+        } else {
+          merged.push(cloudItem);
+        }
       }
     }
 
@@ -171,7 +173,8 @@ export class ChangelogService {
       .sort((a, b) => semver.rcompare(a.versionrange[0], b.versionrange[0]));
   }
 
-  private formatVersionRange(range: string[]): string[] {
+  private formatVersionRange(range: string[] = []): string[] {
+    if (!Array.isArray(range) || range.length === 0) return [];
     if (range.length === 1) {
       return range;
     }
