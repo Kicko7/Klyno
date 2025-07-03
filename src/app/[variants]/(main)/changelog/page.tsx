@@ -12,8 +12,8 @@ import { BRANDING_NAME } from '@/const/branding';
 import { OFFICIAL_SITE } from '@/const/url';
 import { ldModule } from '@/server/ld';
 import { metadataModule } from '@/server/metadata';
-import ChangelogService from '@/server/services/changelog/index';
 import { translation } from '@/server/translation';
+import ChangelogService from '@/services/changelog/index';
 import { DynamicPageProps } from '@/types/next';
 import { RouteVariants } from '@/utils/server/routeVariants';
 

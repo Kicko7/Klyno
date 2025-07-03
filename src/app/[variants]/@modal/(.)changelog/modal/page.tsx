@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { serverFeatureFlags } from '@/config/featureFlags';
-import ChangelogService from '@/server/services/changelog/index';
+import ChangelogService from '@/services/changelog/index';
 import { DynamicLayoutProps } from '@/types/next';
 import { RouteVariants } from '@/utils/server/routeVariants';
 
