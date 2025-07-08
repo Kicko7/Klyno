@@ -15,8 +15,10 @@ import Changelog from './features/ChangelogModal';
 import TelemetryNotification from './features/TelemetryNotification';
 
 export const generateMetadata = async (props: DynamicPageProps) => {
+  // Potential bottleneck: RouteVariants.getLocale and translation can be slow if not cached.
   const locale = await RouteVariants.getLocale(props);
   const { t } = await translation('metadata', locale);
+  // Potential bottleneck: metadataModule.generate may do extra I/O or computation.
   return metadataModule.generate({
     description: t('chat.description', { appName: BRANDING_NAME }),
     title: t('chat.title', { appName: BRANDING_NAME }),
@@ -25,6 +27,8 @@ export const generateMetadata = async (props: DynamicPageProps) => {
 };
 
 const Page = async (props: DynamicPageProps) => {
+  // Potential bottleneck: serverFeatureFlags, RouteVariants, and translation are all async.
+  // Consider caching or parallelizing if slow.
   const { hideDocs, showChangelog } = serverFeatureFlags();
   const { isMobile, locale } = await RouteVariants.getVariantsFromProps(props);
   const { t } = await translation('metadata', locale);

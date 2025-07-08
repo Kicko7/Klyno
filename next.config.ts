@@ -55,6 +55,9 @@ const nextConfig: NextConfig = {
       '@lobehub/charts',
     ],
 
+    // The following disables aggressive preloading of all entries on start.
+    // If you still see "preloaded but not used" warnings, it's a known Next.js issue
+    // and not caused by this config. See: https://github.com/vercel/next.js/discussions/49607
     preloadEntriesOnStart: false,
     // oidc provider depend on constructor.name
     // but swc minification will remove the name
