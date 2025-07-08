@@ -170,7 +170,15 @@ export class ChangelogService {
         date: dayjs(item.date).format('YYYY-MM-DD'),
         versionrange: this.formatVersionRange(item.versionrange),
       }))
-      .sort((a, b) => semver.rcompare(a.versionrange[0], b.versionrange[0]));
+      .sort((a, b) => {
+        const vA = a.versionrange?.[0];
+        const vB = b.versionrange?.[0];
+        if (typeof vA !== 'string' || !vA || typeof vB !== 'string' || !vB) {
+          console.warn('[ChangelogService] Invalid version for changelog item:', a, b);
+          return 0;
+        }
+        return semver.rcompare(vA, vB);
+      });
   }
 
   private formatVersionRange(range: string[] = []): string[] {
