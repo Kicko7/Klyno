@@ -18,6 +18,32 @@ const Clerk = memo(({ children }: PropsWithChildren) => {
 
   const localization = useMemo(() => getResourceBundle(language, 'clerk'), [language]);
 
+  // Inject CSS for modal centering
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .cl-modal {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+      .cl-modalContent {
+        position: relative !important;
+        top: auto !important;
+        left: auto !important;
+        transform: none !important;
+        margin: auto !important;
+      }
+      .cl-modalBackdrop {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
+
   // When useAppearance returns different result during SSR vs. client-side (when theme mode is auto), the appearance is not applied
   // It's because Clerk internally re-applies SSR props after transition which overrides client-side props, see https://github.com/clerk/javascript/blob/main/packages/nextjs/src/app-router/client/ClerkProvider.tsx
   // This re-renders the provider after transition to make sure client-side props are always applied

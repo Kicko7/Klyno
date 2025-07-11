@@ -28,9 +28,18 @@ export const useStyles = createStyles(
       `,
       modalBackdrop: css`
         background: ${token.colorBgMask};
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
       `,
       modalContent: css`
         &.${prefixCls}-modalContent {
+          position: relative !important;
+          top: auto !important;
+          left: auto !important;
+          transform: none !important;
+          margin: auto !important;
+          
           .${prefixCls}-cardBox {
             border: 1px solid ${token.colorSplit} !important;
             border-radius: ${token.borderRadiusLG}px !important;
@@ -88,6 +97,18 @@ export const useStyles = createStyles(
       `,
       socialButtonsBlockButton__google: css`
         order: -1;
+      `,
+      // Additional modal centering styles
+      modal: css`
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      `,
+      modalCloseButton: css`
+        position: absolute !important;
+        top: 1rem !important;
+        right: 1rem !important;
+        z-index: 1000 !important;
       `,
     }) as Partial<Record<keyof ElementsConfig, any>>,
 );
