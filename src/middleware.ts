@@ -14,7 +14,6 @@ import { parseBrowserLanguage } from '@/utils/locale';
 import { parseDefaultThemeFromCountry } from '@/utils/server/geo';
 import { RouteVariants } from '@/utils/server/routeVariants';
 
-import { OAUTH_AUTHORIZED } from './const/auth';
 import { oidcEnv } from './envs/oidc';
 
 // Create debug logger instances
@@ -207,6 +206,4 @@ logDefault('Middleware configuration: %O', {
 });
 
 // Only Clerk authentication is supported
-export default authEnv.NEXT_PUBLIC_ENABLE_CLERK_AUTH
-  ? clerkAuthMiddleware
-  : defaultMiddleware;
+export default authEnv.NEXT_PUBLIC_ENABLE_CLERK_AUTH ? clerkAuthMiddleware : defaultMiddleware;

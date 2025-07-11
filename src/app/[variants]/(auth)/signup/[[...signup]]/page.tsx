@@ -1,5 +1,5 @@
 import { SignUp } from '@clerk/nextjs';
-import { notFound, redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 
 import { authEnv } from '@/config/auth';
 import { serverFeatureFlags } from '@/config/featureFlags';
@@ -41,17 +41,17 @@ const Page = () => {
 
   return (
     <div className="flex h-screen items-center justify-center">
-      <SignUp 
-        path="/signup" 
-        routing="path"
-        signInUrl="/login"
-        afterSignUpUrl="/"
+      <SignUp
         appearance={{
           elements: {
-            rootBox: "mx-auto",
-            card: "shadow-lg"
-          }
+            card: 'shadow-lg',
+            rootBox: 'mx-auto',
+          },
         }}
+        fallbackRedirectUrl="/"
+        path="/signup"
+        routing="path"
+        signInUrl="/login"
       />
     </div>
   );
