@@ -41,6 +41,8 @@ export const config = {
     '/profile(.*)',
     '/me',
     '/me(.*)',
+    '/teams',
+    '/teams(.*)',
 
     '/login(.*)',
     '/signup(.*)',
@@ -154,6 +156,7 @@ const isProtectedRoute = createRouteMatcher([
   '/files(.*)',
   '/onboard(.*)',
   '/oauth(.*)',
+  '/teams(.*)',
   // ↓ cloud ↓
 ]);
 
