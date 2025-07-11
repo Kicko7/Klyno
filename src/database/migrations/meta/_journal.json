@@ -182,6 +182,13 @@
       "when": 1749309388370,
       "tag": "0025_add_provider_config",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1752252283795,
+      "tag": "0026_silent_white_queen",
+      "breakpoints": true
     }
   ],
   "version": "6"

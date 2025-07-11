@@ -510,6 +510,91 @@ table oidc_sessions {
   updated_at "timestamp with time zone" [not null, default: `now()`]
 }
 
+table organization_members {
+  id text [pk, not null]
+  organization_id text [not null]
+  user_id text [not null]
+  role text [not null, default: 'member']
+  permissions jsonb
+  is_active boolean [default: true]
+  accessed_at "timestamp with time zone" [not null, default: `now()`]
+  created_at "timestamp with time zone" [not null, default: `now()`]
+  updated_at "timestamp with time zone" [not null, default: `now()`]
+}
+
+table organizations {
+  id text [pk, not null]
+  name varchar(255) [not null]
+  slug varchar(255) [not null, unique]
+  description text
+  logo text
+  website text
+  settings jsonb
+  billing_email text
+  subscription_tier text [default: 'free']
+  is_active boolean [default: true]
+  owner_id text [not null]
+  accessed_at "timestamp with time zone" [not null, default: `now()`]
+  created_at "timestamp with time zone" [not null, default: `now()`]
+  updated_at "timestamp with time zone" [not null, default: `now()`]
+}
+
+table team_channels {
+  id text [pk, not null]
+  team_id text [not null]
+  name varchar(255) [not null]
+  description text
+  type text [not null, default: 'general']
+  is_private boolean [default: false]
+  is_archived boolean [default: false]
+  settings jsonb
+  accessed_at "timestamp with time zone" [not null, default: `now()`]
+  created_at "timestamp with time zone" [not null, default: `now()`]
+  updated_at "timestamp with time zone" [not null, default: `now()`]
+}
+
+table team_invitations {
+  id text [pk, not null]
+  team_id text [not null]
+  invited_by text [not null]
+  email text [not null]
+  role text [not null, default: 'member']
+  token text [not null, unique]
+  created_at "timestamp with time zone" [not null, default: `now()`]
+  status text [not null, default: 'pending']
+  accessed_at "timestamp with time zone" [not null, default: `now()`]
+  created_at "timestamp with time zone" [not null, default: `now()`]
+  updated_at "timestamp with time zone" [not null, default: `now()`]
+}
+
+table team_members {
+  id text [pk, not null]
+  team_id text [not null]
+  user_id text [not null]
+  role text [not null, default: 'member']
+  permissions jsonb
+  is_active boolean [default: true]
+  updated_at "timestamp with time zone" [not null, default: `now()`]
+  accessed_at "timestamp with time zone" [not null, default: `now()`]
+  created_at "timestamp with time zone" [not null, default: `now()`]
+  updated_at "timestamp with time zone" [not null, default: `now()`]
+}
+
+table teams {
+  id text [pk, not null]
+  organization_id text [not null]
+  name varchar(255) [not null]
+  slug varchar(255) [not null]
+  description text
+  icon text
+  settings jsonb
+  is_active boolean [default: true]
+  is_archived boolean [default: false]
+  accessed_at "timestamp with time zone" [not null, default: `now()`]
+  created_at "timestamp with time zone" [not null, default: `now()`]
+  updated_at "timestamp with time zone" [not null, default: `now()`]
+}
+
 table chunks {
   id uuid [pk, not null, default: `gen_random_uuid()`]
   text text
@@ -834,6 +919,10 @@ table users {
   updated_at "timestamp with time zone" [not null, default: `now()`]
 }
 
+ref: agents_files.file_id > files.id
+
+ref: agents_files.agent_id > agents.id
+
 ref: agents_knowledge_bases.knowledge_base_id - knowledge_bases.id
 
 ref: agents_knowledge_bases.agent_id > agents.id
@@ -848,7 +937,19 @@ ref: document_chunks.document_id > documents.id
 
 ref: documents.file_id > files.id
 
+ref: file_chunks.file_id - files.id
+
+ref: file_chunks.chunk_id - chunks.id
+
 ref: files.embedding_task_id - async_tasks.id
+
+ref: files_to_sessions.file_id > files.id
+
+ref: files_to_sessions.session_id > sessions.id
+
+ref: messages_files.file_id > files.id
+
+ref: messages_files.message_id > messages.id
 
 ref: messages.session_id - sessions.id
 
@@ -858,7 +959,21 @@ ref: messages.topic_id - topics.id
 
 ref: threads.source_message_id - messages.id
 
+ref: organization_members.organization_id > organizations.id
+
+ref: organization_members.user_id - users.id
+
+ref: organizations.owner_id - users.id
+
 ref: sessions.group_id - session_groups.id
+
+ref: team_channels.team_id > teams.id
+
+ref: team_members.team_id > teams.id
+
+ref: team_members.user_id - users.id
+
+ref: teams.organization_id > organizations.id
 
 ref: topic_documents.document_id > documents.id
 
