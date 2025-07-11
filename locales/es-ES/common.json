@@ -328,7 +328,8 @@
     "discover": "Descubrir",
     "files": "Archivos",
     "me": "Yo",
-    "setting": "Configuración"
+    "setting": "Configuración",
+    "teams": "Equipos"
   },
   "telemetry": {
     "allow": "Permitir",

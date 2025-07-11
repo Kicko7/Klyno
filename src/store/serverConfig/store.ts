@@ -20,7 +20,7 @@ interface ServerConfigState {
 
 const initialState: ServerConfigState = {
   featureFlags: DEFAULT_FEATURE_FLAGS,
-  serverConfig: { aiProvider: {}, telemetry: {} },
+  serverConfig: { aiProvider: {} },
 };
 
 //  ===============  聚合 createStoreFn ============ //

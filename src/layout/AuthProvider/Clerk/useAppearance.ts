@@ -26,20 +26,36 @@ export const useStyles = createStyles(
       logoBox: css`
         height: 48px;
       `,
-      modalBackdrop: css`
-        background: ${token.colorBgMask};
+      // Additional modal centering styles
+modal: css`
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
       `,
-      modalContent: css`
+      
+modalBackdrop: css`
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: ${token.colorBgMask};
+      `,
+      
+modalCloseButton: css`
+        position: absolute !important;
+        z-index: 1000 !important;
+        inset-block-start: 1rem !important;
+        inset-inline-end: 1rem !important;
+      `,
+      
+modalContent: css`
         &.${prefixCls}-modalContent {
           position: relative !important;
-          top: auto !important;
-          left: auto !important;
+          inset-block-start: auto !important;
+          inset-inline-start: auto !important;
           transform: none !important;
+
           margin: auto !important;
-          
+
           .${prefixCls}-cardBox {
             border: 1px solid ${token.colorSplit} !important;
             border-radius: ${token.borderRadiusLG}px !important;
@@ -52,22 +68,26 @@ export const useStyles = createStyles(
           }
         }
       `,
-      navbar: css`
+      
+navbar: css`
         background: ${isDarkMode ? token.colorBgContainer : token.colorFillTertiary};
 
         @media (max-width: 768px) {
           background: ${token.colorBgContainer};
         }
       `,
-      navbarButton: css`
+      
+navbarButton: css`
         line-height: 2;
       `,
-      pageScrollBox: css`
+      
+pageScrollBox: css`
         align-self: center;
         width: 100%;
         max-width: 1024px;
       `,
-      rootBox: css`
+      
+rootBox: css`
         &.${prefixCls}-userProfile-root {
           width: 100%;
           height: 100%;
@@ -82,33 +102,24 @@ export const useStyles = createStyles(
           }
         }
       `,
-      scrollBox: css`
+      
+scrollBox: css`
         border: unset;
         border-radius: unset;
         background: ${isDarkMode ? token.colorFillQuaternary : token.colorBgElevated};
         box-shadow: 0 1px 0 1px ${token.colorFillTertiary};
       `,
-      socialButtons: css`
+      
+socialButtons: css`
         display: flex;
         flex-direction: column;
       `,
+      
       socialButtonsBlockButton__github: css`
         order: 1;
       `,
       socialButtonsBlockButton__google: css`
         order: -1;
-      `,
-      // Additional modal centering styles
-      modal: css`
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-      `,
-      modalCloseButton: css`
-        position: absolute !important;
-        top: 1rem !important;
-        right: 1rem !important;
-        z-index: 1000 !important;
       `,
     }) as Partial<Record<keyof ElementsConfig, any>>,
 );

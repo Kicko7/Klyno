@@ -1,9 +1,5 @@
 import type { NextAuthConfig } from 'next-auth';
 
-import { authEnv } from '@/config/auth';
-
-import { ssoProviders } from './sso-providers';
-
 export const initSSOProviders = () => {
   // NextAuth is disabled - only Clerk is supported
   return [];
@@ -32,12 +28,10 @@ export default {
       return session;
     },
   },
-  debug: authEnv.NEXT_AUTH_DEBUG,
   pages: {
     error: '/next-auth/error',
     signIn: '/next-auth/signin',
   },
   providers: initSSOProviders(),
-  secret: authEnv.NEXT_AUTH_SECRET,
   trustHost: process.env?.AUTH_TRUST_HOST ? process.env.AUTH_TRUST_HOST === 'true' : true,
 } satisfies NextAuthConfig;

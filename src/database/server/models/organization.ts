@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { LobeChatDatabase } from '@/database/type';
@@ -10,10 +10,8 @@ import {
   NewTeamChannel,
   NewTeamMember,
   OrganizationItem,
-  OrganizationMemberItem,
   TeamChannelItem,
   TeamItem,
-  TeamMemberItem,
   organizationMembers,
   organizations,
   teamChannels,
@@ -34,15 +32,17 @@ export class OrganizationModel {
   // Organization methods
   async createOrganization(params: Partial<NewOrganization>) {
     const id = nanoid();
-    const slug = params.slug || params.name?.toLowerCase().replace(/\s+/g, '-') || id;
+    const name = params.name || 'New Organization';
+    const slug = params.slug || name.toLowerCase().replaceAll(/\s+/g, '-') || id;
 
     const [organization] = await this.db
       .insert(organizations)
       .values({
         id,
-        ...params,
-        slug,
+        name,
         ownerId: this.userId,
+        slug,
+        ...params,
       })
       .returning();
 
@@ -50,14 +50,14 @@ export class OrganizationModel {
     await this.db.insert(organizationMembers).values({
       id: nanoid(),
       organizationId: id,
-      userId: this.userId,
-      role: 'owner',
       permissions: {
         canInviteMembers: true,
-        canManageTeams: true,
         canManageBilling: true,
         canManageSettings: true,
+        canManageTeams: true,
       },
+      role: 'owner',
+      userId: this.userId,
     });
 
     return organization;
@@ -66,8 +66,8 @@ export class OrganizationModel {
   async getUserOrganizations() {
     const userOrgs = await this.db
       .select({
-        organization: organizations,
         member: organizationMembers,
+        organization: organizations,
       })
       .from(organizationMembers)
       .innerJoin(organizations, eq(organizationMembers.organizationId, organizations.id))
@@ -75,16 +75,16 @@ export class OrganizationModel {
 
     return userOrgs.map((org) => ({
       ...org.organization,
-      memberRole: org.member.role,
       memberPermissions: org.member.permissions,
+      memberRole: org.member.role,
     }));
   }
 
   async getOrganization(id: string) {
     const [result] = await this.db
       .select({
-        organization: organizations,
         memberCount: sql<number>`count(distinct ${organizationMembers.userId})`,
+        organization: organizations,
         teamCount: sql<number>`count(distinct ${teams.id})`,
       })
       .from(organizations)
@@ -125,27 +125,34 @@ export class OrganizationModel {
       .where(eq(organizationMembers.organizationId, organizationId));
 
     return members.map((m) => ({
-      id: m.member.id,
-      userId: m.member.userId,
-      role: m.member.role,
-      permissions: m.member.permissions,
-      isActive: m.member.isActive,
       createdAt: m.member.createdAt,
+      id: m.member.id,
+      isActive: m.member.isActive,
+      permissions: m.member.permissions,
+      role: m.member.role,
       user: {
+        avatar: m.user.avatar,
+        email: m.user.email,
+        fullName: m.user.fullName,
         id: m.user.id,
         username: m.user.username,
-        email: m.user.email,
-        avatar: m.user.avatar,
-        fullName: m.user.fullName,
       },
+      userId: m.member.userId,
     }));
   }
 
   async addOrganizationMember(params: Partial<NewOrganizationMember>) {
+    if (!params.userId || !params.organizationId) {
+      throw new Error('userId and organizationId are required');
+    }
+
     const [member] = await this.db
       .insert(organizationMembers)
       .values({
         id: nanoid(),
+        organizationId: params.organizationId,
+        role: params.role || 'member',
+        userId: params.userId,
         ...params,
       })
       .returning();
@@ -166,25 +173,32 @@ export class OrganizationModel {
 
   // Team methods
   async createTeam(params: Partial<NewTeam>) {
+    if (!params.organizationId) {
+      throw new Error('organizationId is required');
+    }
+
     const id = nanoid();
-    const slug = params.slug || params.name?.toLowerCase().replace(/\s+/g, '-') || id;
+    const name = params.name || 'New Team';
+    const slug = params.slug || name.toLowerCase().replaceAll(/\s+/g, '-') || id;
 
     const [team] = await this.db
       .insert(teams)
       .values({
         id,
-        ...params,
+        name,
+        organizationId: params.organizationId,
         slug,
+        ...params,
       })
       .returning();
 
     // Create default general channel
     await this.db.insert(teamChannels).values({
-      id: nanoid(),
-      teamId: id,
-      name: 'General',
-      type: 'general',
       description: 'General team discussions',
+      id: nanoid(),
+      name: 'General',
+      teamId: id,
+      type: 'general',
     });
 
     return team;
@@ -193,8 +207,8 @@ export class OrganizationModel {
   async getOrganizationTeams(organizationId: string) {
     const teamsWithMembers = await this.db
       .select({
-        team: teams,
         memberCount: sql<number>`count(distinct ${teamMembers.userId})`,
+        team: teams,
       })
       .from(teams)
       .leftJoin(teamMembers, eq(teams.id, teamMembers.teamId))
@@ -207,9 +221,9 @@ export class OrganizationModel {
   async getTeam(teamId: string) {
     const [team] = await this.db
       .select({
-        team: teams,
-        organization: organizations,
         memberCount: sql<number>`count(distinct ${teamMembers.userId})`,
+        organization: organizations,
+        team: teams,
       })
       .from(teams)
       .innerJoin(organizations, eq(teams.organizationId, organizations.id))
@@ -249,28 +263,35 @@ export class OrganizationModel {
       .where(eq(teamMembers.teamId, teamId));
 
     return members.map((m) => ({
+      createdAt: m.member.createdAt,
       id: m.member.id,
-      userId: m.member.userId,
-      role: m.member.role,
-      permissions: m.member.permissions,
       isActive: m.member.isActive,
       lastSeenAt: m.member.lastSeenAt,
-      createdAt: m.member.createdAt,
+      permissions: m.member.permissions,
+      role: m.member.role,
       user: {
+        avatar: m.user.avatar,
+        email: m.user.email,
+        fullName: m.user.fullName,
         id: m.user.id,
         username: m.user.username,
-        email: m.user.email,
-        avatar: m.user.avatar,
-        fullName: m.user.fullName,
       },
+      userId: m.member.userId,
     }));
   }
 
   async addTeamMember(params: Partial<NewTeamMember>) {
+    if (!params.userId || !params.teamId) {
+      throw new Error('userId and teamId are required');
+    }
+
     const [member] = await this.db
       .insert(teamMembers)
       .values({
         id: nanoid(),
+        role: params.role || 'member',
+        teamId: params.teamId,
+        userId: params.userId,
         ...params,
       })
       .returning();
@@ -286,10 +307,17 @@ export class OrganizationModel {
 
   // Team channel methods
   async createTeamChannel(params: Partial<NewTeamChannel>) {
+    if (!params.teamId) {
+      throw new Error('teamId is required');
+    }
+
     const [channel] = await this.db
       .insert(teamChannels)
       .values({
         id: nanoid(),
+        name: params.name || 'New Channel',
+        teamId: params.teamId,
+        type: params.type || 'general',
         ...params,
       })
       .returning();
@@ -349,9 +377,9 @@ export class OrganizationModel {
   async getUserTeams(userId: string = this.userId) {
     const userTeams = await this.db
       .select({
-        team: teams,
         member: teamMembers,
         organization: organizations,
+        team: teams,
       })
       .from(teamMembers)
       .innerJoin(teams, eq(teamMembers.teamId, teams.id))
@@ -360,9 +388,9 @@ export class OrganizationModel {
 
     return userTeams.map((t) => ({
       ...t.team,
-      organization: t.organization,
-      memberRole: t.member.role,
       memberPermissions: t.member.permissions,
+      memberRole: t.member.role,
+      organization: t.organization,
     }));
   }
 }

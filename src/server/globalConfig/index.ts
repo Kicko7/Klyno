@@ -1,11 +1,8 @@
-import { authEnv } from '@/config/auth';
 import { fileEnv } from '@/config/file';
 import { knowledgeEnv } from '@/config/knowledge';
-import { langfuseEnv } from '@/config/langfuse';
 import { enableNextAuth } from '@/const/auth';
 import { isDesktop } from '@/const/version';
-import { appEnv, getAppConfig } from '@/envs/app';
-import { parseSystemAgent } from '@/server/globalConfig/parseSystemAgent';
+import { getAppConfig } from '@/envs/app';
 import { GlobalServerConfig } from '@/types/serverConfig';
 
 import { genServerLLMConfig } from './_deprecated';
@@ -78,11 +75,6 @@ export const getServerGlobalConfig = async () => {
         fetchOnClient: !process.env.OLLAMA_PROXY_URL,
       },
     }),
-oAuthSSOProviders: (authEnv.NEXT_AUTH_SSO_PROVIDERS || '').trim().split(/[,，]/),
-    systemAgent: parseSystemAgent(appEnv.SYSTEM_AGENT),
-    telemetry: {
-      langfuse: langfuseEnv.ENABLE_LANGFUSE,
-    },
   };
 
   return config;

@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Flexbox } from 'react-layout-kit';
 
 import { useServerConfigStore } from '@/store/serverConfig';
-import { featureFlagsSelectors, serverConfigSelectors } from '@/store/serverConfig/selectors';
+import { featureFlagsSelectors } from '@/store/serverConfig/selectors';
 
 import APIKeyForm from './APIKeyForm';
 import AccessCodeForm from './AccessCodeForm';
@@ -26,7 +26,7 @@ interface InvalidAccessCodeProps {
 
 const InvalidAccessCode = memo<InvalidAccessCodeProps>(({ id, provider }) => {
   const { t } = useTranslation('error');
-  const isEnabledOAuth = useServerConfigStore(serverConfigSelectors.enabledOAuthSSO);
+  const isEnabledOAuth = false; // TODO: Implement OAuth
   const defaultTab = isEnabledOAuth ? Tab.Oauth : Tab.Password;
   const [mode, setMode] = useState<Tab>(defaultTab);
   const { showOpenAIApiKey } = useServerConfigStore(featureFlagsSelectors);

@@ -33,11 +33,7 @@ export interface GlobalServerConfig {
    * @deprecated
    */
   languageModel?: ServerLanguageModel;
-  oAuthSSOProviders?: string[];
   systemAgent?: PartialDeep<UserSystemAgentConfig>;
-  telemetry: {
-    langfuse?: boolean;
-  };
 }
 
 export interface GlobalRuntimeConfig {

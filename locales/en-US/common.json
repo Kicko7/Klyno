@@ -328,7 +328,8 @@
     "discover": "Discover",
     "files": "Files",
     "me": "Me",
-    "setting": "Settings"
+    "setting": "Settings",
+    "teams": "Teams"
   },
   "telemetry": {
     "allow": "Allow",

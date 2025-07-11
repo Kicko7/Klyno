@@ -40,8 +40,10 @@ const Clerk = memo(({ children }: PropsWithChildren) => {
         justify-content: center !important;
       }
     `;
-    document.head.appendChild(style);
-    return () => document.head.removeChild(style);
+    document.head.append(style);
+    return () => {
+      style.remove();
+    };
   }, []);
 
   // When useAppearance returns different result during SSR vs. client-side (when theme mode is auto), the appearance is not applied

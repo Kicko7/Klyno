@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
-import { authedProcedure, router } from '@/libs/trpc';
+import { authedProcedure, router } from '@/libs/trpc/lambda';
 import { OrganizationService } from '@/server/services/organization';
 
 const organizationProcedure = authedProcedure.use(async (opts) => {
   const { ctx } = opts;
-  
+
   return opts.next({
     ctx: {
       organizationService: new OrganizationService(ctx.userId),
@@ -14,17 +14,83 @@ const organizationProcedure = authedProcedure.use(async (opts) => {
 });
 
 export const organizationRouter = router({
+  // Organization members
+  addOrganizationMember: organizationProcedure
+    .input(
+      z.object({
+        email: z.string().email(),
+        organizationId: z.string(),
+        role: z.enum(['admin', 'member']),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ctx.organizationService.addMember(input);
+    }),
+
+  // Team channels
+  addTeamMember: organizationProcedure
+    .input(
+      z.object({
+        role: z.enum(['leader', 'moderator', 'member']),
+        teamId: z.string(),
+        userId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ctx.organizationService.addTeamMember(input);
+    }),
+
   // Create a new organization
   createOrganization: organizationProcedure
     .input(
       z.object({
-        name: z.string().min(1).max(255),
         description: z.string().optional(),
+        name: z.string().min(1).max(255),
         slug: z.string().min(1).max(255),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       return ctx.organizationService.createOrganization(input);
+    }),
+
+  // Teams
+  createTeam: organizationProcedure
+    .input(
+      z.object({
+        description: z.string().optional(),
+        name: z.string().min(1).max(255),
+        organizationId: z.string(),
+        slug: z.string().min(1).max(255),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ctx.organizationService.createTeam(input);
+    }),
+
+  createTeamChannel: organizationProcedure
+    .input(
+      z.object({
+        description: z.string().optional(),
+        name: z.string().min(1).max(255),
+        teamId: z.string(),
+        type: z.enum(['general', 'announcement', 'project', 'random']).default('general'),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ctx.organizationService.createTeamChannel(input);
+    }),
+
+  // Delete organization
+  deleteOrganization: organizationProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.organizationService.deleteOrganization(input.id);
+    }),
+
+  deleteTeam: organizationProcedure
+    .input(z.object({ teamId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.organizationService.deleteTeam(input.teamId);
     }),
 
   // Get user's organizations
@@ -39,69 +105,10 @@ export const organizationRouter = router({
       return ctx.organizationService.getOrganization(input.id);
     }),
 
-  // Update organization
-  updateOrganization: organizationProcedure
-    .input(
-      z.object({
-        id: z.string(),
-        name: z.string().min(1).max(255).optional(),
-        description: z.string().optional(),
-        settings: z.any().optional(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      return ctx.organizationService.updateOrganization(input.id, input);
-    }),
-
-  // Delete organization
-  deleteOrganization: organizationProcedure
-    .input(z.object({ id: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      return ctx.organizationService.deleteOrganization(input.id);
-    }),
-
-  // Organization members
   getOrganizationMembers: organizationProcedure
     .input(z.object({ organizationId: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.organizationService.getOrganizationMembers(input.organizationId);
-    }),
-
-  addOrganizationMember: organizationProcedure
-    .input(
-      z.object({
-        organizationId: z.string(),
-        email: z.string().email(),
-        role: z.enum(['admin', 'member']),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      return ctx.organizationService.addMember(input);
-    }),
-
-  removeOrganizationMember: organizationProcedure
-    .input(
-      z.object({
-        organizationId: z.string(),
-        memberId: z.string(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      return ctx.organizationService.removeMember(input.organizationId, input.memberId);
-    }),
-
-  // Teams
-  createTeam: organizationProcedure
-    .input(
-      z.object({
-        organizationId: z.string(),
-        name: z.string().min(1).max(255),
-        description: z.string().optional(),
-        slug: z.string().min(1).max(255),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      return ctx.organizationService.createTeam(input);
     }),
 
   getOrganizationTeams: organizationProcedure
@@ -116,24 +123,10 @@ export const organizationRouter = router({
       return ctx.organizationService.getTeam(input.teamId);
     }),
 
-  updateTeam: organizationProcedure
-    .input(
-      z.object({
-        teamId: z.string(),
-        name: z.string().min(1).max(255).optional(),
-        description: z.string().optional(),
-        settings: z.any().optional(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const { teamId, ...updates } = input;
-      return ctx.organizationService.updateTeam(teamId, updates);
-    }),
-
-  deleteTeam: organizationProcedure
+  getTeamChannels: organizationProcedure
     .input(z.object({ teamId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      return ctx.organizationService.deleteTeam(input.teamId);
+    .query(async ({ ctx, input }) => {
+      return ctx.organizationService.getTeamChannels(input.teamId);
     }),
 
   // Team members
@@ -143,46 +136,53 @@ export const organizationRouter = router({
       return ctx.organizationService.getTeamMembers(input.teamId);
     }),
 
-  addTeamMember: organizationProcedure
+  removeOrganizationMember: organizationProcedure
     .input(
       z.object({
-        teamId: z.string(),
-        userId: z.string(),
-        role: z.enum(['leader', 'moderator', 'member']),
+        memberId: z.string(),
+        organizationId: z.string(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      return ctx.organizationService.addTeamMember(input);
+      return ctx.organizationService.removeMember(input.organizationId, input.memberId);
     }),
 
   removeTeamMember: organizationProcedure
     .input(
       z.object({
-        teamId: z.string(),
         memberId: z.string(),
+        teamId: z.string(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       return ctx.organizationService.removeTeamMember(input.teamId, input.memberId);
     }),
 
-  // Team channels
-  createTeamChannel: organizationProcedure
+  // Update organization
+  updateOrganization: organizationProcedure
     .input(
       z.object({
-        teamId: z.string(),
-        name: z.string().min(1).max(255),
         description: z.string().optional(),
-        type: z.enum(['general', 'announcement', 'project', 'random']).default('general'),
+        id: z.string(),
+        name: z.string().min(1).max(255).optional(),
+        settings: z.any().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      return ctx.organizationService.createTeamChannel(input);
+      return ctx.organizationService.updateOrganization(input.id, input);
     }),
 
-  getTeamChannels: organizationProcedure
-    .input(z.object({ teamId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      return ctx.organizationService.getTeamChannels(input.teamId);
+  updateTeam: organizationProcedure
+    .input(
+      z.object({
+        description: z.string().optional(),
+        name: z.string().min(1).max(255).optional(),
+        settings: z.any().optional(),
+        teamId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { teamId, ...updates } = input;
+      return ctx.organizationService.updateTeam(teamId, updates);
     }),
 });

@@ -55,12 +55,12 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
           tooltipProps={{ placement: 'right' }}
         />
       </Link>
-      <Link aria-label={t('tab.teams')} href={'/teams'}>
+      <Link aria-label={'teams'} href={'/teams'}>
         <ActionIcon
           active={isTeamsActive}
           icon={Users}
           size={ICON_SIZE}
-          title={t('tab.teams')}
+          title={'teams'}
           tooltipProps={{ placement: 'right' }}
         />
       </Link>

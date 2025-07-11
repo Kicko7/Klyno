@@ -1,12 +1,12 @@
+import { useResponsive } from 'antd-style';
 import { PropsWithChildren, memo } from 'react';
-import { useResponsive } from 'react-layout-kit';
 
 const Desktop = memo(({ children }: PropsWithChildren) => {
   const { md = true } = useResponsive();
 
   if (!md) return null;
 
-  return <>{children}</>;
+  return children;
 });
 
 Desktop.displayName = 'DesktopTeamsLayout';

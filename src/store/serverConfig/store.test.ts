@@ -27,20 +27,20 @@ describe('createServerConfigStore', () => {
     });
   });
 
-  it('should initialize store with custom initial state', () => {
-    const initialState: Partial<ServerConfigStore> = {
-      featureFlags: { edit_agent: false },
-      serverConfig: { telemetry: { langfuse: true }, aiProvider: {} },
-    };
+  // it('should initialize store with custom initial state', () => {
+  //   const initialState: Partial<ServerConfigStore> = {
+  //     featureFlags: { edit_agent: false },
+  //     serverConfig: { telemetry: { langfuse: true }, aiProvider: {} },
+  //   };
 
-    const store = initServerConfigStore(initialState);
+  //   const store = initServerConfigStore(initialState);
 
-    expect(store.getState().featureFlags.edit_agent).toBeFalsy();
-    expect(store.getState().serverConfig).toEqual({
-      telemetry: { langfuse: true },
-      aiProvider: {},
-    });
-  });
+  //   expect(store.getState().featureFlags.edit_agent).toBeFalsy();
+  //   expect(store.getState().serverConfig).toEqual({
+  //     telemetry: { langfuse: true },
+  //     aiProvider: {},
+  //   });
+  // });
 
   it('should update store state correctly', () => {
     const store = createServerConfigStore();

@@ -1,5 +1,5 @@
-import { OrganizationModel } from '@/database/server/models/organization';
 import { serverDB } from '@/database/server';
+import { OrganizationModel } from '@/database/server/models/organization';
 
 export class OrganizationService {
   private organizationModel: OrganizationModel;
@@ -10,7 +10,7 @@ export class OrganizationService {
     this.organizationModel = new OrganizationModel(serverDB, userId);
   }
 
-  async createOrganization(params: { name: string; slug?: string; description?: string }) {
+  async createOrganization(params: { description?: string, name: string; slug?: string; }) {
     return this.organizationModel.createOrganization(params);
   }
 
@@ -22,7 +22,7 @@ export class OrganizationService {
     return this.organizationModel.getOrganization(id);
   }
 
-  async updateOrganization(id: string, updates: { name?: string; description?: string }) {
+  async updateOrganization(id: string, updates: { description?: string, name?: string; }) {
     return this.organizationModel.updateOrganization(id, updates);
   }
 
@@ -34,7 +34,7 @@ export class OrganizationService {
     return this.organizationModel.getOrganizationMembers(organizationId);
   }
 
-  async addMember(params: { organizationId: string; email: string; role: 'admin' | 'member' }) {
+  async addMember(params: { email: string; organizationId: string; role: 'admin' | 'member' }) {
     return this.organizationModel.addOrganizationMember({ ...params });
   }
 
@@ -43,10 +43,10 @@ export class OrganizationService {
   }
 
   async createTeam(params: {
-    organizationId: string;
-    name: string;
-    slug?: string;
     description?: string;
+    name: string;
+    organizationId: string;
+    slug?: string;
   }) {
     return this.organizationModel.createTeam(params);
   }
@@ -59,7 +59,7 @@ export class OrganizationService {
     return this.organizationModel.getTeam(teamId);
   }
 
-  async updateTeam(teamId: string, updates: { name?: string; description?: string }) {
+  async updateTeam(teamId: string, updates: { description?: string, name?: string; }) {
     return this.organizationModel.updateTeam(teamId, updates);
   }
 
@@ -72,9 +72,9 @@ export class OrganizationService {
   }
 
   async addTeamMember(params: {
+    role: 'leader' | 'moderator' | 'member';
     teamId: string;
     userId: string;
-    role: 'leader' | 'moderator' | 'member';
   }) {
     return this.organizationModel.addTeamMember(params);
   }
@@ -84,10 +84,10 @@ export class OrganizationService {
   }
 
   async createTeamChannel(params: {
-    teamId: string;
-    name: string;
     description?: string;
-    type?: string;
+    name: string;
+    teamId: string;
+    type?: 'general' | 'announcement' | 'project' | 'random';
   }) {
     return this.organizationModel.createTeamChannel(params);
   }
@@ -96,4 +96,3 @@ export class OrganizationService {
     return this.organizationModel.getTeamChannels(teamId);
   }
 }
-
