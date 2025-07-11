@@ -1,6 +1,6 @@
 import { StateCreator } from 'zustand/vanilla';
 
-import { enableAuth, enableClerk, enableNextAuth } from '@/const/auth';
+import { enableAuth, enableClerk } from '@/const/auth';
 
 import { UserStore } from '../../store';
 
@@ -32,10 +32,7 @@ export const createAuthSlice: StateCreator<
       return;
     }
 
-    if (enableNextAuth) {
-      const { signOut } = await import('next-auth/react');
-      signOut();
-    }
+    // NextAuth is disabled - only Clerk is supported
   },
   openLogin: async () => {
     if (enableClerk) {
@@ -49,15 +46,6 @@ export const createAuthSlice: StateCreator<
       return;
     }
 
-    if (enableNextAuth) {
-      const { signIn } = await import('next-auth/react');
-      // Check if only one provider is available
-      const providers = get()?.oAuthSSOProviders;
-      if (providers && providers.length === 1) {
-        signIn(providers[0]);
-        return;
-      }
-      signIn();
-    }
+    // NextAuth is disabled - only Clerk is supported
   },
 });

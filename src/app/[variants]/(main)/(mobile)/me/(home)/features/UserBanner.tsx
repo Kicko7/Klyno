@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { memo } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
-import { enableAuth, enableNextAuth } from '@/const/auth';
+import { enableAuth } from '@/const/auth';
 import { isDeprecatedEdition } from '@/const/version';
 import DataStatistics from '@/features/User/DataStatistics';
 import UserInfo from '@/features/User/UserInfo';
@@ -16,7 +16,6 @@ import { authSelectors } from '@/store/user/selectors';
 const UserBanner = memo(() => {
   const router = useRouter();
   const isLoginWithAuth = useUserStore(authSelectors.isLoginWithAuth);
-  const [signIn] = useUserStore((s) => [s.openLogin]);
 
   return (
     <Flexbox gap={12} paddingBlock={8}>
@@ -34,11 +33,6 @@ const UserBanner = memo(() => {
       ) : (
         <UserLoginOrSignup
           onClick={() => {
-            // If use NextAuth, call openLogin method directly
-            if (enableNextAuth) {
-              signIn();
-              return;
-            }
             router.push('/login');
           }}
         />

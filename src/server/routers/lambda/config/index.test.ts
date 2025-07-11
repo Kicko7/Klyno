@@ -13,11 +13,7 @@ const createCaller = createCallerFactory(configRouter);
 let ctx: AuthContext;
 let router: ReturnType<typeof createCaller>;
 
-vi.mock('@/libs/next-auth/edge', () => {
-  return {
-    auth: vi.fn().mockResolvedValue(undefined),
-  };
-});
+// NextAuth has been removed - only Clerk is supported
 
 beforeEach(async () => {
   vi.resetAllMocks();

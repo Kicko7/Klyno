@@ -1,7 +1,7 @@
 import { PluginRequestPayload } from '@lobehub/chat-plugin-sdk';
 import { createGatewayOnEdgeRuntime } from '@lobehub/chat-plugins-gateway';
 
-import { LOBE_CHAT_AUTH_HEADER, OAUTH_AUTHORIZED, enableNextAuth } from '@/const/auth';
+import { LOBE_CHAT_AUTH_HEADER } from '@/const/auth';
 import { LOBE_CHAT_TRACE_ID, TraceNameMap } from '@/const/trace';
 import { getAppConfig } from '@/envs/app';
 import { AgentRuntimeError } from '@/libs/model-runtime';
@@ -13,14 +13,14 @@ import { getTracePayload } from '@/utils/trace';
 
 import { parserPluginSettings } from './settings';
 
-const checkAuth = (accessCode: string | null, oauthAuthorized: boolean | null) => {
+const checkAuth = (accessCode: string | null) => {
   const { ACCESS_CODES, PLUGIN_SETTINGS } = getAppConfig();
 
   // if there is no plugin settings, just skip the auth
   if (!PLUGIN_SETTINGS) return { auth: true };
 
-  // If authorized by oauth
-  if (oauthAuthorized && enableNextAuth) return { auth: true };
+  // NextAuth is disabled - only Clerk is supported
+  // if (oauthAuthorized) return { auth: true };
 
   // if accessCode doesn't exist
   if (!ACCESS_CODES.length) return { auth: true };
@@ -43,10 +43,10 @@ export const POST = async (req: Request) => {
   const authorization = req.headers.get(LOBE_CHAT_AUTH_HEADER);
   if (!authorization) throw AgentRuntimeError.createError(ChatErrorType.Unauthorized);
 
-  const oauthAuthorized = !!req.headers.get(OAUTH_AUTHORIZED);
+  // const oauthAuthorized = !!req.headers.get(OAUTH_AUTHORIZED); // NextAuth removed
   const payload = await getJWTPayload(authorization);
 
-  const result = checkAuth(payload.accessCode!, oauthAuthorized);
+  const result = checkAuth(payload.accessCode!);
 
   if (!result.auth) {
     return createErrorResponse(result.error as ErrorType);

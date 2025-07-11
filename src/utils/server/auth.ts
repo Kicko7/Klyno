@@ -1,4 +1,4 @@
-import { enableClerk, enableNextAuth } from '@/const/auth';
+import { enableClerk } from '@/const/auth';
 import { DESKTOP_USER_ID } from '@/const/desktop';
 import { isDesktop } from '@/const/version';
 
@@ -11,15 +11,7 @@ export const getUserAuth = async () => {
     return await clerkAuth.getAuth();
   }
 
-  if (enableNextAuth) {
-    const { default: NextAuthEdge } = await import('@/libs/next-auth/edge');
-
-    const session = await NextAuthEdge.auth();
-
-    const userId = session?.user.id;
-
-    return { nextAuth: session, userId };
-  }
+  // NextAuth is disabled - only Clerk is supported
 
   if (isDesktop) {
     return { userId: DESKTOP_USER_ID };

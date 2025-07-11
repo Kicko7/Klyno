@@ -1,4 +1,3 @@
-import { Session, User } from '@auth/core/types';
 import {
   ActiveSessionResource,
   SignInProps,
@@ -19,9 +18,6 @@ export interface UserAuthState {
   isLoaded?: boolean;
 
   isSignedIn?: boolean;
-  nextSession?: Session;
-  nextUser?: User;
-  oAuthSSOProviders?: string[];
   user?: LobeUser;
 }
 

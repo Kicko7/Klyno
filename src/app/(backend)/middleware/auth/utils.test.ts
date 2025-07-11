@@ -6,7 +6,6 @@ import { getAppConfig } from '@/envs/app';
 import { checkAuthMethod } from './utils';
 
 let enableClerkMock = false;
-let enableNextAuthMock = false;
 
 vi.mock('@/const/auth', async (importOriginal) => {
   const data = await importOriginal();
@@ -15,9 +14,6 @@ vi.mock('@/const/auth', async (importOriginal) => {
     ...(data as any),
     get enableClerk() {
       return enableClerkMock;
-    },
-    get enableNextAuth() {
-      return enableNextAuthMock;
     },
   };
 });
@@ -54,17 +50,6 @@ describe('checkAuthMethod', () => {
       expect(e).toEqual({ errorType: 'InvalidClerkUser' });
     }
     enableClerkMock = false;
-  });
-
-  it('should pass with valid Next auth', () => {
-    enableNextAuthMock = true;
-    expect(() =>
-      checkAuthMethod({
-        nextAuthAuthorized: true,
-      }),
-    ).not.toThrow();
-
-    enableNextAuthMock = false;
   });
 
   it('should pass with valid API key', () => {

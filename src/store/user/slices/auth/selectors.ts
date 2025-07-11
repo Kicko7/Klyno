@@ -1,6 +1,6 @@
 import { t } from 'i18next';
 
-import { enableAuth, enableClerk, enableNextAuth } from '@/const/auth';
+import { enableAuth, enableClerk } from '@/const/auth';
 import { BRANDING_NAME } from '@/const/branding';
 import { isDesktop } from '@/const/version';
 import { UserStore } from '@/store/user';
@@ -61,5 +61,4 @@ export const authSelectors = {
   isLogin,
   isLoginWithAuth: (s: UserStore) => s.isSignedIn,
   isLoginWithClerk: (s: UserStore): boolean => (s.isSignedIn && enableClerk) || false,
-  isLoginWithNextAuth: (s: UserStore): boolean => (s.isSignedIn && !!enableNextAuth) || false,
 };

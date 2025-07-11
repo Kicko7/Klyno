@@ -1,14 +1,12 @@
-import { User } from 'next-auth';
 import { NextRequest } from 'next/server';
 
-import { JWTPayload, LOBE_CHAT_AUTH_HEADER, enableClerk, enableNextAuth } from '@/const/auth';
+import { JWTPayload, LOBE_CHAT_AUTH_HEADER, enableClerk } from '@/const/auth';
 import { ClerkAuth, IClerkAuth } from '@/libs/clerk-auth';
 
 export interface AuthContext {
   authorizationHeader?: string | null;
   clerkAuth?: IClerkAuth;
   jwtPayload?: JWTPayload | null;
-  nextAuth?: User;
   userId?: string | null;
 }
 
@@ -19,12 +17,10 @@ export interface AuthContext {
 export const createContextInner = async (params?: {
   authorizationHeader?: string | null;
   clerkAuth?: IClerkAuth;
-  nextAuth?: User;
   userId?: string | null;
 }): Promise<AuthContext> => ({
   authorizationHeader: params?.authorizationHeader,
   clerkAuth: params?.clerkAuth,
-  nextAuth: params?.nextAuth,
   userId: params?.userId,
 });
 
@@ -51,20 +47,7 @@ export const createEdgeContext = async (request: NextRequest): Promise<EdgeConte
     return createContextInner({ authorizationHeader: authorization, clerkAuth: auth, userId });
   }
 
-  if (enableNextAuth) {
-    try {
-      const { default: NextAuthEdge } = await import('@/libs/next-auth/edge');
-
-      const session = await NextAuthEdge.auth();
-      if (session && session?.user?.id) {
-        auth = session.user;
-        userId = session.user.id;
-      }
-      return createContextInner({ authorizationHeader: authorization, nextAuth: auth, userId });
-    } catch (e) {
-      console.error('next auth err', e);
-    }
-  }
+  // NextAuth is disabled - only Clerk is supported
 
   return createContextInner({ authorizationHeader: authorization, userId });
 };

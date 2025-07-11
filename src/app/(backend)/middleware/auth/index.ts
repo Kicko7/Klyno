@@ -1,7 +1,7 @@
 import { AuthObject } from '@clerk/backend';
 import { NextRequest } from 'next/server';
 
-import { JWTPayload, LOBE_CHAT_AUTH_HEADER, OAUTH_AUTHORIZED, enableClerk } from '@/const/auth';
+import { JWTPayload, LOBE_CHAT_AUTH_HEADER, enableClerk } from '@/const/auth';
 import { ClerkAuth } from '@/libs/clerk-auth';
 import { AgentRuntime, AgentRuntimeError, ChatCompletionErrorPayload } from '@/libs/model-runtime';
 import { ChatErrorType } from '@/types/fetch';
@@ -34,7 +34,7 @@ export const checkAuth =
     try {
       // get Authorization from header
       const authorization = req.headers.get(LOBE_CHAT_AUTH_HEADER);
-      const oauthAuthorized = !!req.headers.get(OAUTH_AUTHORIZED);
+      // const oauthAuthorized = !!req.headers.get(OAUTH_AUTHORIZED); // NextAuth removed
 
       if (!authorization) throw AgentRuntimeError.createError(ChatErrorType.Unauthorized);
 
@@ -54,7 +54,6 @@ export const checkAuth =
         accessCode: jwtPayload.accessCode,
         apiKey: jwtPayload.apiKey,
         clerkAuth,
-        nextAuthAuthorized: oauthAuthorized,
       });
     } catch (e) {
       const params = await options.params;

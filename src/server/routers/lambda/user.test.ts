@@ -6,7 +6,6 @@ import { MessageModel } from '@/database/models/message';
 import { SessionModel } from '@/database/models/session';
 import { UserModel, UserNotFoundError } from '@/database/models/user';
 import { serverDB } from '@/database/server';
-import { LobeNextAuthDbAdapter } from '@/libs/next-auth/adapter';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
 import { UserService } from '@/server/services/user';
 
@@ -24,7 +23,6 @@ vi.mock('@/database/server', () => ({
 vi.mock('@/database/models/message');
 vi.mock('@/database/models/session');
 vi.mock('@/database/models/user');
-vi.mock('@/libs/next-auth/adapter');
 vi.mock('@/server/modules/KeyVaultsEncrypt');
 vi.mock('@/server/modules/S3');
 vi.mock('@/server/services/user');
@@ -55,30 +53,6 @@ describe('userRouter', () => {
       const result = await userRouter.createCaller({ ...mockCtx }).getUserRegistrationDuration();
 
       expect(result).toEqual(mockDuration);
-      expect(UserModel).toHaveBeenCalledWith(serverDB, mockUserId);
-    });
-  });
-
-  describe('getUserSSOProviders', () => {
-    it('should return SSO providers', async () => {
-      const mockProviders = [
-        {
-          provider: 'google',
-          providerAccountId: '123',
-          userId: 'user-1',
-          type: 'oauth',
-        },
-      ];
-      vi.mocked(UserModel).mockImplementation(
-        () =>
-          ({
-            getUserSSOProviders: vi.fn().mockResolvedValue(mockProviders),
-          }) as any,
-      );
-
-      const result = await userRouter.createCaller({ ...mockCtx }).getUserSSOProviders();
-
-      expect(result).toEqual(mockProviders);
       expect(UserModel).toHaveBeenCalledWith(serverDB, mockUserId);
     });
   });
@@ -204,60 +178,6 @@ describe('userRouter', () => {
       await userRouter.createCaller({ ...mockCtx }).makeUserOnboarded();
 
       expect(UserModel).toHaveBeenCalledWith(serverDB, mockUserId);
-    });
-  });
-
-  describe('unlinkSSOProvider', () => {
-    it('should unlink SSO provider successfully', async () => {
-      const mockInput = {
-        provider: 'google',
-        providerAccountId: '123',
-      };
-
-      const mockAccount = {
-        userId: mockUserId,
-        provider: 'google',
-        providerAccountId: '123',
-        type: 'oauth',
-      };
-
-      vi.mocked(LobeNextAuthDbAdapter).mockReturnValue({
-        getAccount: vi.fn().mockResolvedValue(mockAccount),
-        unlinkAccount: vi.fn().mockResolvedValue(undefined),
-      } as any);
-
-      await expect(
-        userRouter.createCaller({ ...mockCtx }).unlinkSSOProvider(mockInput),
-      ).resolves.not.toThrow();
-    });
-
-    it('should throw error if account does not exist', async () => {
-      const mockInput = {
-        provider: 'google',
-        providerAccountId: '123',
-      };
-
-      vi.mocked(LobeNextAuthDbAdapter).mockReturnValue({
-        getAccount: vi.fn().mockResolvedValue(null),
-        unlinkAccount: vi.fn(),
-      } as any);
-
-      await expect(
-        userRouter.createCaller({ ...mockCtx }).unlinkSSOProvider(mockInput),
-      ).rejects.toThrow('The account does not exist');
-    });
-
-    it('should throw error if adapter methods are not implemented', async () => {
-      const mockInput = {
-        provider: 'google',
-        providerAccountId: '123',
-      };
-
-      vi.mocked(LobeNextAuthDbAdapter).mockReturnValue({} as any);
-
-      await expect(
-        userRouter.createCaller({ ...mockCtx }).unlinkSSOProvider(mockInput),
-      ).rejects.toThrow('The method in LobeNextAuthDbAdapter `unlinkAccount` is not implemented');
     });
   });
 

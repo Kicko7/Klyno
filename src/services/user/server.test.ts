@@ -16,13 +16,10 @@ vi.mock('@/libs/trpc/client', () => ({
       getUserState: {
         query: vi.fn(),
       },
-      getUserSSOProviders: {
-        query: vi.fn(),
-      },
-      unlinkSSOProvider: {
+      makeUserOnboarded: {
         mutate: vi.fn(),
       },
-      makeUserOnboarded: {
+      updateAvatar: {
         mutate: vi.fn(),
       },
       updatePreference: {
@@ -68,36 +65,6 @@ describe('ServerService', () => {
 
     const result = await service.getUserState();
     expect(result).toEqual(mockState);
-  });
-
-  it('should get user SSO providers', async () => {
-    const mockProviders = [
-      {
-        provider: 'google',
-        providerAccountId: '123',
-        userId: 'user1',
-        type: 'oauth' as const,
-        access_token: 'token',
-        token_type: 'bearer' as const,
-        expires_at: 123,
-        scope: 'email profile',
-      },
-    ];
-    vi.mocked(lambdaClient.user.getUserSSOProviders.query).mockResolvedValue(mockProviders);
-
-    const result = await service.getUserSSOProviders();
-    expect(result).toEqual(mockProviders);
-  });
-
-  it('should unlink SSO provider', async () => {
-    const provider = 'google';
-    const providerAccountId = '123';
-    await service.unlinkSSOProvider(provider, providerAccountId);
-
-    expect(lambdaClient.user.unlinkSSOProvider.mutate).toHaveBeenCalledWith({
-      provider,
-      providerAccountId,
-    });
   });
 
   it('should make user onboarded', async () => {

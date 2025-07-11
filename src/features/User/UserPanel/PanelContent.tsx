@@ -1,11 +1,10 @@
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { memo } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
 import BrandWatermark from '@/components/BrandWatermark';
 import Menu from '@/components/Menu';
-import { enableAuth, enableNextAuth } from '@/const/auth';
+import { enableAuth } from '@/const/auth';
 import { isDeprecatedEdition } from '@/const/version';
 import { useUserStore } from '@/store/user';
 import { authSelectors } from '@/store/user/selectors';
@@ -18,7 +17,6 @@ import ThemeButton from './ThemeButton';
 import { useMenu } from './useMenu';
 
 const PanelContent = memo<{ closePopover: () => void }>(({ closePopover }) => {
-  const router = useRouter();
   const isLoginWithAuth = useUserStore(authSelectors.isLoginWithAuth);
   const [openSignIn, signOut] = useUserStore((s) => [s.openLogin, s.logout]);
   const { mainItems, logoutItems } = useMenu();
@@ -31,9 +29,7 @@ const PanelContent = memo<{ closePopover: () => void }>(({ closePopover }) => {
   const handleSignOut = () => {
     signOut();
     closePopover();
-    // NextAuth doesn't need to redirect to login page
-    if (enableNextAuth) return;
-    router.push('/login');
+    // Only Clerk is supported - Clerk handles redirect
   };
 
   return (

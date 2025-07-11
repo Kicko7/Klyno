@@ -5,7 +5,6 @@ import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { createStoreUpdater } from 'zustand-utils';
 
-import { enableNextAuth } from '@/const/auth';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useEnabledDataSync } from '@/hooks/useSyncData';
 import { useAgentStore } from '@/store/agent';
@@ -22,9 +21,8 @@ const StoreInitialization = memo(() => {
   useTranslation('error');
 
   const router = useRouter();
-  const [isLogin, isSignedIn, useInitUserState] = useUserStore((s) => [
+  const [isLogin, useInitUserState] = useUserStore((s) => [
     authSelectors.isLogin(s),
-    s.isSignedIn,
     s.useInitUserState,
   ]);
 
@@ -53,7 +51,7 @@ const StoreInitialization = memo(() => {
    * So we need to use `isSignedIn` only to determine whether request for the default agent config and user state.
    */
   const isDBInited = useGlobalStore(systemStatusSelectors.isDBInited);
-  const isLoginOnInit = isDBInited && (enableNextAuth ? isSignedIn : isLogin);
+  const isLoginOnInit = isDBInited && isLogin;
 
   // init inbox agent and default agent config
   useInitAgentStore(isLoginOnInit, serverConfig.defaultAgent?.config);

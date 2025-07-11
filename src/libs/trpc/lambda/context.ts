@@ -1,9 +1,8 @@
 import { parse } from 'cookie';
 import debug from 'debug';
-import { User } from 'next-auth';
 import { NextRequest } from 'next/server';
 
-import { JWTPayload, LOBE_CHAT_AUTH_HEADER, enableClerk, enableNextAuth } from '@/const/auth';
+import { JWTPayload, LOBE_CHAT_AUTH_HEADER, enableClerk } from '@/const/auth';
 import { oidcEnv } from '@/envs/oidc';
 import { ClerkAuth, IClerkAuth } from '@/libs/clerk-auth';
 import { extractBearerToken } from '@/utils/server/auth';
@@ -25,7 +24,6 @@ export interface AuthContext {
   clerkAuth?: IClerkAuth;
   jwtPayload?: JWTPayload | null;
   marketAccessToken?: string;
-  nextAuth?: User;
   // Add OIDC authentication information
   oidcAuth?: OIDCAuth | null;
   resHeaders?: Headers;
@@ -41,7 +39,6 @@ export const createContextInner = async (params?: {
   authorizationHeader?: string | null;
   clerkAuth?: IClerkAuth;
   marketAccessToken?: string;
-  nextAuth?: User;
   oidcAuth?: OIDCAuth | null;
   userAgent?: string;
   userId?: string | null;
@@ -53,7 +50,6 @@ export const createContextInner = async (params?: {
     authorizationHeader: params?.authorizationHeader,
     clerkAuth: params?.clerkAuth,
     marketAccessToken: params?.marketAccessToken,
-    nextAuth: params?.nextAuth,
     oidcAuth: params?.oidcAuth,
     resHeaders: responseHeaders,
     userAgent: params?.userAgent,
@@ -151,6 +147,7 @@ export const createLambdaContext = async (request: NextRequest): Promise<LambdaC
     auth = result.clerkAuth;
     userId = result.userId;
     log('Clerk authentication result, userId: %s', userId || 'not authenticated');
+    log('Clerk auth details: %O', auth);
 
     return createContextInner({
       clerkAuth: auth,
@@ -159,29 +156,7 @@ export const createLambdaContext = async (request: NextRequest): Promise<LambdaC
     });
   }
 
-  if (enableNextAuth) {
-    log('Attempting NextAuth authentication');
-    try {
-      const { default: NextAuthEdge } = await import('@/libs/next-auth/edge');
-
-      const session = await NextAuthEdge.auth();
-      if (session && session?.user?.id) {
-        auth = session.user;
-        userId = session.user.id;
-        log('NextAuth authentication successful, userId: %s', userId);
-      } else {
-        log('NextAuth authentication failed, no valid session');
-      }
-      return createContextInner({
-        nextAuth: auth,
-        ...commonContext,
-        userId,
-      });
-    } catch (e) {
-      log('NextAuth authentication error: %O', e);
-      console.error('next auth err', e);
-    }
-  }
+  // NextAuth is disabled - only Clerk is supported
 
   // Final return, userId may be undefined
   log(

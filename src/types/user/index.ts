@@ -59,8 +59,3 @@ export interface UserInitializationState {
   userId?: string;
   username?: string;
 }
-
-export const NextAuthAccountSchame = z.object({
-  provider: z.string(),
-  providerAccountId: z.string(),
-});

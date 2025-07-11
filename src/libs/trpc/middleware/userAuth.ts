@@ -19,8 +19,6 @@ export const userAuth = trpc.middleware(async (opts) => {
   if (!ctx.userId) {
     if (enableClerk) {
       console.log('clerk auth:', ctx.clerkAuth);
-    } else {
-      console.log('next auth:', ctx.nextAuth);
     }
     throw new TRPCError({ code: 'UNAUTHORIZED' });
   }

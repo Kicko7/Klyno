@@ -4,14 +4,10 @@ import { extractBearerToken, getUserAuth } from '../auth';
 
 // Mock auth constants
 let mockEnableClerk = false;
-let mockEnableNextAuth = false;
 
 vi.mock('@/const/auth', () => ({
   get enableClerk() {
     return mockEnableClerk;
-  },
-  get enableNextAuth() {
-    return mockEnableNextAuth;
   },
 }));
 
@@ -28,21 +24,12 @@ vi.mock('@/libs/clerk-auth', () => ({
   },
 }));
 
-vi.mock('@/libs/next-auth/edge', () => ({
-  default: {
-    auth: vi.fn().mockResolvedValue({
-      user: {
-        id: 'next-auth-user-id',
-      },
-    }),
-  },
-}));
+// NextAuth has been removed - only Clerk is supported
 
 describe('getUserAuth', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockEnableClerk = false;
-    mockEnableNextAuth = false;
   });
 
   it('should throw error when no auth method is enabled', async () => {
@@ -51,37 +38,6 @@ describe('getUserAuth', () => {
 
   it('should return clerk auth when clerk is enabled', async () => {
     mockEnableClerk = true;
-    mockEnableNextAuth = false;
-
-    const auth = await getUserAuth();
-
-    expect(auth).toEqual({
-      clerkAuth: {
-        redirectToSignIn: expect.any(Function),
-      },
-      userId: 'clerk-user-id',
-    });
-  });
-
-  it('should return next auth when next auth is enabled', async () => {
-    mockEnableClerk = false;
-    mockEnableNextAuth = true;
-
-    const auth = await getUserAuth();
-
-    expect(auth).toEqual({
-      nextAuth: {
-        user: {
-          id: 'next-auth-user-id',
-        },
-      },
-      userId: 'next-auth-user-id',
-    });
-  });
-
-  it('should prioritize clerk auth over next auth when both are enabled', async () => {
-    mockEnableClerk = true;
-    mockEnableNextAuth = true;
 
     const auth = await getUserAuth();
 

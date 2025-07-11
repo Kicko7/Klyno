@@ -1,8 +1,8 @@
 import { authEnv } from '@/config/auth';
 
 export const enableClerk = authEnv.NEXT_PUBLIC_ENABLE_CLERK_AUTH;
-export const enableNextAuth = authEnv.NEXT_PUBLIC_ENABLE_NEXT_AUTH;
-export const enableAuth = enableClerk || enableNextAuth || false;
+export const enableNextAuth = false; // NextAuth is disabled, only Clerk is supported
+export const enableAuth = enableClerk || false;
 
 export const LOBE_CHAT_AUTH_HEADER = 'X-lobe-chat-auth';
 

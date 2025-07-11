@@ -12,13 +12,8 @@ import UserAvatar from '@/features/User/UserAvatar';
 import { useUserStore } from '@/store/user';
 import { authSelectors, userProfileSelectors } from '@/store/user/selectors';
 
-import SSOProvidersList from './features/SSOProvidersList';
-
 const Client = memo<{ mobile?: boolean }>(({ mobile }) => {
-  const [isLoginWithNextAuth, isLogin] = useUserStore((s) => [
-    authSelectors.isLoginWithNextAuth(s),
-    authSelectors.isLogin(s),
-  ]);
+  const [isLogin] = useUserStore((s) => [authSelectors.isLogin(s)]);
   const [nickname, username, userProfile, loading] = useUserStore((s) => [
     userProfileSelectors.nickName(s),
     userProfileSelectors.username(s),
@@ -54,16 +49,9 @@ const Client = memo<{ mobile?: boolean }>(({ mobile }) => {
       },
       {
         children: <Input disabled />,
-        hidden: !isLoginWithNextAuth || !userProfile?.email,
+        hidden: !userProfile?.email,
         label: t('profile.email'),
         name: 'email',
-      },
-      {
-        children: <SSOProvidersList />,
-        hidden: !isLoginWithNextAuth,
-        label: t('profile.sso.providers'),
-        layout: 'vertical',
-        minWidth: undefined,
       },
     ],
     title: t('tab.profile'),

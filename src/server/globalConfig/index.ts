@@ -1,6 +1,5 @@
 import { fileEnv } from '@/config/file';
 import { knowledgeEnv } from '@/config/knowledge';
-import { enableNextAuth } from '@/const/auth';
 import { isDesktop } from '@/const/version';
 import { getAppConfig } from '@/envs/app';
 import { GlobalServerConfig } from '@/types/serverConfig';
@@ -54,7 +53,7 @@ export const getServerGlobalConfig = async () => {
     enableUploadFileToServer: !!fileEnv.S3_SECRET_ACCESS_KEY,
     enabledAccessCode: ACCESS_CODES?.length > 0,
 
-    enabledOAuthSSO: enableNextAuth,
+    enabledOAuthSSO: false, // NextAuth is disabled - only Clerk is supported
     /**
      * @deprecated
      */

@@ -1,6 +1,6 @@
 import { type AuthObject } from '@clerk/backend';
 
-import { enableClerk, enableNextAuth } from '@/const/auth';
+import { enableClerk } from '@/const/auth';
 import { getAppConfig } from '@/envs/app';
 import { AgentRuntimeError } from '@/libs/model-runtime';
 import { ChatErrorType } from '@/types/fetch';
@@ -9,7 +9,6 @@ interface CheckAuthParams {
   accessCode?: string;
   apiKey?: string;
   clerkAuth?: AuthObject;
-  nextAuthAuthorized?: boolean;
 }
 /**
  * Check if the provided access code is valid, a user API key should be used or the OAuth 2 header is provided.
@@ -19,12 +18,7 @@ interface CheckAuthParams {
  * @param {boolean} oauthAuthorized - Whether the OAuth 2 header is provided.
  * @throws {AgentRuntimeError} If the access code is invalid and no user API key is provided.
  */
-export const checkAuthMethod = ({
-  apiKey,
-  nextAuthAuthorized,
-  accessCode,
-  clerkAuth,
-}: CheckAuthParams) => {
+export const checkAuthMethod = ({ apiKey, accessCode, clerkAuth }: CheckAuthParams) => {
   // clerk auth handler
   if (enableClerk) {
     // if there is no userId, means the use is not login, just throw error
@@ -34,8 +28,7 @@ export const checkAuthMethod = ({
     else return;
   }
 
-  // if next auth handler is provided
-  if (enableNextAuth && nextAuthAuthorized) return;
+  // NextAuth is disabled - only Clerk is supported
 
   // if apiKey exist
   if (apiKey) return;

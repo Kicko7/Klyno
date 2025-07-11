@@ -1,7 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import dayjs from 'dayjs';
 import { eq } from 'drizzle-orm/expressions';
-import type { AdapterAccount } from 'next-auth/adapters';
 import type { PartialDeep } from 'type-fest';
 
 import { LobeChatDatabase } from '@/database/type';
@@ -10,14 +9,7 @@ import { UserKeyVaults, UserSettings } from '@/types/user/settings';
 import { merge } from '@/utils/merge';
 import { today } from '@/utils/time';
 
-import {
-  NewUser,
-  UserItem,
-  UserSettingsItem,
-  nextauthAccounts,
-  userSettings,
-  users,
-} from '../schemas';
+import { NewUser, UserItem, UserSettingsItem, userSettings, users } from '../schemas';
 
 type DecryptUserKeyVaults = (
   encryptKeyVaultsStr: string | null,
@@ -122,21 +114,6 @@ export class UserModel {
       userId: this.userId,
       username: state.username || undefined,
     };
-  };
-
-  getUserSSOProviders = async () => {
-    const result = await this.db
-      .select({
-        expiresAt: nextauthAccounts.expires_at,
-        provider: nextauthAccounts.provider,
-        providerAccountId: nextauthAccounts.providerAccountId,
-        scope: nextauthAccounts.scope,
-        type: nextauthAccounts.type,
-        userId: nextauthAccounts.userId,
-      })
-      .from(nextauthAccounts)
-      .where(eq(nextauthAccounts.userId, this.userId));
-    return result as unknown as AdapterAccount[];
   };
 
   getUserSettings = async () => {
