@@ -1,3 +1,5 @@
+'use client';
+
 import { PropsWithChildren, memo, useEffect, useState } from 'react';
 
 const Desktop = memo(({ children }: PropsWithChildren) => {
