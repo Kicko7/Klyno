@@ -46,8 +46,8 @@ export class OrganizationService {
     return this.organizationModel.getOrganizationMembers(organizationId);
   }
 
-  async getPendingInvitations(organizationId: string) {
-    return this.organizationModel.getPendingInvitations(organizationId);
+  async getPendingInvitations(userId: string) {
+    return this.organizationModel.getPendingInvitations(userId);
   }
 
   async removeMember(organizationId: string, memberId: string) {

@@ -22,12 +22,10 @@ interface TeamChatInputProps {
 }
 
 const TeamChatInput = memo<TeamChatInputProps>(({
-  channelId,
-  teamId,
+
   isAIMode,
   onSendMessage,
-  placeholder,
-  disabled = false,
+  
 }) => {
   const theme = useTheme();
   const [messageInput, setMessageInput] = useState('');
@@ -58,13 +56,7 @@ const TeamChatInput = memo<TeamChatInputProps>(({
       setSending(false);
     }
   }, [messageInput, sending, isAIMode, onSendMessage, agentConfig]);
-  
-  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  }, [handleSendMessage]);
+
   
   // Define actions for the chat input
   const leftActions: ActionKeys[] = isAIMode ? ['model', 'tools'] : [];

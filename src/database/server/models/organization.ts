@@ -167,12 +167,20 @@ export class OrganizationModel {
     return invitation;
   }
 
-  async getPendingInvitations(organizationId: string) {
+  async getPendingInvitations(userId: string) {
+
+    const organizationId=await this.db.query.organizationMembers.findFirst({
+      where: (members, { eq }) => eq(members.userId, userId),
+    });
+
+  if(organizationId){
     return this.db.query.organizationInvitations.findMany({
       where: (invitations, { and, eq, gt }) =>
-        and(eq(invitations.organizationId, organizationId), gt(invitations.expiresAt, new Date())),
+        and(eq(invitations.organizationId, organizationId.organizationId), gt(invitations.expiresAt, new Date())),
     });
   }
+  return []
+}
 
   async acceptInvitation(token: string, userId: string) {
     return this.db.transaction(async (tx) => {

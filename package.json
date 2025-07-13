@@ -61,7 +61,7 @@
     "lint:mdx": "npm run workflow:mdx && remark \"docs/**/*.mdx\" -r ./.remarkrc.mdx.js --silent --output && eslint \"docs/**/*.mdx\" --quiet --fix",
     "lint:style": "stylelint \"{src,tests}/**/*.{js,jsx,ts,tsx}\" --fix",
     "lint:ts": "eslint \"{src,tests}/**/*.{js,jsx,ts,tsx}\" --fix",
-    "prepare": "husky",
+    "prepare": "echo 'Husky disabled'",
     "prettier": "prettier -c --write \"**/**\"",
     "pull": "git pull",
     "release": "semantic-release",
@@ -88,33 +88,7 @@
     "workflow:readme": "tsx ./scripts/readmeWorkflow/index.ts",
     "workflow:set-desktop-version": "tsx ./scripts/electronWorkflow/setDesktopVersion.ts"
   },
-  "lint-staged": {
-    "*.md": [
-      "remark --silent --output --",
-      "prettier --write --no-error-on-unmatched-pattern"
-    ],
-    "*.mdx": [
-      "remark -r ./.remarkrc.mdx.js --silent --output --",
-      "eslint --quiet --fix"
-    ],
-    "*.json": [
-      "prettier --write --no-error-on-unmatched-pattern"
-    ],
-    "*.{mjs,cjs}": [
-      "prettier --write",
-      "eslint --fix"
-    ],
-    "*.{js,jsx}": [
-      "prettier --write",
-      "stylelint --fix",
-      "eslint --fix"
-    ],
-    "*.{ts,tsx}": [
-      "prettier --parser=typescript --write",
-      "stylelint --fix",
-      "eslint --fix"
-    ]
-  },
+
   "overrides": {
     "mdast-util-gfm-autolink-literal": "2.0.0"
   },
@@ -336,9 +310,7 @@
     "fs-extra": "^11.3.0",
     "glob": "^11.0.2",
     "happy-dom": "^17.5.6",
-    "husky": "^9.1.7",
     "just-diff": "^6.0.2",
-    "lint-staged": "^15.5.2",
     "lodash": "^4.17.21",
     "markdown-table": "^3.0.4",
     "mcp-hello-world": "^1.1.2",

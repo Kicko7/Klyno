@@ -10,6 +10,7 @@ import CircleLoading from '@/components/Loading/CircleLoading';
 import CreateOrganizationModal from '@/features/Organization/CreateOrganizationModal';
 import ResponsiveContainer from '@/features/Setting/SettingContainer';
 import { useOrganizationStore } from '@/store/organization/store';
+import { useSearchParams } from 'next/navigation'
 
 const { Title, Text } = Typography;
 
@@ -18,7 +19,7 @@ const OrganizationClient = () => {
   const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [form] = Form.useForm();
-
+const teamId=useSearchParams().get('teamId')
   const {
     organizations,
     isLoading,
@@ -51,6 +52,7 @@ const OrganizationClient = () => {
         email: values.email,
         organizationId: currentOrganization.id,
         role: values.role,
+        teamId: teamId || '',
       });
 
       setShowInviteModal(false);

@@ -64,9 +64,9 @@ export const organizationRouter = router({
     }),
 
   getPendingInvitations: organizationProcedure
-    .input(z.object({ organizationId: z.string() }))
+    .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
-      return ctx.organizationService.getPendingInvitations(input.organizationId);
+      return ctx.organizationService.getPendingInvitations(input.userId);
     }),
   createTeam: organizationProcedure
     .input(

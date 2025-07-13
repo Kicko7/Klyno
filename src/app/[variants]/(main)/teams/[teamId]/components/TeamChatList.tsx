@@ -58,9 +58,13 @@ const TeamChatList = memo<TeamChatListProps>(({ messages, loading, isAIMode }) =
           <ChatItem
             key={message.id}
             avatar={{
-              avatar: isAIMessage ? <RobotOutlined /> : message.sender.avatar,
-              title: isAIMessage ? 'AI Assistant' : (message.sender.fullName || message.sender.username || message.sender.email || 'Unknown'),
+              avatar: <RobotOutlined />,
+              title: 'AI Assistant',
             }}
+            // avatar={{
+            //   avatar: isAIMessage ? <RobotOutlined /> : message.sender.avatar,
+            //   title: isAIMessage ? 'AI Assistant' : (message.sender.fullName || message.sender.username || message.sender.email || 'Unknown'),
+            // }}
             content={displayContent}
             time={message.createdAt?.getTime()}
             placement={isAIMessage ? 'left' : 'right'}

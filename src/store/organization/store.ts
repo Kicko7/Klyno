@@ -20,6 +20,7 @@ export interface OrganizationAction {
   inviteMember: (params: {
     email: string;
     organizationId: string;
+    teamId: string;
     role: 'admin' | 'member';
   }) => Promise<void>;
 }
@@ -72,10 +73,10 @@ export const useOrganizationStore = create<OrganizationStore>()(
           set({ error, isLoading: false });
         }
       },
-      inviteMember: async ({ organizationId, email, role }) => {
+      inviteMember: async ({ organizationId, email, role, teamId }) => {
         set({ isInviting: true });
         try {
-          await lambdaClient.organization.inviteMember.mutate({ email, organizationId, role });
+          await lambdaClient.organization.inviteMember.mutate({ email, organizationId, role, teamId });
         } catch (error) {
           set({ error });
           throw error;

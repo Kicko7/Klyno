@@ -38,10 +38,8 @@ const TeamDetailClient: React.FC<TeamDetailClientProps> = ({ teamId }) => {
     setCurrentTeam,
     setCurrentChannel,
     fetchTeams,
-    fetchChannels,
     fetchMembers,
     fetchMessages,
-    sendMessage,
     inviteMember,
     teams,
   } = useTeamStore();
@@ -67,14 +65,13 @@ const TeamDetailClient: React.FC<TeamDetailClientProps> = ({ teamId }) => {
       const team = teams.find((t) => t.id === teamId);
       if (team && team.id !== currentTeam?.id) {
         setCurrentTeam(team);
-        fetchChannels(teamId);
         fetchMembers(teamId);
       } else if (!team) {
         // Team not found, redirect back
         router.push('/teams');
       }
     }
-  }, [teams, teamId, currentTeam, setCurrentTeam, fetchChannels, fetchMembers, router]);
+  }, [teams, teamId, currentTeam, setCurrentTeam, , fetchMembers, router]);
 
   // Auto-select first channel
   useEffect(() => {
@@ -92,14 +89,14 @@ const TeamDetailClient: React.FC<TeamDetailClientProps> = ({ teamId }) => {
 
   const handleSendMessage = async (content: string, isAIChat: boolean) => {
     if (!currentChannel) return;
-    await sendMessage(currentChannel.id, content, isAIChat);
+    // await sendMessage(currentChannel.id, content, isAIChat);
   };
 
 
   const handleAddMember = async (values: { email: string; role: string }) => {
     setAddingMember(true);
     try {
-      await inviteMember(teamId, values.email, values.role as 'leader' | 'moderator' | 'member');
+      await inviteMember(teamId, values.email, values.role as 'admin' | 'member');
       message.success(
         `Invitation sent to ${values.email}. They'll be prompted to join when they sign in.`
       );
