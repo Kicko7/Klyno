@@ -20,6 +20,20 @@ export const organizationRouter = router({
       const service = new OrganizationService(ctx.userId);
       return service.acceptInvitation(input.token);
     }),
+
+  declineInvitation: authedProcedure
+    .input(z.object({ token: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const service = new OrganizationService(ctx.userId);
+      return service.declineInvitation(input.token);
+    }),
+
+  dismissInvitation: authedProcedure
+    .input(z.object({ token: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const service = new OrganizationService(ctx.userId);
+      return service.dismissInvitation(input.token);
+    }),
   createOrganization: organizationProcedure
     .input(
       z.object({

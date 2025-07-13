@@ -1,0 +1,1 @@
+ALTER TABLE "organization_invitations" ADD COLUMN "status" text DEFAULT 'pending' NOT NULL;

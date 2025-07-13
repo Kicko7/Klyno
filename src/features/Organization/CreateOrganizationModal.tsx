@@ -28,7 +28,7 @@ const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = ({ onClo
     <Modal
       centered
       confirmLoading={isCreating}
-      destroyOnClose
+      destroyOnHidden
       onCancel={onClose}
       onOk={handleCreate}
       open={open}

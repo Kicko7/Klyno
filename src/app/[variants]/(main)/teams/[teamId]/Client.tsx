@@ -1,15 +1,16 @@
 'use client';
 
-import { Modal, Form, Select, Spin, App, Button, Input, Typography } from 'antd';
+import { App, Button, Form, Input, Modal, Select, Spin, Typography } from 'antd';
+import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import { Flexbox } from 'react-layout-kit';
-import { useRouter } from 'next/navigation';
 
 import { useTeamStore } from '@/store/team';
 import { useUserStore } from '@/store/user';
+
 import TeamChatLayout from './TeamChatLayout';
-import TeamChatList from './components/TeamChatList';
 import TeamChatInput from './components/TeamChatInput';
+import TeamChatList from './components/TeamChatList';
 
 const { Text } = Typography;
 
@@ -27,21 +28,21 @@ const TeamDetailClient: React.FC<TeamDetailClientProps> = ({ teamId }) => {
   const [isAIMode, setIsAIMode] = useState(false);
 
   const {
-    currentTeam,
-    currentChannel,
     channels,
+    currentChannel,
+    currentTeam,
+    loadingMembers,
+    loadingMessages,
+    loadingTeams,
     members,
     messages,
-    loadingChannels,
-    loadingMessages,
-    loadingMembers,
-    setCurrentTeam,
     setCurrentChannel,
-    fetchTeams,
+    setCurrentTeam,
+    teams,
     fetchMembers,
     fetchMessages,
+    fetchTeams,
     inviteMember,
-    teams,
   } = useTeamStore();
 
   // Load team data
@@ -61,7 +62,8 @@ const TeamDetailClient: React.FC<TeamDetailClientProps> = ({ teamId }) => {
 
   // Set current team when teams are loaded
   useEffect(() => {
-    if (teams.length > 0) {
+    // Only check for team if teams are loaded and not currently loading
+    if (teams.length > 0 && !loadingTeams) {
       const team = teams.find((t) => t.id === teamId);
       if (team && team.id !== currentTeam?.id) {
         setCurrentTeam(team);
@@ -71,7 +73,7 @@ const TeamDetailClient: React.FC<TeamDetailClientProps> = ({ teamId }) => {
         router.push('/teams');
       }
     }
-  }, [teams, teamId, currentTeam, setCurrentTeam, , fetchMembers, router]);
+  }, [teams, teamId, currentTeam, setCurrentTeam, loadingTeams, fetchMembers, router]);
 
   // Auto-select first channel
   useEffect(() => {
@@ -87,18 +89,17 @@ const TeamDetailClient: React.FC<TeamDetailClientProps> = ({ teamId }) => {
     }
   }, [currentChannel, fetchMessages]);
 
-  const handleSendMessage = async (content: string, isAIChat: boolean) => {
+  const handleSendMessage = async () => {
     if (!currentChannel) return;
     // await sendMessage(currentChannel.id, content, isAIChat);
   };
-
 
   const handleAddMember = async (values: { email: string; role: string }) => {
     setAddingMember(true);
     try {
       await inviteMember(teamId, values.email, values.role as 'admin' | 'member');
       message.success(
-        `Invitation sent to ${values.email}. They'll be prompted to join when they sign in.`
+        `Invitation sent to ${values.email}. They'll be prompted to join when they sign in.`,
       );
       setShowAddMemberModal(false);
       addMemberForm.resetFields();
@@ -115,9 +116,10 @@ const TeamDetailClient: React.FC<TeamDetailClientProps> = ({ teamId }) => {
     }
   };
 
-  if (!currentTeam) {
+  // Show loading spinner while teams are loading or current team is not set
+  if (loadingTeams || !currentTeam) {
     return (
-      <Flexbox align="center" justify="center" height="100vh">
+      <Flexbox align="center" height="100vh" justify="center">
         <Spin size="large" />
       </Flexbox>
     );
@@ -126,57 +128,48 @@ const TeamDetailClient: React.FC<TeamDetailClientProps> = ({ teamId }) => {
   return (
     <>
       <TeamChatLayout
-        teamName={currentTeam.name}
-        currentChannel={currentChannel}
         channels={channels}
-        members={members}
-        onChannelSelect={setCurrentChannel}
-        onBack={() => router.push('/teams')}
-        onAddMember={() => setShowAddMemberModal(true)}
-        loadingMembers={loadingMembers}
+        currentChannel={currentChannel}
         isAIMode={isAIMode}
+        loadingMembers={loadingMembers}
+        members={members}
+        onAddMember={() => setShowAddMemberModal(true)}
+        onBack={() => router.push('/teams')}
+        onChannelSelect={setCurrentChannel}
         onToggleAIMode={() => setIsAIMode(!isAIMode)}
+        teamName={currentTeam.name}
       >
         {currentChannel && (
           <Flexbox height="100%" style={{ position: 'relative' }}>
             {/* Chat Messages */}
-            <TeamChatList
-              messages={messages}
-              loading={loadingMessages}
-              isAIMode={isAIMode}
-            />
-            
+            <TeamChatList isAIMode={isAIMode} loading={loadingMessages} messages={messages} />
+
             {/* Chat Input */}
             <TeamChatInput
               channelId={currentChannel.id}
-              teamId={teamId}
+              disabled={false}
               isAIMode={isAIMode}
               onSendMessage={handleSendMessage}
               placeholder={
-                isAIMode 
-                  ? `Ask AI assistant in #${currentChannel.name}...` 
+                isAIMode
+                  ? `Ask AI assistant in #${currentChannel.name}...`
                   : `Message #${currentChannel.name}`
               }
-              disabled={false}
+              teamId={teamId}
             />
           </Flexbox>
         )}
       </TeamChatLayout>
-      
+
       <Modal
-        title="Invite Team Member"
-        open={showAddMemberModal}
         onCancel={() => {
           setShowAddMemberModal(false);
           addMemberForm.resetFields();
         }}
-        footer={null}
+        open={showAddMemberModal}
+        title="Invite Team Member"
       >
-        <Form
-          form={addMemberForm}
-          layout="vertical"
-          onFinish={handleAddMember}
-        >
+        <Form form={addMemberForm} layout="vertical" onFinish={handleAddMember}>
           <Form.Item
             label="Email"
             name="email"
@@ -185,13 +178,13 @@ const TeamDetailClient: React.FC<TeamDetailClientProps> = ({ teamId }) => {
               { type: 'email', message: 'Please enter a valid email address' },
             ]}
           >
-            <Input type="email" placeholder="user@example.com" />
+            <Input placeholder="user@example.com" type="email" />
           </Form.Item>
-          
+
           <Form.Item
+            initialValue="member"
             label="Role"
             name="role"
-            initialValue="member"
             rules={[{ required: true, message: 'Please select a role' }]}
           >
             <Select>
@@ -200,14 +193,15 @@ const TeamDetailClient: React.FC<TeamDetailClientProps> = ({ teamId }) => {
               <Select.Option value="leader">Leader</Select.Option>
             </Select>
           </Form.Item>
-          
+
           <Form.Item>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              If the user already has an account, they'll be added to the team immediately. 
-              If not, the invitation will be saved and they'll be prompted to accept it when they sign up.
+            <Text style={{ fontSize: 12 }} type="secondary">
+              If the user already has an account, they&apos;ll be added to the team immediately. If
+              not, the invitation will be saved and they&apos;ll be prompted to accept it when they
+              sign up.
             </Text>
           </Form.Item>
-          
+
           <Form.Item style={{ marginBottom: 0 }}>
             <Flexbox gap={8} horizontal justify="flex-end">
               <Button
@@ -218,7 +212,7 @@ const TeamDetailClient: React.FC<TeamDetailClientProps> = ({ teamId }) => {
               >
                 Cancel
               </Button>
-              <Button type="primary" htmlType="submit" loading={addingMember}>
+              <Button htmlType="submit" loading={addingMember} type="primary">
                 Invite Member
               </Button>
             </Flexbox>

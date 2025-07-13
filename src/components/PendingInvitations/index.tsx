@@ -90,8 +90,7 @@ export const PendingInvitations = () => {
   const handleDecline = async (invitationId: string) => {
     setProcessingId(invitationId);
     try {
-      // Note: declineInvitation method doesn't exist in current API
-      console.warn('declineInvitation method not implemented');
+      await lambdaClient.organization.declineInvitation.mutate({ token: invitationId });
       message.info('Invitation declined');
 
       // Remove from list
@@ -100,6 +99,24 @@ export const PendingInvitations = () => {
       message.error(error.message || 'Failed to decline invitation');
     } finally {
       setProcessingId(null);
+    }
+  };
+
+  const handleDismiss = async () => {
+    try {
+      // Dismiss all invitations
+      const dismissPromises =
+        invitations?.map((invitation) =>
+          lambdaClient.organization.dismissInvitation.mutate({ token: invitation.id }),
+        ) || [];
+
+      await Promise.all(dismissPromises);
+      message.info('Invitations dismissed');
+
+      // Clear all invitations
+      setInvitations([]);
+    } catch (error: any) {
+      message.error(error.message || 'Failed to dismiss invitations');
     }
   };
 
@@ -158,7 +175,7 @@ export const PendingInvitations = () => {
           </Card>
         ))}
 
-        <Button onClick={() => setInvitations([])} style={{ alignSelf: 'flex-end' }} type="link">
+        <Button onClick={handleDismiss} style={{ alignSelf: 'flex-end' }} type="link">
           Decide later
         </Button>
       </Space>

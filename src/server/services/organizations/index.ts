@@ -1,13 +1,9 @@
 import { nanoid } from 'nanoid';
 
-// import React from 'react';
-
 import { serverDB } from '@/database/server';
 import { OrganizationModel } from '@/database/server/models/organization';
-
-// import OrganizationInvitation from '@/libs/emails/templates/organization-invitation';
-// import { sendEmail } from '@/libs/emails/resend';
-// import { renderEmail } from '@/libs/emails/render-email';
+import { renderOrganizationInvitationEmail } from '@/libs/emails/email-utils';
+import { sendEmail } from '@/libs/emails/resend';
 
 export class OrganizationService {
   private organizationModel: OrganizationModel;
@@ -86,22 +82,20 @@ export class OrganizationService {
     });
 
     // Send invitation email
-    // const invitationLink = `${process.env.NEXT_PUBLIC_APP_URL}/join?token=${token}`;
+    const invitationLink = `${process.env.NEXT_PUBLIC_APP_URL}/join?token=${token}`;
 
-    // await sendEmail({
-    //   react: renderEmail(
-    //     <OrganizationInvitation
-    //       invitation={{
-    //         link: invitationLink,
-    //         organization: {
-    //           name: organization.name,
-    //         },
-    //       }}
-    //     />
-    //   ),
-    //   subject: 'You have been invited to an organization on LobeChat',
-    //   to: email,
-    // });
+    const emailHtml = renderOrganizationInvitationEmail({
+      link: invitationLink,
+      organization: {
+        name: organization.name,
+      },
+    });
+
+    await sendEmail({
+      react: emailHtml,
+      subject: 'You have been invited to an organization on LobeChat',
+      to: email,
+    });
 
     return invitation;
   }
@@ -111,5 +105,13 @@ export class OrganizationService {
 
   async acceptInvitation(token: string) {
     return this.organizationModel.acceptInvitation(token, this.userId);
+  }
+
+  async declineInvitation(token: string) {
+    return this.organizationModel.declineInvitation(token);
+  }
+
+  async dismissInvitation(token: string) {
+    return this.organizationModel.dismissInvitation(token);
   }
 }

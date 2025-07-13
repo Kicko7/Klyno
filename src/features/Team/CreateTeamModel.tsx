@@ -1,37 +1,36 @@
 'use client';
 
 import { Form, Input, Modal } from 'antd';
-import React from 'react';
+import React, { useState } from 'react';
 
 import { lambdaClient } from '@/libs/trpc/client';
 import { useTeamStore } from '@/store/team/store';
 
-interface CreateOrganizationModalProps {
+interface CreateTeamModalProps {
   onClose: () => void;
   open: boolean;
 }
 
-const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = ({ onClose, open }) => {
+const CreateTeamModal: React.FC<CreateTeamModalProps> = ({ onClose, open }) => {
   const [form] = Form.useForm();
   const { createTeam, isCreatingTeam } = useTeamStore();
-
+  const [isCreating, setIsCreating] = useState(false);
   const handleCreate = async () => {
     try {
+      setIsCreating(true);
       const values = await form.validateFields();
 
-      // Get user's organizations to get the organization ID
       const organizations = await lambdaClient.organization.getMyOrganizations.query();
-
       if (organizations.length === 0) {
         throw new Error('No organization found. Please create an organization first.');
       }
 
-      // Pass the correct object structure with name, description, and organizationId
       await createTeam({
         name: values.name,
         organizationId: organizations[0].id,
         description: values.description,
       });
+      setIsCreating(false);
 
       onClose();
     } catch (errorInfo) {
@@ -42,12 +41,12 @@ const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = ({ onClo
   return (
     <Modal
       centered
-      confirmLoading={isCreatingTeam}
+      confirmLoading={isCreatingTeam || isCreating}
       destroyOnHidden
       onCancel={onClose}
       onOk={handleCreate}
       open={open}
-      title="Create Organization"
+      title="Create new team"
       width={600}
     >
       <Form form={form} layout="vertical">
@@ -70,4 +69,4 @@ const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = ({ onClo
   );
 };
 
-export default CreateOrganizationModal;
+export default CreateTeamModal;

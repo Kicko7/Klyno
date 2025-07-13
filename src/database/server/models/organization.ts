@@ -177,6 +177,7 @@ export class OrganizationModel {
         where: (invitations, { and, eq, gt }) =>
           and(
             eq(invitations.organizationId, organizationId.organizationId),
+            eq(invitations.status, 'pending'),
             gt(invitations.expiresAt, new Date()),
           ),
       });
@@ -195,6 +196,12 @@ export class OrganizationModel {
         return null;
       }
 
+      // Update invitation status to accepted
+      await tx
+        .update(organizationInvitations)
+        .set({ status: 'accepted' })
+        .where(eq(organizationInvitations.id, invitation.id));
+
       const [newMember] = await tx
         .insert(organizationMembers)
         .values({
@@ -206,9 +213,49 @@ export class OrganizationModel {
         })
         .returning();
 
-      await tx.delete(organizationInvitations).where(eq(organizationInvitations.id, invitation.id));
-
       return newMember;
+    });
+  }
+
+  async declineInvitation(token: string) {
+    return this.db.transaction(async (tx) => {
+      const [invitation] = await tx
+        .select()
+        .from(organizationInvitations)
+        .where(eq(organizationInvitations.token, token));
+
+      if (!invitation) {
+        return null;
+      }
+
+      // Update invitation status to declined
+      await tx
+        .update(organizationInvitations)
+        .set({ status: 'declined' })
+        .where(eq(organizationInvitations.id, invitation.id));
+
+      return invitation;
+    });
+  }
+
+  async dismissInvitation(token: string) {
+    return this.db.transaction(async (tx) => {
+      const [invitation] = await tx
+        .select()
+        .from(organizationInvitations)
+        .where(eq(organizationInvitations.token, token));
+
+      if (!invitation) {
+        return null;
+      }
+
+      // Update invitation status to dismissed
+      await tx
+        .update(organizationInvitations)
+        .set({ status: 'dismissed' })
+        .where(eq(organizationInvitations.id, invitation.id));
+
+      return invitation;
     });
   }
 
@@ -231,6 +278,14 @@ export class OrganizationModel {
     });
     return teams;
   }
+
+  async getTeamById(teamId: string) {
+    const team = await this.db.query.teams.findFirst({
+      where: (teams, { eq }) => eq(teams.id, teamId),
+    });
+    return team;
+  }
+
   async getTeamMembers(teamId: string) {
     const members = await this.db.query.teamMembers.findMany({
       where: (teamMembers, { eq }) => eq(teamMembers.teamId, teamId),

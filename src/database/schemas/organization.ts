@@ -24,6 +24,7 @@ export const teams = pgTable('teams', {
     .notNull()
     .default(sql`gen_random_uuid()`),
   name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
   organizationId: text('organization_id')
     .references(() => organizations.id, { onDelete: 'cascade' })
     .notNull(),
@@ -68,6 +69,11 @@ export const organizationInvitations = pgTable('organization_invitations', {
   })
     .notNull()
     .default('member'),
+  status: text('status', {
+    enum: ['pending', 'accepted', 'declined', 'dismissed'],
+  })
+    .notNull()
+    .default('pending'),
   teamId: text('team_id'),
   token: text('token').unique().notNull(),
   userId: text('user_id')
