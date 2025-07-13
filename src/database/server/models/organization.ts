@@ -168,19 +168,21 @@ export class OrganizationModel {
   }
 
   async getPendingInvitations(userId: string) {
-
-    const organizationId=await this.db.query.organizationMembers.findFirst({
+    const organizationId = await this.db.query.organizationMembers.findFirst({
       where: (members, { eq }) => eq(members.userId, userId),
     });
 
-  if(organizationId){
-    return this.db.query.organizationInvitations.findMany({
-      where: (invitations, { and, eq, gt }) =>
-        and(eq(invitations.organizationId, organizationId.organizationId), gt(invitations.expiresAt, new Date())),
-    });
+    if (organizationId) {
+      return this.db.query.organizationInvitations.findMany({
+        where: (invitations, { and, eq, gt }) =>
+          and(
+            eq(invitations.organizationId, organizationId.organizationId),
+            gt(invitations.expiresAt, new Date()),
+          ),
+      });
+    }
+    return [];
   }
-  return []
-}
 
   async acceptInvitation(token: string, userId: string) {
     return this.db.transaction(async (tx) => {
@@ -190,7 +192,7 @@ export class OrganizationModel {
         .where(eq(organizationInvitations.token, token));
 
       if (!invitation) {
-        throw new Error('Invitation not found or expired');
+        return null;
       }
 
       const [newMember] = await tx

@@ -1,16 +1,18 @@
 'use client';
 
-import { MailOutlined, UserOutlined } from '@ant-design/icons';
+import { TeamOutlined } from '@ant-design/icons';
 import { Button, Empty, Form, Input, List, Modal, Select, Typography } from 'antd';
 import { useResponsive } from 'antd-style';
+import { useSearchParams } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
 import CircleLoading from '@/components/Loading/CircleLoading';
 import CreateOrganizationModal from '@/features/Organization/CreateOrganizationModal';
 import ResponsiveContainer from '@/features/Setting/SettingContainer';
+import CreateTeamModal from '@/features/Team/CreateTeamModel';
 import { useOrganizationStore } from '@/store/organization/store';
-import { useSearchParams } from 'next/navigation'
+import { useTeamStore } from '@/store/team/store';
 
 const { Title, Text } = Typography;
 
@@ -18,18 +20,13 @@ const OrganizationClient = () => {
   const { mobile } = useResponsive();
   const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [form] = Form.useForm();
-const teamId=useSearchParams().get('teamId')
-  const {
-    organizations,
-    isLoading,
-    fetchOrganizations,
-    organizationMembers,
-    isFetchingMembers,
-    fetchOrganizationMembers,
-    inviteMember,
-    isInviting,
-  } = useOrganizationStore();
+  const teamId = useSearchParams().get('teamId');
+  const { organizations, isLoading, fetchOrganizations, inviteMember, isInviting } =
+    useOrganizationStore();
+
+  const { teams, loadingTeams, fetchTeams } = useTeamStore();
 
   const currentOrganization = organizations[0];
 
@@ -39,9 +36,9 @@ const teamId=useSearchParams().get('teamId')
 
   useEffect(() => {
     if (currentOrganization?.id) {
-      fetchOrganizationMembers(currentOrganization.id);
+      fetchTeams();
     }
-  }, [currentOrganization?.id, fetchOrganizationMembers]);
+  }, [currentOrganization?.id, fetchTeams]);
 
   const handleInvite = async () => {
     try {
@@ -93,18 +90,18 @@ const teamId=useSearchParams().get('teamId')
               </Title>
               {!mobile && (
                 <Text style={{ fontSize: 14 }} type="secondary">
-                  Manage your organization members and settings.
+                  Manage your teams and organization settings.
                 </Text>
               )}
             </div>
-            {currentOrganization && (
+            {currentOrganization && !teamId && (
               <Button
-                icon={<MailOutlined />}
-                onClick={() => setShowInviteModal(true)}
+                icon={<TeamOutlined />}
+                onClick={() => setShowCreateTeamModal(true)}
                 size={mobile ? 'middle' : 'large'}
                 type="primary"
               >
-                Invite Member
+                Create Team
               </Button>
             )}
           </Flexbox>
@@ -122,27 +119,21 @@ const teamId=useSearchParams().get('teamId')
             </Flexbox>
           ) : (
             <List
-              dataSource={organizationMembers}
+              dataSource={teams}
               itemLayout="horizontal"
-              loading={isFetchingMembers}
-              renderItem={(item: any) => (
+              loading={loadingTeams}
+              renderItem={(team: any) => (
                 <List.Item
                   actions={[
-                    <Select defaultValue={item.role} key="role" style={{ width: 120 }}>
-                      <Select.Option value="admin">Admin</Select.Option>
-                      <Select.Option value="member">Member</Select.Option>
-                      {item.role === 'owner' && (
-                        <Select.Option disabled value="owner">
-                          Owner
-                        </Select.Option>
-                      )}
-                    </Select>,
+                    <Button href={`/teams/${team.id}`} key="view" type="link">
+                      View Team
+                    </Button>,
                   ]}
                 >
                   <List.Item.Meta
-                    avatar={<UserOutlined />}
-                    description={item.email}
-                    title={item.name}
+                    avatar={<TeamOutlined />}
+                    description={team.description || 'No description'}
+                    title={team.name}
                   />
                 </List.Item>
               )}
@@ -155,6 +146,8 @@ const teamId=useSearchParams().get('teamId')
         onClose={() => setShowCreateOrgModal(false)}
         open={showCreateOrgModal}
       />
+
+      <CreateTeamModal onClose={() => setShowCreateTeamModal(false)} open={showCreateTeamModal} />
 
       <Modal
         confirmLoading={isInviting}
