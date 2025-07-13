@@ -202,9 +202,9 @@ export type NewMessageQuery = typeof messageQueries.$inferInsert;
 export const messageQueryChunks = pgTable(
   'message_query_chunks',
   {
-    messageId: text('id').references(() => messages.id, { onDelete: 'cascade' }),
-    queryId: uuid('query_id').references(() => messageQueries.id, { onDelete: 'cascade' }),
-    chunkId: uuid('chunk_id').references(() => chunks.id, { onDelete: 'cascade' }),
+    messageId: text('id').references(() => messages.id, { onDelete: 'cascade' }).notNull(),
+    queryId: uuid('query_id').references(() => messageQueries.id, { onDelete: 'cascade' }).notNull(),
+    chunkId: uuid('chunk_id').references(() => chunks.id, { onDelete: 'cascade' }).notNull(),
     similarity: numeric('similarity', { precision: 6, scale: 5 }),
     userId: text('user_id')
       .references(() => users.id, { onDelete: 'cascade' })
@@ -221,8 +221,8 @@ export type NewMessageFileChunk = typeof messageQueryChunks.$inferInsert;
 export const messageChunks = pgTable(
   'message_chunks',
   {
-    messageId: text('message_id').references(() => messages.id, { onDelete: 'cascade' }),
-    chunkId: uuid('chunk_id').references(() => chunks.id, { onDelete: 'cascade' }),
+    messageId: text('message_id').references(() => messages.id, { onDelete: 'cascade' }).notNull(),
+    chunkId: uuid('chunk_id').references(() => chunks.id, { onDelete: 'cascade' }).notNull(),
     userId: text('user_id')
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull(),

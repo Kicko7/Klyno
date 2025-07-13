@@ -3,7 +3,7 @@ import { PropsWithChildren } from 'react';
 import DesktopLayout from './_layout/Desktop';
 import MobileLayout from './_layout/Mobile';
 
-const TeamsLayout = ({ children }: PropsWithChildren) => {
+const OrganizationLayout = ({ children }: PropsWithChildren) => {
   return (
     <>
       <DesktopLayout>{children}</DesktopLayout>
@@ -12,6 +12,6 @@ const TeamsLayout = ({ children }: PropsWithChildren) => {
   );
 };
 
-TeamsLayout.displayName = 'TeamsLayout';
+OrganizationLayout.displayName = 'OrganizationLayout';
 
-export default TeamsLayout;
+export default OrganizationLayout;

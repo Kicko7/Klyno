@@ -1,13 +1,13 @@
 import { Metadata } from 'next';
 
-import TeamsClient from './Client';
+import OrganizationClient from './OrganizationClient';
 
 export const metadata: Metadata = {
-  title: 'Teams',
+  title: 'Organization',
 };
 
-const TeamsPage = () => {
-  return <TeamsClient />;
+const Page = () => {
+  return <OrganizationClient />;
 };
 
-export default TeamsPage;
+export default Page;

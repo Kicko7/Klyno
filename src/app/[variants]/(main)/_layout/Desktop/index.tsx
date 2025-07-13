@@ -19,6 +19,7 @@ import RegisterHotkeys from './RegisterHotkeys';
 import SideBar from './SideBar';
 
 const CloudBanner = dynamic(() => import('@/features/AlertBanner/CloudBanner'));
+const PendingInvitations = dynamic(() => import('@/components/PendingInvitations').then(mod => ({ default: mod.PendingInvitations })));
 
 const Layout = memo<PropsWithChildren>(({ children }) => {
   const { isPWA } = usePlatform();
@@ -69,6 +70,9 @@ const Layout = memo<PropsWithChildren>(({ children }) => {
       <HotkeyHelperPanel />
       <Suspense>
         <RegisterHotkeys />
+      </Suspense>
+      <Suspense>
+        <PendingInvitations />
       </Suspense>
     </HotkeysProvider>
   );

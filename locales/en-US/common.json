@@ -250,7 +250,7 @@
     "nl-NL": "Dutch",
     "no-NO": "Norwegian",
     "pl-PL": "Polish",
-    "pt-BR": "Portuguese",
+    "pt-BR": "Portuguese (Brazil)",
     "pt-PT": "Portuguese",
     "ro-RO": "Romanian",
     "ru-RU": "Russian",
@@ -265,8 +265,10 @@
     "zh-CN": "Simplified Chinese",
     "zh-TW": "Traditional Chinese"
   },
-  "layoutInitializing": "Initializing layout...",
-  "legal": "Legal Disclaimer",
+  "layout": {
+    "workspace": "Workspace"
+  },
+  "legal": "Legal",
   "loading": "Loading...",
   "mail": {
     "business": "Business Cooperation",
@@ -328,8 +330,7 @@
     "discover": "Discover",
     "files": "Files",
     "me": "Me",
-    "setting": "Settings",
-    "teams": "Teams"
+    "setting": "Settings"
   },
   "telemetry": {
     "allow": "Allow",

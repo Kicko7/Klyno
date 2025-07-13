@@ -4,12 +4,13 @@ import { pgTable, primaryKey, text, uuid, varchar } from 'drizzle-orm/pg-core';
 
 import { createdAt } from '@/database/schemas/_helpers';
 
+import { teamChannels } from '../migrations/schema';
 import { agents, agentsFiles, agentsKnowledgeBases } from './agent';
 import { asyncTasks } from './asyncTask';
 import { documentChunks, documents } from './document';
 import { files, knowledgeBases } from './file';
 import { messages, messagesFiles } from './message';
-import { organizationMembers, organizations, teamChannels, teamMembers, teams } from './organization';
+import { organizationMembers, organizations, teamMembers, teams } from './organization';
 import { chunks, unstructuredChunks } from './rag';
 import { sessionGroups, sessions } from './session';
 import { threads, topicDocuments, topics } from './topic';
@@ -54,8 +55,12 @@ export const filesToSessions = pgTable(
 export const fileChunks = pgTable(
   'file_chunks',
   {
-    fileId: varchar('file_id').references(() => files.id, { onDelete: 'cascade' }),
-    chunkId: uuid('chunk_id').references(() => chunks.id, { onDelete: 'cascade' }),
+    fileId: varchar('file_id')
+      .references(() => files.id, { onDelete: 'cascade' })
+      .notNull(),
+    chunkId: uuid('chunk_id')
+      .references(() => chunks.id, { onDelete: 'cascade' })
+      .notNull(),
     createdAt: createdAt(),
     userId: text('user_id')
       .references(() => users.id, { onDelete: 'cascade' })

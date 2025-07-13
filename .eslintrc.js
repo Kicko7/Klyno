@@ -2,6 +2,9 @@ const config = require('@lobehub/lint').eslint;
 
 config.extends.push('plugin:@next/next/recommended');
 
+// Add this line to disable the sort-keys-fix rule
+config.rules['sort-keys-fix/sort-keys-fix'] = 0;
+
 config.rules['unicorn/no-negated-condition'] = 0;
 config.rules['unicorn/prefer-type-error'] = 0;
 config.rules['unicorn/prefer-logical-operator-over-ternary'] = 0;

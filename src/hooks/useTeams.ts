@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
 import { lambdaClient } from '@/libs/trpc/client';
 
 interface Team {
@@ -31,27 +32,37 @@ export const useTeams = () => {
 
   const fetchTeams = useCallback(async () => {
     if (hasAttempted) return; // Prevent multiple calls
-    
+
     try {
       setLoading(true);
       setError(null);
       setHasAttempted(true);
-      
+
       // Get user's organizations first
       const organizations = await lambdaClient.organization.getMyOrganizations.query();
-      
+
       if (organizations.length > 0) {
         // Get teams from the first organization
-        const teamsResponse = await lambdaClient.organization.getOrganizationTeams.query({ 
-          organizationId: organizations[0].id 
+        const teamsResponse = await lambdaClient.organization.getOrganizationTeams.query({
+          organizationId: organizations[0].id,
         });
-        setTeams(teamsResponse);
+        setTeams(
+          teamsResponse.map((team) => ({
+            memberCount: 0,
+            team,
+          })),
+        );
       } else {
         setTeams([]);
       }
     } catch (err: any) {
       // Handle unauthorized error gracefully
-      if (err.data?.code === 'UNAUTHORIZED' || err.code === 'UNAUTHORIZED' || err.message?.includes('Unauthorized') || err.message?.includes('unauthorized')) {
+      if (
+        err.data?.code === 'UNAUTHORIZED' ||
+        err.code === 'UNAUTHORIZED' ||
+        err.message?.includes('Unauthorized') ||
+        err.message?.includes('unauthorized')
+      ) {
         setError('Please log in to view teams');
       } else {
         setError(err.message || 'An error occurred');
@@ -62,21 +73,25 @@ export const useTeams = () => {
     }
   }, [hasAttempted]);
 
-  const createTeam = async (teamData: { description?: string, name: string; }) => {
+  const createTeam = async (teamData: { description?: string; name: string }) => {
     try {
       const organizations = await lambdaClient.organization.getMyOrganizations.query();
-      
+
       if (organizations.length > 0) {
         await lambdaClient.organization.createTeam.mutate({
           description: teamData.description || '',
           name: teamData.name,
           organizationId: organizations[0].id,
-          slug: teamData.name.toLowerCase().replaceAll(/\s+/g, '-'),
         });
         await fetchTeams();
       }
     } catch (err: any) {
-      if (err.data?.code === 'UNAUTHORIZED' || err.code === 'UNAUTHORIZED' || err.message?.includes('Unauthorized') || err.message?.includes('unauthorized')) {
+      if (
+        err.data?.code === 'UNAUTHORIZED' ||
+        err.code === 'UNAUTHORIZED' ||
+        err.message?.includes('Unauthorized') ||
+        err.message?.includes('unauthorized')
+      ) {
         setError('Please log in to view teams');
       } else {
         setError(err.message || 'An error occurred creating team');
@@ -105,4 +120,3 @@ export const useTeams = () => {
     teams,
   };
 };
-

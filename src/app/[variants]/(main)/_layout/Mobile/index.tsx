@@ -11,6 +11,7 @@ import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfi
 import NavBar from './NavBar';
 
 const CloudBanner = dynamic(() => import('@/features/AlertBanner/CloudBanner'));
+const PendingInvitations = dynamic(() => import('@/components/PendingInvitations').then(mod => ({ default: mod.PendingInvitations })));
 const MOBILE_NAV_ROUTES = new Set([
   '/chat',
   '/discover',
@@ -34,6 +35,7 @@ const Layout = memo(({ children }: PropsWithChildren) => {
       {showCloudPromotion && <CloudBanner mobile />}
       {children}
       {showNav && <NavBar />}
+      <PendingInvitations />
     </>
   );
 });

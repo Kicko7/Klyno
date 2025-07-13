@@ -1,21 +1,17 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { LobeChatDatabase } from '@/database/type';
 
 import {
   NewOrganization,
+  NewOrganizationInvitation,
   NewOrganizationMember,
   NewTeam,
-  NewTeamChannel,
-  NewTeamMember,
-  OrganizationItem,
-  TeamChannelItem,
-  TeamItem,
+  Organization,
+  organizationInvitations,
   organizationMembers,
   organizations,
-  teamChannels,
-  teamMembers,
   teams,
 } from '../../schemas/organization';
 import { users } from '../../schemas/user';
@@ -32,37 +28,36 @@ export class OrganizationModel {
   // Organization methods
   async createOrganization(params: Partial<NewOrganization>) {
     const id = nanoid();
-    const name = params.name || 'New Organization';
-    const slug = params.slug || name.toLowerCase().replaceAll(/\s+/g, '-') || id;
 
-    const [organization] = await this.db
-      .insert(organizations)
-      .values({
-        id,
-        name,
-        ownerId: this.userId,
-        slug,
-        ...params,
-      })
-      .returning();
+    return this.db.transaction(async (tx) => {
+      const [organization] = await tx
+        .insert(organizations)
+        .values({
+          id,
+          name: params.name || 'New Organization',
+          ownerId: this.userId,
+          ...params,
+        })
+        .returning();
 
-    // Add owner as organization member
-    await this.db.insert(organizationMembers).values({
-      id: nanoid(),
-      organizationId: id,
-      permissions: {
-        canInviteMembers: true,
-        canManageBilling: true,
-        canManageSettings: true,
-        canManageTeams: true,
-      },
-      role: 'owner',
-      userId: this.userId,
+      // Add owner as organization member
+      await tx.insert(organizationMembers).values({
+        id: nanoid(),
+        organizationId: id,
+        role: 'owner',
+        userId: this.userId,
+        teamIds: [],
+      });
+
+      return organization;
     });
-
+  }
+  async getOrganization(id: string) {
+    const organization = await this.db.query.organizations.findFirst({
+      where: (organizations, { eq }) => eq(organizations.id, id),
+    });
     return organization;
   }
-
   async getUserOrganizations() {
     const userOrgs = await this.db
       .select({
@@ -75,28 +70,21 @@ export class OrganizationModel {
 
     return userOrgs.map((org) => ({
       ...org.organization,
-      memberPermissions: org.member.permissions,
       memberRole: org.member.role,
     }));
   }
-
-  async getOrganization(id: string) {
-    const [result] = await this.db
-      .select({
-        memberCount: sql<number>`count(distinct ${organizationMembers.userId})`,
-        organization: organizations,
-        teamCount: sql<number>`count(distinct ${teams.id})`,
+  async createTeam(params: NewTeam) {
+    const [team] = await this.db
+      .insert(teams)
+      .values({
+        ...params,
+        organizationId: params.organizationId,
       })
-      .from(organizations)
-      .leftJoin(organizationMembers, eq(organizations.id, organizationMembers.organizationId))
-      .leftJoin(teams, eq(organizations.id, teams.organizationId))
-      .where(eq(organizations.id, id))
-      .groupBy(organizations.id);
-
-    return result;
+      .returning();
+    return team;
   }
 
-  async updateOrganization(id: string, updates: Partial<OrganizationItem>) {
+  async updateOrganization(id: string, updates: Partial<Organization>) {
     const [updated] = await this.db
       .update(organizations)
       .set({
@@ -126,271 +114,117 @@ export class OrganizationModel {
 
     return members.map((m) => ({
       createdAt: m.member.createdAt,
+      email: m.user.email,
       id: m.member.id,
-      isActive: m.member.isActive,
-      permissions: m.member.permissions,
+      name: m.user.fullName,
       role: m.member.role,
-      user: {
-        avatar: m.user.avatar,
-        email: m.user.email,
-        fullName: m.user.fullName,
-        id: m.user.id,
-        username: m.user.username,
-      },
-      userId: m.member.userId,
+      userId: m.user.id,
     }));
   }
 
-  async addOrganizationMember(params: Partial<NewOrganizationMember>) {
-    if (!params.userId || !params.organizationId) {
-      throw new Error('userId and organizationId are required');
-    }
-
-    const [member] = await this.db
-      .insert(organizationMembers)
-      .values({
-        id: nanoid(),
-        organizationId: params.organizationId,
-        role: params.role || 'member',
-        userId: params.userId,
-        ...params,
-      })
-      .returning();
-
-    return member;
+  async addOrganizationMember(params: NewOrganizationMember) {
+    const [newMember] = await this.db.insert(organizationMembers).values(params).returning();
+    return newMember;
   }
 
   async removeOrganizationMember(organizationId: string, memberId: string) {
-    await this.db
+    const member = await this.db.query.organizationMembers.findFirst({
+      where: (m, { and, eq }) => and(eq(m.organizationId, organizationId), eq(m.userId, memberId)),
+    });
+
+    if (!member) {
+      throw new Error('Member not found in the organization.');
+    }
+
+    const currentUserMember = await this.db.query.organizationMembers.findFirst({
+      where: (m, { and, eq }) =>
+        and(eq(m.organizationId, organizationId), eq(m.userId, this.userId)),
+    });
+
+    if (!currentUserMember) {
+      throw new Error('Current user is not a member of the organization.');
+    }
+
+    if (
+      (currentUserMember.role !== 'owner' && currentUserMember.role !== 'admin') ||
+      member.role === 'owner'
+    ) {
+      throw new Error('Current user does not have permission to remove this member.');
+    }
+
+    return this.db
       .delete(organizationMembers)
       .where(
         and(
           eq(organizationMembers.organizationId, organizationId),
-          eq(organizationMembers.id, memberId),
+          eq(organizationMembers.userId, memberId),
         ),
       );
   }
 
-  // Team methods
-  async createTeam(params: Partial<NewTeam>) {
-    if (!params.organizationId) {
-      throw new Error('organizationId is required');
-    }
+  async createInvitation(params: NewOrganizationInvitation) {
+    const [invitation] = await this.db.insert(organizationInvitations).values(params).returning();
+    return invitation;
+  }
 
-    const id = nanoid();
-    const name = params.name || 'New Team';
-    const slug = params.slug || name.toLowerCase().replaceAll(/\s+/g, '-') || id;
-
-    const [team] = await this.db
-      .insert(teams)
-      .values({
-        id,
-        name,
-        organizationId: params.organizationId,
-        slug,
-        ...params,
-      })
-      .returning();
-
-    // Create default general channel
-    await this.db.insert(teamChannels).values({
-      description: 'General team discussions',
-      id: nanoid(),
-      name: 'General',
-      teamId: id,
-      type: 'general',
+  async getPendingInvitations(organizationId: string) {
+    return this.db.query.organizationInvitations.findMany({
+      where: (invitations, { and, eq, gt }) =>
+        and(eq(invitations.organizationId, organizationId), gt(invitations.expiresAt, new Date())),
     });
-
-    return team;
   }
 
-  async getOrganizationTeams(organizationId: string) {
-    const teamsWithMembers = await this.db
-      .select({
-        memberCount: sql<number>`count(distinct ${teamMembers.userId})`,
-        team: teams,
-      })
-      .from(teams)
-      .leftJoin(teamMembers, eq(teams.id, teamMembers.teamId))
-      .where(eq(teams.organizationId, organizationId))
-      .groupBy(teams.id);
+  async acceptInvitation(token: string, userId: string) {
+    return this.db.transaction(async (tx) => {
+      const [invitation] = await tx
+        .select()
+        .from(organizationInvitations)
+        .where(eq(organizationInvitations.token, token));
 
-    return teamsWithMembers;
+      if (!invitation) {
+        throw new Error('Invitation not found or expired');
+      }
+
+      const [newMember] = await tx
+        .insert(organizationMembers)
+        .values({
+          id: nanoid(),
+          organizationId: invitation.organizationId,
+          role: invitation.role,
+          userId,
+          teamIds: invitation.teamId ? [invitation.teamId] : [],
+        })
+        .returning();
+
+      await tx.delete(organizationInvitations).where(eq(organizationInvitations.id, invitation.id));
+
+      return newMember;
+    });
   }
 
-  async getTeam(teamId: string) {
-    const [team] = await this.db
-      .select({
-        memberCount: sql<number>`count(distinct ${teamMembers.userId})`,
-        organization: organizations,
-        team: teams,
-      })
-      .from(teams)
-      .innerJoin(organizations, eq(teams.organizationId, organizations.id))
-      .leftJoin(teamMembers, eq(teams.id, teamMembers.teamId))
-      .where(eq(teams.id, teamId))
-      .groupBy(teams.id, organizations.id);
-
-    return team;
-  }
-
-  async updateTeam(teamId: string, updates: Partial<TeamItem>) {
-    const [updated] = await this.db
-      .update(teams)
-      .set({
-        ...updates,
-        updatedAt: new Date(),
-      })
-      .where(eq(teams.id, teamId))
-      .returning();
-
-    return updated;
-  }
-
-  async deleteTeam(teamId: string) {
-    await this.db.delete(teams).where(eq(teams.id, teamId));
-  }
-
-  // Team member methods
-  async getTeamMembers(teamId: string) {
-    const members = await this.db
-      .select({
-        member: teamMembers,
-        user: users,
-      })
-      .from(teamMembers)
-      .innerJoin(users, eq(teamMembers.userId, users.id))
-      .where(eq(teamMembers.teamId, teamId));
-
-    return members.map((m) => ({
-      createdAt: m.member.createdAt,
-      id: m.member.id,
-      isActive: m.member.isActive,
-      lastSeenAt: m.member.lastSeenAt,
-      permissions: m.member.permissions,
-      role: m.member.role,
-      user: {
-        avatar: m.user.avatar,
-        email: m.user.email,
-        fullName: m.user.fullName,
-        id: m.user.id,
-        username: m.user.username,
-      },
-      userId: m.member.userId,
-    }));
-  }
-
-  async addTeamMember(params: Partial<NewTeamMember>) {
-    if (!params.userId || !params.teamId) {
-      throw new Error('userId and teamId are required');
-    }
-
-    const [member] = await this.db
-      .insert(teamMembers)
-      .values({
-        id: nanoid(),
-        role: params.role || 'member',
-        teamId: params.teamId,
-        userId: params.userId,
-        ...params,
-      })
-      .returning();
-
-    return member;
-  }
-
-  async removeTeamMember(teamId: string, memberId: string) {
-    await this.db
-      .delete(teamMembers)
-      .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.id, memberId)));
-  }
-
-  // Team channel methods
-  async createTeamChannel(params: Partial<NewTeamChannel>) {
-    if (!params.teamId) {
-      throw new Error('teamId is required');
-    }
-
-    const [channel] = await this.db
-      .insert(teamChannels)
-      .values({
-        id: nanoid(),
-        name: params.name || 'New Channel',
-        teamId: params.teamId,
-        type: params.type || 'general',
-        ...params,
-      })
-      .returning();
-
-    return channel;
-  }
-
-  async getTeamChannels(teamId: string) {
-    return this.db
-      .select()
-      .from(teamChannels)
-      .where(and(eq(teamChannels.teamId, teamId), eq(teamChannels.isArchived, false)));
-  }
-
-  async updateTeamChannel(channelId: string, updates: Partial<TeamChannelItem>) {
-    const [updated] = await this.db
-      .update(teamChannels)
-      .set({
-        ...updates,
-        updatedAt: new Date(),
-      })
-      .where(eq(teamChannels.id, channelId))
-      .returning();
-
-    return updated;
-  }
-
-  async deleteTeamChannel(channelId: string) {
-    await this.db.delete(teamChannels).where(eq(teamChannels.id, channelId));
-  }
-
-  // Helper methods
   async isUserOrganizationMember(organizationId: string, userId: string = this.userId) {
-    const member = await this.db.query.organizationMembers.findFirst({
-      where: and(
-        eq(organizationMembers.organizationId, organizationId),
-        eq(organizationMembers.userId, userId),
-        eq(organizationMembers.isActive, true),
-      ),
-    });
+    const [member] = await this.db
+      .select()
+      .from(organizationMembers)
+      .where(
+        and(
+          eq(organizationMembers.organizationId, organizationId),
+          eq(organizationMembers.userId, userId),
+        ),
+      );
 
     return !!member;
   }
-
-  async isUserTeamMember(teamId: string, userId: string = this.userId) {
-    const member = await this.db.query.teamMembers.findFirst({
-      where: and(
-        eq(teamMembers.teamId, teamId),
-        eq(teamMembers.userId, userId),
-        eq(teamMembers.isActive, true),
-      ),
+  async getOrganizationTeams(organizationId: string) {
+    const teams = await this.db.query.teams.findMany({
+      where: (teams, { eq }) => eq(teams.organizationId, organizationId),
     });
-
-    return !!member;
+    return teams;
   }
-
-  async getUserTeams(userId: string = this.userId) {
-    const userTeams = await this.db
-      .select({
-        member: teamMembers,
-        organization: organizations,
-        team: teams,
-      })
-      .from(teamMembers)
-      .innerJoin(teams, eq(teamMembers.teamId, teams.id))
-      .innerJoin(organizations, eq(teams.organizationId, organizations.id))
-      .where(and(eq(teamMembers.userId, userId), eq(teamMembers.isActive, true)));
-
-    return userTeams.map((t) => ({
-      ...t.team,
-      memberPermissions: t.member.permissions,
-      memberRole: t.member.role,
-      organization: t.organization,
-    }));
+  async getTeamMembers(teamId: string) {
+    const members = await this.db.query.teamMembers.findMany({
+      where: (teamMembers, { eq }) => eq(teamMembers.teamId, teamId),
+    });
+    return members;
   }
 }

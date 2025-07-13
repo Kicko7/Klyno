@@ -1,0 +1,1 @@
+ALTER TABLE "team_invitations" ADD COLUMN "expires_at" timestamp with time zone NOT NULL;

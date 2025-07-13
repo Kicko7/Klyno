@@ -223,7 +223,10 @@
     "hash": "b1dd0c4bd43efc33b68ff3c5383c435eb62afcd0fdc6cd5994a90d98e25de69a"
   },
   {
-    "sql": ["DROP TABLE \"user_budgets\";", "\r\nDROP TABLE \"user_subscriptions\";"],
+    "sql": [
+      "DROP TABLE \"user_budgets\";",
+      "\r\nDROP TABLE \"user_subscriptions\";"
+    ],
     "bps": true,
     "folderMillis": 1729699958471,
     "hash": "eea3a1d9206e41b108d3b4bda2d8e36927ec025f77eb7199c018b63d64093d6a"
@@ -295,7 +298,9 @@
     "hash": "47efcf4a847b449b05ab135f7c4a4ebbc75a4eaed26cd6ead73b47a6a2d58a49"
   },
   {
-    "sql": ["ALTER TABLE \"messages\" ADD COLUMN \"reasoning\" jsonb;"],
+    "sql": [
+      "ALTER TABLE \"messages\" ADD COLUMN \"reasoning\" jsonb;"
+    ],
     "bps": true,
     "folderMillis": 1737609172353,
     "hash": "2cb36ae4fcdd7b7064767e04bfbb36ae34518ff4bb1b39006f2dd394d1893868"
@@ -510,7 +515,9 @@
     "hash": "17e740d5f5260b2e60b3fd289a59de3e02514effd6518d3d84136518b366ea82"
   },
   {
-    "sql": ["ALTER TABLE \"ai_providers\" ADD COLUMN \"config\" jsonb;"],
+    "sql": [
+      "ALTER TABLE \"ai_providers\" ADD COLUMN \"config\" jsonb;"
+    ],
     "bps": true,
     "folderMillis": 1749309388370,
     "hash": "39cea379f08ee4cb944875c0b67f7791387b508c2d47958bb4cd501ed1ef33eb"
@@ -536,5 +543,59 @@
     "bps": true,
     "folderMillis": 1752252283795,
     "hash": "39c574cefb2ea6abae42e8caf2ba07b6cd801023d81f1bbd2d8484637ac1b43f"
+  },
+  {
+    "sql": [
+      "DROP TABLE \"nextauth_accounts\" CASCADE;",
+      "\nDROP TABLE \"nextauth_authenticators\" CASCADE;",
+      "\nDROP TABLE \"nextauth_sessions\" CASCADE;",
+      "\nDROP TABLE \"nextauth_verificationtokens\" CASCADE;"
+    ],
+    "bps": true,
+    "folderMillis": 1752260631491,
+    "hash": "e9378797114a1fffb86c81842b515386e0f1607bbca7d2b48b035b8963776c26"
+  },
+  {
+    "sql": [
+      "CREATE TABLE \"team_activity_log\" (\n\t\"id\" text PRIMARY KEY NOT NULL,\n\t\"team_id\" text NOT NULL,\n\t\"user_id\" text NOT NULL,\n\t\"action\" text NOT NULL,\n\t\"metadata\" jsonb,\n\t\"created_at\" timestamp with time zone DEFAULT now() NOT NULL\n);\n",
+      "\nCREATE TABLE \"team_message_reactions\" (\n\t\"id\" text PRIMARY KEY NOT NULL,\n\t\"message_id\" text NOT NULL,\n\t\"user_id\" text NOT NULL,\n\t\"reaction\" text NOT NULL,\n\t\"created_at\" timestamp with time zone DEFAULT now() NOT NULL\n);\n",
+      "\nCREATE TABLE \"team_messages\" (\n\t\"id\" text PRIMARY KEY NOT NULL,\n\t\"channel_id\" text NOT NULL,\n\t\"sender_id\" text NOT NULL,\n\t\"content\" text NOT NULL,\n\t\"type\" text DEFAULT 'text',\n\t\"metadata\" jsonb,\n\t\"is_edited\" boolean DEFAULT false,\n\t\"is_deleted\" boolean DEFAULT false,\n\t\"created_at\" timestamp with time zone DEFAULT now() NOT NULL,\n\t\"updated_at\" timestamp with time zone DEFAULT now() NOT NULL\n);\n",
+      "\nALTER TABLE \"team_activity_log\" ADD CONSTRAINT \"team_activity_log_team_id_teams_id_fk\" FOREIGN KEY (\"team_id\") REFERENCES \"public\".\"teams\"(\"id\") ON DELETE cascade ON UPDATE no action;",
+      "\nALTER TABLE \"team_activity_log\" ADD CONSTRAINT \"team_activity_log_user_id_users_id_fk\" FOREIGN KEY (\"user_id\") REFERENCES \"public\".\"users\"(\"id\") ON DELETE cascade ON UPDATE no action;",
+      "\nALTER TABLE \"team_message_reactions\" ADD CONSTRAINT \"team_message_reactions_message_id_team_messages_id_fk\" FOREIGN KEY (\"message_id\") REFERENCES \"public\".\"team_messages\"(\"id\") ON DELETE cascade ON UPDATE no action;",
+      "\nALTER TABLE \"team_message_reactions\" ADD CONSTRAINT \"team_message_reactions_user_id_users_id_fk\" FOREIGN KEY (\"user_id\") REFERENCES \"public\".\"users\"(\"id\") ON DELETE cascade ON UPDATE no action;",
+      "\nALTER TABLE \"team_messages\" ADD CONSTRAINT \"team_messages_channel_id_team_channels_id_fk\" FOREIGN KEY (\"channel_id\") REFERENCES \"public\".\"team_channels\"(\"id\") ON DELETE cascade ON UPDATE no action;",
+      "\nALTER TABLE \"team_messages\" ADD CONSTRAINT \"team_messages_sender_id_users_id_fk\" FOREIGN KEY (\"sender_id\") REFERENCES \"public\".\"users\"(\"id\") ON DELETE cascade ON UPDATE no action;"
+    ],
+    "bps": true,
+    "folderMillis": 1752264691866,
+    "hash": "dc4790226d0f29997aa20652ed4ffa983c34b09a1709183ccfd89eb22a2065df"
+  },
+  {
+    "sql": [
+      "ALTER TABLE \"team_members\" ADD COLUMN \"last_seen_at\" timestamp with time zone DEFAULT now() NOT NULL;"
+    ],
+    "bps": true,
+    "folderMillis": 1752321641420,
+    "hash": "d1f2f9ff076a00e1875e585faa32bfdf7401eca7f92b80d8a216e0bdda000c96"
+  },
+  {
+    "sql": [
+      "ALTER TABLE \"team_members\" DROP COLUMN \"last_seen_at\";"
+    ],
+    "bps": true,
+    "folderMillis": 1752321861259,
+    "hash": "1ffae22dd7158a3c80592d4378e033922d00475c458531ad50723d07e59362cf"
+  },
+  {
+    "sql": [
+      "ALTER TABLE \"organizations\" ADD COLUMN \"clerk_org_id\" text;",
+      "\nALTER TABLE \"team_invitations\" ADD COLUMN \"clerk_invitation_id\" text;",
+      "\nALTER TABLE \"organizations\" ADD CONSTRAINT \"organizations_clerk_org_id_unique\" UNIQUE(\"clerk_org_id\");",
+      "\nALTER TABLE \"team_invitations\" ADD CONSTRAINT \"team_invitations_clerk_invitation_id_unique\" UNIQUE(\"clerk_invitation_id\");"
+    ],
+    "bps": true,
+    "folderMillis": 1752323724465,
+    "hash": "9ca45e885affd55ff8cb1c5770e6f50ad8c4ef497b2435dfef713cc1f711f324"
   }
 ]
