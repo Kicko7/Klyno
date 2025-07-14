@@ -3,11 +3,19 @@
 import { SignUp, useAuth } from '@clerk/nextjs';
 import { Flex } from 'antd';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 
 import { Team, useTeamStore } from '@/store/team/store';
 
-const JoinOrganizationPage = () => {
+// Loading component for Suspense fallback
+const JoinPageLoading = () => (
+  <Flex justify="center" align="center" style={{ height: '100vh', width: '100vw' }}>
+    <div>Loading...</div>
+  </Flex>
+);
+
+// Component that uses useSearchParams - needs to be wrapped in Suspense
+const JoinPageContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isSignedIn } = useAuth();
@@ -55,6 +63,15 @@ const JoinOrganizationPage = () => {
         afterSignUpUrl={joinCode ? `/join?joinCode=${joinCode}` : '/'}
       />
     </Flex>
+  );
+};
+
+// Main page component with Suspense boundary
+const JoinOrganizationPage = () => {
+  return (
+    <Suspense fallback={<JoinPageLoading />}>
+      <JoinPageContent />
+    </Suspense>
   );
 };
 
