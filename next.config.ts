@@ -24,6 +24,8 @@ const nextConfig: NextConfig = {
   ...(isStandaloneMode ? standaloneConfig : {}),
   basePath,
   compress: isProd,
+  // Disable source maps in production to save memory
+  productionBrowserSourceMaps: false,
   eslint: {
     // Disable ESLint during builds for Vercel deployment
     ignoreDuringBuilds: true,
@@ -43,6 +45,9 @@ const nextConfig: NextConfig = {
     // refs: https://github.com/lobehub/lobe-chat/pull/7430
     serverMinification: false,
     webVitalsAttribution: ['CLS', 'LCP'],
+    // Memory optimizations for Vercel builds
+    webpackMemoryOptimizations: true,
+    webpackBuildWorker: true,
   },
   async headers() {
     return [
