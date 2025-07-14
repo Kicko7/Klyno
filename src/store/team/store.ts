@@ -1,6 +1,10 @@
+import { link } from 'fs';
+import { nanoid } from 'nanoid';
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
+import { renderEmail } from '@/libs/emails/render-email';
+import { OrganizationInvitation } from '@/libs/emails/templates/organization-invitation';
 import { lambdaClient } from '@/libs/trpc/client';
 
 export interface Team {
@@ -10,6 +14,7 @@ export interface Team {
   id: string;
   name: string;
   organizationId: string;
+  teamJoinCode: string;
   updatedAt?: Date;
 }
 
@@ -68,12 +73,18 @@ export interface TeamAction {
     description?: string;
     name: string;
     organizationId: string;
+    organizerId: string;
   }) => Promise<Team>;
   deleteTeam: (teamId: string) => Promise<void>;
   fetchMembers: (teamId: string) => Promise<void>;
   fetchMessages: (channelId: string, limit?: number, offset?: number) => Promise<void>;
   fetchTeams: () => Promise<void>;
-  inviteMember: (teamId: string, email: string, role: 'admin' | 'member') => Promise<void>;
+  inviteMember: (
+    teamId: string,
+    email: string,
+    role: 'admin' | 'member',
+    token: string,
+  ) => Promise<void>;
   removeMember: (teamId: string, memberId: string) => Promise<void>;
   reset: () => void;
   setCurrentChannel: (channel: TeamChannel | null) => void;
@@ -125,7 +136,7 @@ export const useTeamStore = create<TeamStore>()(
             const transformedTeams: Team[] = userTeams.map((team: any) => ({
               id: team.id,
               name: team.name,
-              slug: team.slug || team.name.toLowerCase().replace(/\s+/g, '-'),
+              teamJoinCode: team.teamJoinCode,
               organizationId: team.organizationId,
               description: team.description,
               updatedAt: team.updatedAt,
@@ -133,6 +144,7 @@ export const useTeamStore = create<TeamStore>()(
               accessedAt: team.accessedAt,
             }));
 
+            console.log('Transformed teams:', transformedTeams);
             set({ teams: transformedTeams, loadingTeams: false });
           } else {
             set({ teams: [], loadingTeams: false });
@@ -158,6 +170,7 @@ export const useTeamStore = create<TeamStore>()(
           const transformedTeam: Team = {
             id: team.id,
             name: team.name,
+            teamJoinCode: team.teamJoinCode,
             organizationId: team.organizationId,
             updatedAt: team.updatedAt,
             createdAt: team.createdAt,
@@ -226,19 +239,31 @@ export const useTeamStore = create<TeamStore>()(
         }
       },
 
-      inviteMember: async (teamId, email, role) => {
+      inviteMember: async (teamId, email, role, token) => {
         try {
-          // Get the current organization ID from the first organization
           const organizations = await lambdaClient.organization.getMyOrganizations.query();
           if (organizations.length === 0) {
             throw new Error('No organization found');
           }
+          const invitationLink = `${process.env.NEXT_PUBLIC_APP_URL}/join?token=${token}`;
+
+          const emailHtml = renderEmail(
+            OrganizationInvitation({
+              invitation: {
+                link: invitationLink,
+                organizationName: organizations[0].name,
+              },
+            }),
+          );
+          // Get the current organization ID from the first organization
 
           await lambdaClient.organization.inviteMember.mutate({
             teamId,
             email,
             role,
             organizationId: organizations[0].id,
+            html: emailHtml,
+            token,
           });
           await get().fetchMembers(teamId);
         } catch (error: any) {

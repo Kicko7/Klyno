@@ -273,6 +273,20 @@
       "when": 1752433038418,
       "tag": "0038_flaky_thena",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1752449187208,
+      "tag": "0039_messy_sister_grimm",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1752452190358,
+      "tag": "0040_light_captain_flint",
+      "breakpoints": true
     }
   ],
   "version": "6"

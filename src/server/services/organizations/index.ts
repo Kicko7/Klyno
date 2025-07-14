@@ -2,7 +2,6 @@ import { nanoid } from 'nanoid';
 
 import { serverDB } from '@/database/server';
 import { OrganizationModel } from '@/database/server/models/organization';
-import { renderOrganizationInvitationEmail } from '@/libs/emails/email-utils';
 import { sendEmail } from '@/libs/emails/resend';
 
 export class OrganizationService {
@@ -49,17 +48,27 @@ export class OrganizationService {
   async removeMember(organizationId: string, memberId: string) {
     return this.organizationModel.removeOrganizationMember(organizationId, memberId);
   }
-  async createTeam(params: { description?: string; name: string; organizationId: string }) {
-    return this.organizationModel.createTeam(params);
+  async createTeam(params: {
+    description?: string;
+    name: string;
+    organizationId: string;
+    organizerId: string;
+  }) {
+    return this.organizationModel.createTeam({
+      ...params,
+      teamMembers: [params.organizerId],
+    });
   }
   async getTeamMembers(teamId: string) {
     return this.organizationModel.getTeamMembers(teamId);
   }
   async inviteMember(
     organizationId: string,
+    token: string,
     teamId: string,
     email: string,
     role: 'admin' | 'member',
+    html?: string,
   ) {
     const organization = await this.getOrganization(organizationId);
 
@@ -67,7 +76,6 @@ export class OrganizationService {
       throw new Error('Organization not found');
     }
     // Generate a unique token for the invitation
-    const token = nanoid();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
     const invitation = await this.organizationModel.createInvitation({
@@ -82,25 +90,23 @@ export class OrganizationService {
     });
 
     // Send invitation email
-    const invitationLink = `${process.env.NEXT_PUBLIC_APP_URL}/join?token=${token}`;
 
-    const emailHtml = renderOrganizationInvitationEmail({
-      link: invitationLink,
-      organization: {
-        name: organization.name,
-      },
-    });
-
-    await sendEmail({
-      react: emailHtml,
-      subject: 'You have been invited to an organization on LobeChat',
-      to: email,
-    });
+    if (html) {
+      await sendEmail({
+        html,
+        subject: 'You have been invited to an organization on LobeChat',
+        to: email,
+      });
+    }
 
     return invitation;
   }
   async getTeam(teamId: string) {
-    return this.organizationModel.getOrganizationTeams(teamId);
+    return this.organizationModel.getTeamById(teamId);
+  }
+
+  async getInvitationByToken(token: string) {
+    return this.organizationModel.getInvitationByToken(token);
   }
 
   async acceptInvitation(token: string) {

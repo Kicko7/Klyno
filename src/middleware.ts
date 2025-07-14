@@ -43,7 +43,8 @@ export const config = {
     '/me(.*)',
     '/teams',
     '/teams(.*)',
-
+    '/join',
+    '/join(.*)',
     '/login(.*)',
     '/signup(.*)',
     '/oauth(.*)',

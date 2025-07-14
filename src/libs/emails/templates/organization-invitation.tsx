@@ -1,19 +1,17 @@
-import { BaseTemplate } from "./base-template";
+import { BaseTemplate } from './base-template';
 
 export const OrganizationInvitation = ({
   invitation,
 }: {
   invitation: {
-      link: string;
-    organization: {
-      name: string;
-    };
+    link: string;
+    organizationName: string;
   };
 }) => {
   return (
     <BaseTemplate
-      previewText={`You have been invited to join ${invitation.organization.name} on Klynno AI`}
-      title={`You have been invited to join ${invitation.organization.name} on Klynno AI`}
+      previewText={`You have been invited to join ${invitation.organizationName} on Klynno AI`}
+      title={`You have been invited to join ${invitation.organizationName} on Klynno AI`}
     >
       <p>You have been invited to join an organization.</p>
       <p>Click the link below to accept the invitation:</p>

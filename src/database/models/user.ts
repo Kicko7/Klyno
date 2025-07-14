@@ -9,7 +9,14 @@ import { UserKeyVaults, UserSettings } from '@/types/user/settings';
 import { merge } from '@/utils/merge';
 import { today } from '@/utils/time';
 
-import { NewUser, UserItem, UserSettingsItem, userSettings, users } from '../schemas';
+import {
+  NewUser,
+  UserItem,
+  UserSettingsItem,
+  organizationInvitations,
+  userSettings,
+  users,
+} from '../schemas';
 
 type DecryptUserKeyVaults = (
   encryptKeyVaultsStr: string | null,
@@ -196,7 +203,11 @@ export class UserModel {
   static findByEmail = async (db: LobeChatDatabase, email: string) => {
     return db.query.users.findFirst({ where: eq(users.email, email) });
   };
-
+  static getTeamInvitationByEmail = async (db: LobeChatDatabase, email: string) => {
+    return db.query.organizationInvitations.findFirst({
+      where: eq(organizationInvitations.email, email),
+    });
+  };
   static getUserApiKeys = async (
     db: LobeChatDatabase,
     id: string,

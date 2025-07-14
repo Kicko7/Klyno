@@ -10,7 +10,7 @@ import { asyncTasks } from './asyncTask';
 import { documentChunks, documents } from './document';
 import { files, knowledgeBases } from './file';
 import { messages, messagesFiles } from './message';
-import { organizationMembers, organizations, teamMembers, teams } from './organization';
+import { organizationInvitations, organizationMembers, organizations, teamMembers, teams } from './organization';
 import { chunks, unstructuredChunks } from './rag';
 import { sessionGroups, sessions } from './session';
 import { threads, topicDocuments, topics } from './topic';
@@ -261,6 +261,21 @@ export const organizationMembersRelations = relations(organizationMembers, ({ on
   }),
   user: one(users, {
     fields: [organizationMembers.userId],
+    references: [users.id],
+  }),
+}));
+
+export const organizationInvitationsRelations = relations(organizationInvitations, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [organizationInvitations.organizationId],
+    references: [organizations.id],
+  }),
+  team: one(teams, {
+    fields: [organizationInvitations.teamId],
+    references: [teams.id],
+  }),
+  invitedBy: one(users, {
+    fields: [organizationInvitations.userId],
     references: [users.id],
   }),
 }));

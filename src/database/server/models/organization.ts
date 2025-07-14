@@ -73,12 +73,14 @@ export class OrganizationModel {
       memberRole: org.member.role,
     }));
   }
-  async createTeam(params: NewTeam) {
+  async createTeam(params: NewTeam & { organizerId: string }) {
     const [team] = await this.db
       .insert(teams)
       .values({
         ...params,
         organizationId: params.organizationId,
+        organizerId: params.organizerId,
+        teamMembers: [params.organizerId],
       })
       .returning();
     return team;
@@ -291,5 +293,21 @@ export class OrganizationModel {
       where: (teamMembers, { eq }) => eq(teamMembers.teamId, teamId),
     });
     return members;
+  }
+
+  async getInvitationByToken(token: string) {
+    const invitation = await this.db.query.organizationInvitations.findFirst({
+      where: (invitations, { eq }) => eq(invitations.token, token),
+      with: {
+        organization: true,
+        team: true,
+        invitedBy: {
+          with: {
+            user: true,
+          },
+        },
+      },
+    });
+    return invitation;
   }
 }

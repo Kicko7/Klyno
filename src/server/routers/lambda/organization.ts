@@ -71,6 +71,12 @@ export const organizationRouter = router({
     .query(async ({ ctx, input }) => {
       return ctx.organizationService.getTeam(input.id);
     }),
+
+  getInvitationByToken: organizationProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.organizationService.getInvitationByToken(input.token);
+    }),
   getOrganizationMembers: organizationProcedure
     .input(z.object({ organizationId: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -88,6 +94,7 @@ export const organizationRouter = router({
         description: z.string().optional(),
         name: z.string(),
         organizationId: z.string(),
+        organizerId: z.string(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -101,14 +108,18 @@ export const organizationRouter = router({
         organizationId: z.string(),
         role: z.enum(['admin', 'member']),
         teamId: z.string(),
+        html: z.string().optional(),
+        token: z.string(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       return ctx.organizationService.inviteMember(
         input.organizationId,
         input.teamId,
+        input.token,
         input.email,
         input.role,
+        input.html,
       );
     }),
   getTeamMembers: organizationProcedure

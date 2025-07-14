@@ -114,6 +114,10 @@ export class UserService {
     return UserModel.getUserApiKeys(serverDB, id, KeyVaultsGateKeeper.getUserKeyVaults);
   };
 
+  getInvitationsByEmail = async (email: string) => {
+    return UserModel.getTeamInvitationByEmail(serverDB, email);
+  };
+
   getUserAvatar = async (id: string, image: string) => {
     const s3 = new S3();
     const s3FileUrl = `user/avatar/${id}/${image}`;

@@ -24,9 +24,16 @@ export const teams = pgTable('teams', {
     .notNull()
     .default(sql`gen_random_uuid()`),
   name: varchar('name', { length: 255 }).notNull(),
+  teamJoinCode: text('team_join_code')
+    .notNull()
+    .default(sql`gen_random_uuid()`),
   description: text('description'),
+  teamMembers: text('team_members').array().notNull(),
   organizationId: text('organization_id')
     .references(() => organizations.id, { onDelete: 'cascade' })
+    .notNull(),
+  organizerId: text('organizer_id')
+    .references(() => users.id, { onDelete: 'cascade' })
     .notNull(),
   ...timestamps,
 });

@@ -1,0 +1,1 @@
+ALTER TABLE "teams" ADD COLUMN "team_join_code" text DEFAULT gen_random_uuid() NOT NULL;

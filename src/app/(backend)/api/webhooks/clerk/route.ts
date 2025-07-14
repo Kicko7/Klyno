@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server';
 import { authEnv } from '@/config/auth';
 import { isServerMode } from '@/const/version';
 import { pino } from '@/libs/logger';
+import { OrganizationService } from '@/server/services/organizations';
 import { UserService } from '@/server/services/user';
+
 import { validateRequest } from './validateRequest';
 
 if (authEnv.NEXT_PUBLIC_ENABLE_CLERK_AUTH && isServerMode && !authEnv.CLERK_WEBHOOK_SECRET) {
@@ -25,10 +27,19 @@ export const POST = async (req: Request) => {
   pino.trace(`clerk webhook payload: ${{ data, type }}`);
 
   const userService = new UserService();
+
   switch (type) {
     case 'user.created': {
       pino.info('creating user due to clerk webhook');
       const result = await userService.createUser(data.id, data);
+      const existingInvitations = await userService.getInvitationsByEmail(
+        data.email_addresses[0].email_address,
+      );
+      const organizationService = new OrganizationService(data.id);
+      if (existingInvitations) {
+        console.log('existingInvitations');
+        await organizationService.acceptInvitation(existingInvitations.id);
+      }
 
       return NextResponse.json(result, { status: 200 });
     }
@@ -51,10 +62,5 @@ export const POST = async (req: Request) => {
 
       return NextResponse.json(result, { status: 200 });
     }
-
-   
-   
   }
 };
-
-
