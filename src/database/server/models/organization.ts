@@ -8,10 +8,12 @@ import {
   NewOrganizationInvitation,
   NewOrganizationMember,
   NewTeam,
+  NewTeamMember,
   Organization,
   organizationInvitations,
   organizationMembers,
   organizations,
+  teamMembers,
   teams,
 } from '../../schemas/organization';
 import { users } from '../../schemas/user';
@@ -129,6 +131,22 @@ export class OrganizationModel {
     return newMember;
   }
 
+  async addTeamMember(params: NewTeamMember) {
+    const [newMember] = await this.db.insert(teamMembers).values(params).returning();
+    return newMember;
+  }
+
+  async addUserToTeamMembersArray(teamId: string, userId: string) {
+    const team = await this.db.query.teams.findFirst({
+      where: (teams, { eq }) => eq(teams.id, teamId),
+    });
+
+    if (team) {
+      const updatedMembers = [...team.teamMembers, userId];
+      await this.db.update(teams).set({ teamMembers: updatedMembers }).where(eq(teams.id, teamId));
+    }
+  }
+
   async removeOrganizationMember(organizationId: string, memberId: string) {
     const member = await this.db.query.organizationMembers.findFirst({
       where: (m, { and, eq }) => and(eq(m.organizationId, organizationId), eq(m.userId, memberId)),
@@ -204,6 +222,7 @@ export class OrganizationModel {
         .set({ status: 'accepted' })
         .where(eq(organizationInvitations.id, invitation.id));
 
+      // Add user to organization members
       const [newMember] = await tx
         .insert(organizationMembers)
         .values({
@@ -214,6 +233,30 @@ export class OrganizationModel {
           teamIds: invitation.teamId ? [invitation.teamId] : [],
         })
         .returning();
+
+      // If there's a team, add user to the team members table as well
+      if (invitation.teamId) {
+        await tx.insert(teamMembers).values({
+          id: nanoid(),
+          organizationId: invitation.organizationId,
+          teamId: invitation.teamId,
+          userId,
+          role: invitation.role,
+        });
+
+        // Update the teams.teamMembers array
+        const team = await tx.query.teams.findFirst({
+          where: (teams, { eq }) => eq(teams.id, invitation.teamId!),
+        });
+
+        if (team) {
+          const updatedMembers = [...team.teamMembers, userId];
+          await tx
+            .update(teams)
+            .set({ teamMembers: updatedMembers })
+            .where(eq(teams.id, invitation.teamId));
+        }
+      }
 
       return newMember;
     });
@@ -306,6 +349,16 @@ export class OrganizationModel {
             user: true,
           },
         },
+      },
+    });
+    return invitation;
+  }
+
+  async getTeamByJoinCode(teamJoinCode: string) {
+    const invitation = await this.db.query.teams.findFirst({
+      where: (teams, { eq }) => eq(teams.teamJoinCode, teamJoinCode),
+      with: {
+        organization: true,
       },
     });
     return invitation;

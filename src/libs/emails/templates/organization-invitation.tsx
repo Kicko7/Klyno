@@ -1,22 +1,21 @@
 import { BaseTemplate } from './base-template';
 
-export const OrganizationInvitation = ({
-  invitation,
-}: {
-  invitation: {
-    link: string;
-    organizationName: string;
-  };
-}) => {
+export const OrganizationInvitation = ({ organizationName }: { organizationName: string }) => {
   return (
     <BaseTemplate
-      previewText={`You have been invited to join ${invitation.organizationName} on Klynno AI`}
-      title={`You have been invited to join ${invitation.organizationName} on Klynno AI`}
+      previewText={`You have been invited to join ${organizationName} on Klynno AI`}
+      title={`You have been invited to join ${organizationName} on Klynno AI`}
     >
       <p>You have been invited to join an organization.</p>
-      <p>Click the link below to accept the invitation:</p>
-      <a href={invitation.link}>{invitation.link}</a>
-      <p>This link will expire in 7 days.</p>
+      <p>Click the link below to create a new account:</p>
+      <a
+        href={`${process.env.NEXT_PUBLIC_APP_URL}/signup?redirect_url=${encodeURIComponent(
+          `${process.env.NEXT_PUBLIC_APP_URL}/teams`,
+        )}`}
+      >
+        Create an account
+      </a>
+      <p>After signing up with this email you will be automatically added to the team.</p>
     </BaseTemplate>
   );
 };

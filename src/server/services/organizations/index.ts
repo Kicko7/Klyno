@@ -1,5 +1,6 @@
 import { nanoid } from 'nanoid';
 
+import { NewOrganizationMember, NewTeamMember } from '@/database/schemas/organization';
 import { serverDB } from '@/database/server';
 import { OrganizationModel } from '@/database/server/models/organization';
 import { sendEmail } from '@/libs/emails/resend';
@@ -48,6 +49,19 @@ export class OrganizationService {
   async removeMember(organizationId: string, memberId: string) {
     return this.organizationModel.removeOrganizationMember(organizationId, memberId);
   }
+
+  async addOrganizationMember(params: NewOrganizationMember) {
+    return this.organizationModel.addOrganizationMember(params);
+  }
+
+  async addTeamMember(params: NewTeamMember) {
+    return this.organizationModel.addTeamMember(params);
+  }
+
+  async addUserToTeamMembersArray(teamId: string, userId: string) {
+    return this.organizationModel.addUserToTeamMembersArray(teamId, userId);
+  }
+
   async createTeam(params: {
     description?: string;
     name: string;
@@ -119,5 +133,8 @@ export class OrganizationService {
 
   async dismissInvitation(token: string) {
     return this.organizationModel.dismissInvitation(token);
+  }
+  async getTeamByJoinCode(teamJoinCode: string) {
+    return this.organizationModel.getTeamByJoinCode(teamJoinCode);
   }
 }

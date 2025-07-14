@@ -1,3 +1,4 @@
+import { nanoid } from 'nanoid';
 import { NextResponse } from 'next/server';
 
 import { authEnv } from '@/config/auth';
@@ -32,6 +33,8 @@ export const POST = async (req: Request) => {
     case 'user.created': {
       pino.info('creating user due to clerk webhook');
       const result = await userService.createUser(data.id, data);
+
+      // Handle existing email invitations
       const existingInvitations = await userService.getInvitationsByEmail(
         data.email_addresses[0].email_address,
       );
@@ -39,6 +42,44 @@ export const POST = async (req: Request) => {
       if (existingInvitations) {
         console.log('existingInvitations');
         await organizationService.acceptInvitation(existingInvitations.id);
+      }
+
+      // Handle team joining via joinCode
+      const joinCode = data.unsafe_metadata?.joinCode as string;
+      if (joinCode) {
+        try {
+          pino.info(`Processing team join with code: ${joinCode}`);
+          const team = await organizationService.getTeamByJoinCode(joinCode);
+
+          if (team) {
+            // Add user to the team's organization
+            await organizationService.addOrganizationMember({
+              id: nanoid(),
+              organizationId: team.organizationId,
+              userId: data.id,
+              role: 'member',
+              teamIds: [team.id],
+            });
+
+            // Add user to the specific team
+            await organizationService.addTeamMember({
+              id: nanoid(),
+              organizationId: team.organizationId,
+              teamId: team.id,
+              userId: data.id,
+              role: 'member',
+            });
+
+            // Add user to the team's members array
+            await organizationService.addUserToTeamMembersArray(team.id, data.id);
+
+            pino.info(`User ${data.id} successfully joined team ${team.id}`);
+          } else {
+            pino.warn(`Invalid join code: ${joinCode}`);
+          }
+        } catch (error) {
+          pino.error(`Error processing team join: ${error}`);
+        }
       }
 
       return NextResponse.json(result, { status: 200 });

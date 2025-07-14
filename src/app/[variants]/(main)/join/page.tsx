@@ -1,61 +1,60 @@
 'use client';
 
 import { SignUp, useAuth } from '@clerk/nextjs';
+import { Flex } from 'antd';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Center } from 'react-layout-kit';
 
-import InvitationModal from '@/components/InvitationModal';
+import { Team, useTeamStore } from '@/store/team/store';
 
 const JoinOrganizationPage = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get('token');
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn } = useAuth();
+  const joinCode = searchParams.get('joinCode') || searchParams.get('joinToken');
   const [showInvitationModal, setShowInvitationModal] = useState(false);
-  const [showSignUp, setShowSignUp] = useState(false);
+  const { getTeamByJoinCode, setCurrentTeam } = useTeamStore();
 
   useEffect(() => {
-    if (!isLoaded) {
-      // Wait for Clerk to load to get the correct signed-in status
-      return;
-    }
+    const handleJoinFlow = async () => {
+      if (isSignedIn && joinCode) {
+        try {
+          // User is already signed in, proceed to join team
+          const team = await getTeamByJoinCode(joinCode);
+          if (team) {
+            setCurrentTeam(team);
+            router.push(`/teams/${team.id}`);
+          } else {
+            // Invalid join code
+            router.push('/?error=invalid_join_code');
+          }
+        } catch (error) {
+          console.error('Error joining team:', error);
+          router.push('/?error=join_failed');
+        }
+      }
+    };
 
-    if (!isSignedIn) {
-      // If the user is not signed in, show the sign-up modal.
-      setShowSignUp(true);
-      return;
-    }
+    handleJoinFlow();
+  }, [isSignedIn, joinCode, getTeamByJoinCode, setCurrentTeam, router]);
 
-    if (token) {
-      // Show the invitation modal for authenticated users
-      setShowInvitationModal(true);
-    } else {
-      // If there's no token, redirect to the home page
-      router.push('/');
-    }
-  }, [token, isSignedIn, isLoaded, router]);
-
-  // Handle the case where user comes back from sign-in/sign-up
-  useEffect(() => {
-    if (isSignedIn && isLoaded && token && !showInvitationModal) {
-      setShowInvitationModal(true);
-    }
-  }, [isSignedIn, isLoaded, token, showInvitationModal]);
-
-  const handleCloseModal = () => {
-    setShowInvitationModal(false);
-    router.push('/teams');
-  };
+  if (isSignedIn) {
+    return (
+      <Flex justify="center" align="center" style={{ height: '100vh', width: '100vw' }}>
+        <div>Processing team invitation...</div>
+      </Flex>
+    );
+  }
 
   return (
-    <Center>
-      <>
-        {token && (
-          <InvitationModal onClose={handleCloseModal} open={showInvitationModal} token={token} />
-        )}
-      </>
-    </Center>
+    <Flex justify="center" align="center" style={{ height: '100vh', width: '100vw' }}>
+      <SignUp
+        unsafeMetadata={{
+          joinCode: joinCode || undefined,
+        }}
+        afterSignUpUrl={joinCode ? `/join?joinCode=${joinCode}` : '/'}
+      />
+    </Flex>
   );
 };
 

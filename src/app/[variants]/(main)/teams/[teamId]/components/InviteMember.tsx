@@ -21,7 +21,7 @@ export const InviteMember = ({
   const { message } = App.useApp();
   const team = teams.find((team) => team.id === teamId);
 
-  const joinLink = `${process.env.NEXT_PUBLIC_APP_URL}/join?token=${team?.teamJoinCode}`;
+  const joinLink = `${process.env.NEXT_PUBLIC_APP_URL}/join?joinCode=${team?.teamJoinCode}`;
 
   const [addingMember, setAddingMember] = useState(false);
 

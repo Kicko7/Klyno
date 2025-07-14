@@ -90,6 +90,7 @@ export interface TeamAction {
   setCurrentChannel: (channel: TeamChannel | null) => void;
   setCurrentTeam: (team: Team | null) => void;
   updateTeam: (teamId: string, data: { description?: string; name?: string }) => Promise<void>;
+  getTeamByJoinCode: (teamJoinCode: string) => Promise<Team | null>;
 }
 
 export interface TeamStore extends TeamState, TeamAction {}
@@ -245,14 +246,10 @@ export const useTeamStore = create<TeamStore>()(
           if (organizations.length === 0) {
             throw new Error('No organization found');
           }
-          const invitationLink = `${process.env.NEXT_PUBLIC_APP_URL}/join?token=${token}`;
 
           const emailHtml = renderEmail(
             OrganizationInvitation({
-              invitation: {
-                link: invitationLink,
-                organizationName: organizations[0].name,
-              },
+              organizationName: organizations[0].name,
             }),
           );
           // Get the current organization ID from the first organization
@@ -296,6 +293,12 @@ export const useTeamStore = create<TeamStore>()(
         } catch (error: any) {
           set({ error: error.message, loadingMessages: false });
         }
+      },
+      getTeamByJoinCode: async (teamJoinCode: string) => {
+        const team = await lambdaClient.organization.getTeamByJoinCode.query({
+          joinCode: teamJoinCode,
+        });
+        return team;
       },
 
       // Utility actions

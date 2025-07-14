@@ -148,4 +148,13 @@ export const organizationRouter = router({
     .mutation(async ({ ctx, input }) => {
       return ctx.organizationService.updateOrganization(input.id, { name: input.name });
     }),
+  getTeamByJoinCode: organizationProcedure
+    .input(
+      z.object({
+        joinCode: z.string(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      return ctx.organizationService.getTeamByJoinCode(input.joinCode);
+    }),
 });
