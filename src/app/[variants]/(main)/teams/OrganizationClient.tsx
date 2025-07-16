@@ -14,6 +14,8 @@ import CreateTeamModal from '@/features/Team/CreateTeamModel';
 import { useOrganizationStore } from '@/store/organization/store';
 import { useTeamStore } from '@/store/team/store';
 
+import OrganizationSelector from './components/sidebar/OrganizationSelector';
+
 const { Title, Text } = Typography;
 
 const OrganizationClient = () => {
@@ -118,26 +120,30 @@ const OrganizationClient = () => {
               </Empty>
             </Flexbox>
           ) : (
-            <List
-              dataSource={teams}
-              itemLayout="horizontal"
-              loading={loadingTeams}
-              renderItem={(team: any) => (
-                <List.Item
-                  actions={[
-                    <Button href={`/teams/${team.id}`} key="view" type="link">
-                      View Team
-                    </Button>,
-                  ]}
-                >
-                  <List.Item.Meta
-                    avatar={<TeamOutlined />}
-                    description={team.description || 'No description'}
-                    title={team.name}
-                  />
-                </List.Item>
-              )}
-            />
+            <>
+              <OrganizationSelector />
+
+              <List
+                dataSource={teams}
+                itemLayout="horizontal"
+                loading={loadingTeams}
+                renderItem={(team: any) => (
+                  <List.Item
+                    actions={[
+                      <Button href={`/teams/${team.id}`} key="view" type="link">
+                        View Team
+                      </Button>,
+                    ]}
+                  >
+                    <List.Item.Meta
+                      avatar={<TeamOutlined />}
+                      description={team.description || 'No description'}
+                      title={team.name}
+                    />
+                  </List.Item>
+                )}
+              />
+            </>
           )}
         </Flexbox>
       </ResponsiveContainer>

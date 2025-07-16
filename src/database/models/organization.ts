@@ -15,8 +15,8 @@ import {
   organizations,
   teamMembers,
   teams,
-} from '../../schemas/organization';
-import { users } from '../../schemas/user';
+} from '../schemas/organization';
+import { users } from '../schemas/user';
 
 export class OrganizationModel {
   private userId: string;

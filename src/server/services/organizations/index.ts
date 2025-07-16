@@ -1,8 +1,8 @@
 import { nanoid } from 'nanoid';
 
+import { OrganizationModel } from '@/database/models/organization';
 import { NewOrganizationMember, NewTeamMember } from '@/database/schemas/organization';
 import { serverDB } from '@/database/server';
-import { OrganizationModel } from '@/database/server/models/organization';
 import { sendEmail } from '@/libs/emails/resend';
 
 export class OrganizationService {
