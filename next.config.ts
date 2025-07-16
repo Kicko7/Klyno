@@ -257,7 +257,14 @@ const nextConfig: NextConfig = {
   // when external packages in dev mode with turbopack, this config will lead to bundle error
   serverExternalPackages: isProd ? ['@electric-sql/pglite'] : undefined,
 
-  transpilePackages: ['pdfjs-dist', 'mermaid'],
+  transpilePackages: [
+    'pdfjs-dist',
+    'mermaid',
+    '@lobechat/electron-client-ipc',
+    '@lobechat/electron-server-ipc',
+    '@lobechat/file-loaders',
+    '@lobechat/web-crawler',
+  ],
   typescript: {
     // Disable TypeScript type checking during builds for faster deployment
     ignoreBuildErrors: true,

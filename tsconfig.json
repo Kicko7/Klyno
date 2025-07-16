@@ -18,7 +18,11 @@
     "types": ["vitest/globals", "@serwist/next/typings"],
     "paths": {
       "@/*": ["./src/*"],
-      "~test-utils": ["./tests/utils.tsx"]
+      "~test-utils": ["./tests/utils.tsx"],
+      "@lobechat/electron-client-ipc": ["./packages/electron-client-ipc/src"],
+      "@lobechat/electron-server-ipc": ["./packages/electron-server-ipc/src"],
+      "@lobechat/file-loaders": ["./packages/file-loaders/src"],
+      "@lobechat/web-crawler": ["./packages/web-crawler/src"]
     },
     "plugins": [
       {
@@ -35,6 +39,7 @@
     "next-env.d.ts",
     "src",
     "tests",
+    "packages",
     "vitest.config.ts"
   ]
 }
