@@ -1,5 +1,6 @@
 import ServerLayout from '@/components/server/ServerLayout';
 
+import '../../styles.css';
 import Desktop from './_layout/Desktop';
 import Mobile from './_layout/Mobile';
 

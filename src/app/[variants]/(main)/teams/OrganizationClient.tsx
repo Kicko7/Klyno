@@ -14,8 +14,6 @@ import CreateTeamModal from '@/features/Team/CreateTeamModel';
 import { useOrganizationStore } from '@/store/organization/store';
 import { useTeamStore } from '@/store/team/store';
 
-import OrganizationSelector from './components/sidebar/OrganizationSelector';
-
 const { Title, Text } = Typography;
 
 const OrganizationClient = () => {
@@ -73,7 +71,7 @@ const OrganizationClient = () => {
 
   return (
     <>
-      <ResponsiveContainer maxWidth={1000}>
+      {/* <ResponsiveContainer maxWidth={1000}>
         <Flexbox gap={32} style={{ width: '100%' }}>
           <Flexbox
             align={mobile ? 'flex-start' : 'center'}
@@ -121,7 +119,8 @@ const OrganizationClient = () => {
             </Flexbox>
           ) : (
             <>
-              <OrganizationSelector />
+              <h4 className="text-4xl text-amber-700">hello there</h4>
+              <SideBar />
 
               <List
                 dataSource={teams}
@@ -146,7 +145,7 @@ const OrganizationClient = () => {
             </>
           )}
         </Flexbox>
-      </ResponsiveContainer>
+      </ResponsiveContainer> */}
 
       <CreateOrganizationModal
         onClose={() => setShowCreateOrgModal(false)}

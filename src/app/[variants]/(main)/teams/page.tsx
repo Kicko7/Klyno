@@ -1,13 +1,13 @@
 import { Metadata } from 'next';
 
-import OrganizationClient from './OrganizationClient';
+import Main from './components/main';
 
 export const metadata: Metadata = {
   title: 'Organization',
 };
 
 const Page = () => {
-  return <OrganizationClient />;
+  return <Main />;
 };
 
 export default Page;
