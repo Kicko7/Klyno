@@ -1,4 +1,5 @@
 import { ChevronDown, FileText, FolderPlus, Grid3X3, Loader2, Users } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useOrganizationStore } from '@/store/organization/store';
 
 const CompanySelector = () => {
+  const router = useRouter();
   const { showCreateOrgModal, fetchOrganizations, isLoading, organizations } =
     useOrganizationStore();
   const [selectedOrganization, setSelectedOrganization] = useState<any>(null);
@@ -28,6 +30,12 @@ const CompanySelector = () => {
       setSelectedOrganization(organizations[0]);
     }
   }, [organizations, selectedOrganization]);
+
+  const handleWorkspaceMembersClick = () => {
+    if (selectedOrganization?.id) {
+      router.push(`/teams?view=members&organizationId=${selectedOrganization.id}`);
+    }
+  };
 
   console.log(organizations, 'these are orgs');
   const ShowCompany = ({ org }: { org: any }) => {
@@ -75,7 +83,10 @@ const CompanySelector = () => {
           align="start"
         >
           <div className="p-2">
-            <div className="flex items-center gap-2 p-2 rounded hover:bg-white/10 cursor-pointer">
+            <div 
+              className="flex items-center gap-2 p-2 rounded hover:bg-white/10 cursor-pointer"
+              onClick={handleWorkspaceMembersClick}
+            >
               <Users className="w-4 h-4 text-slate-200" />
               <span className="text-slate-200">Workspace members</span>
             </div>

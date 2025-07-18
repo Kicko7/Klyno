@@ -1,7 +1,6 @@
 'use client';
 
-import { TeamOutlined } from '@ant-design/icons';
-import { Button, Empty, Form, Input, List, Modal, Select, Typography } from 'antd';
+import { Button, Empty, Form, Input, Modal, Select, Typography } from 'antd';
 import { useResponsive } from 'antd-style';
 import { useSearchParams } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
@@ -10,9 +9,7 @@ import { Flexbox } from 'react-layout-kit';
 import CircleLoading from '@/components/Loading/CircleLoading';
 import CreateOrganizationModal from '@/features/Organization/CreateOrganizationModal';
 import ResponsiveContainer from '@/features/Setting/SettingContainer';
-import CreateTeamModal from '@/features/Team/CreateTeamModel';
 import { useOrganizationStore } from '@/store/organization/store';
-import { useTeamStore } from '@/store/team/store';
 
 const { Title, Text } = Typography;
 
@@ -20,25 +17,15 @@ const OrganizationClient = () => {
   const { mobile } = useResponsive();
   const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [form] = Form.useForm();
-  const teamId = useSearchParams().get('teamId');
   const { organizations, isLoading, fetchOrganizations, inviteMember, isInviting } =
     useOrganizationStore();
-
-  const { teams, loadingTeams, fetchTeams } = useTeamStore();
 
   const currentOrganization = organizations[0];
 
   useEffect(() => {
     fetchOrganizations();
   }, [fetchOrganizations]);
-
-  useEffect(() => {
-    if (currentOrganization?.id) {
-      fetchTeams();
-    }
-  }, [currentOrganization?.id, fetchTeams]);
 
   const handleInvite = async () => {
     try {
@@ -49,7 +36,7 @@ const OrganizationClient = () => {
         email: values.email,
         organizationId: currentOrganization.id,
         role: values.role,
-        teamId: teamId || '',
+        teamId: '', // No team concept anymore
       });
 
       setShowInviteModal(false);
@@ -151,8 +138,7 @@ const OrganizationClient = () => {
         onClose={() => setShowCreateOrgModal(false)}
         open={showCreateOrgModal}
       />
-
-      <CreateTeamModal onClose={() => setShowCreateTeamModal(false)} open={showCreateTeamModal} />
+      {/* Invite Member Modal */}
 
       <Modal
         confirmLoading={isInviting}

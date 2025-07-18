@@ -1,6 +1,9 @@
+import { nanoid } from 'nanoid';
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
+import { renderEmail } from '@/libs/emails/render-email';
+import { OrganizationInvitation } from '@/libs/emails/templates/organization-invitation';
 import { lambdaClient } from '@/libs/trpc/client';
 
 export interface OrganizationState {
@@ -85,22 +88,36 @@ export const useOrganizationStore = create<OrganizationStore>()(
       hideCreateOrgModal: () => {
         set({ CreateOrgModal: false });
       },
-      // inviteMember: async ({ organizationId, email, role, teamId }) => {
-      //   set({ isInviting: true });
-      //   try {
-      //     await lambdaClient.organization.inviteMember.mutate({
-      //       email,
-      //       organizationId,
-      //       role,
-      //       teamId,
-      //     });
-      //   } catch (error) {
-      //     set({ error });
-      //     throw error;
-      //   } finally {
-      //     set({ isInviting: false });
-      //   }
-      // },
+      inviteMember: async ({ organizationId, email, role, teamId }) => {
+        set({ isInviting: true });
+        try {
+          // Generate a unique token for the invitation
+          const token = nanoid();
+          
+          // Generate email HTML if needed
+          const emailHtml = renderEmail(
+            OrganizationInvitation({
+              organizationName: get().organizations.find(org => org.id === organizationId)?.name || 'Organization',
+            }),
+          );
+          
+          await lambdaClient.organization.inviteMember.mutate({
+            email,
+            organizationId,
+            role,
+            teamId,
+            token,
+            html: emailHtml,
+          });
+          // Refresh organization members after successful invite
+          await get().fetchOrganizationMembers(organizationId);
+        } catch (error) {
+          set({ error });
+          throw error;
+        } finally {
+          set({ isInviting: false });
+        }
+      },
     }),
     {
       name: 'LobeOrganizationStore',

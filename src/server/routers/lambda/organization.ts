@@ -115,8 +115,8 @@ export const organizationRouter = router({
     .mutation(async ({ ctx, input }) => {
       return ctx.organizationService.inviteMember(
         input.organizationId,
-        input.teamId,
         input.token,
+        input.teamId,
         input.email,
         input.role,
         input.html,

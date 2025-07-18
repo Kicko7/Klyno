@@ -36,6 +36,8 @@ export default {
     },
   },
   header: '欢迎使用',
+  title: 'Welcome to {{appName}}',
+  subtitle: 'Your AI assistant is ready to help. Start a conversation below.',
   pickAgent: '或从下列助手模板选择',
   skip: '跳过创建',
   slogan: {
