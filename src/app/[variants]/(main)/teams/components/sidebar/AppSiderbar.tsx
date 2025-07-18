@@ -41,6 +41,8 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar';
 
+import CompanySelector from './CompanySelector';
+
 const recentItems = [
   {
     title: 'Chats',
@@ -69,7 +71,11 @@ const sharedItems = [
   },
 ];
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  userOrgs?: any; // Replace 'any' with the correct type if known
+}
+
+export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
   const [openSections, setOpenSections] = React.useState({
     recent: true,
     private: true,
@@ -88,63 +94,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar className="border-r border-border/40  text-slate-100 ml-12" {...props}>
       <SidebarHeader className="border-b border-grey p-4 bg-black">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-2 p-2 h-auto text-slate-100 hover:bg-white/10"
-            >
-              <div className="flex items-center justify-center w-8 h-8 bg-white/10 rounded">
-                <span className="text-xs font-bold text-slate-300">A</span>
-              </div>
-              <span className="font-semibold text-slate-100 text-wrap">Ascension Hosting</span>
-              <ChevronDown className="w-4 h-4 text-slate-400 ml-auto" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-72 bg-black -md border-slate-200 text-slate-200 "
-            align="start"
-          >
-            <div className="p-2">
-              <div className="flex items-center gap-2 p-2 rounded hover:bg-white/10 cursor-pointer">
-                <Users className="w-4 h-4 text-slate-200" />
-                <span className="text-slate-200">Workspace members</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 rounded hover:bg-slate-700 cursor-pointer">
-                <Grid3X3 className="w-4 h-4 text-slate-200" />
-                <span className="text-slate-200">My integrations</span>
-              </div>
-
-              <div className="mt-4 mb-2">
-                <span className="text-xs text-slate-200 font-medium">Your workspaces:</span>
-              </div>
-
-              <div className="flex items-center gap-2 p-2 rounded bg-emerald-600 text-white">
-                <div className="flex items-center justify-center w-4 h-4  rounded">
-                  <span className="text-xs font-bold">A</span>
-                </div>
-                <span className="flex-1">Ascension Hosting</span>
-                <div className="flex items-center gap-1">
-                  <Users className="w-3 h-3" />
-                  <span className="text-xs">6</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 p-2 rounded hover:bg-slate-700 cursor-pointer mt-1">
-                <FolderPlus className="w-4 h-4 text-slate-200" />
-                <span className="text-slate-200">Create new workspace</span>
-              </div>
-
-              <div className="border-t border-slate-700 mt-2 pt-2">
-                <div className="flex items-center gap-2 p-2 rounded hover:bg-slate-700 cursor-pointer">
-                  <FileText className="w-4 h-4 text-slate-200" />
-                  <span className="text-slate-200">Pages</span>
-                </div>
-              </div>
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
+        <CompanySelector />
         <div className="mt-4 px-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

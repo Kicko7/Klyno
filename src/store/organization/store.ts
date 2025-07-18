@@ -11,6 +11,9 @@ export interface OrganizationState {
   isLoading: boolean;
   organizationMembers: any[];
   organizations: any[];
+  CreateOrgModal: boolean;
+  showCreateOrgModal: () => void;
+  hideCreateOrgModal: () => void;
 }
 
 export interface OrganizationAction {
@@ -35,6 +38,9 @@ const initialOrganizationState: OrganizationState = {
   isLoading: false,
   organizationMembers: [],
   organizations: [],
+  CreateOrgModal: false,
+  showCreateOrgModal: () => void {},
+  hideCreateOrgModal: () => void {},
 };
 
 export const useOrganizationStore = create<OrganizationStore>()(
@@ -73,22 +79,28 @@ export const useOrganizationStore = create<OrganizationStore>()(
           set({ error, isLoading: false });
         }
       },
-      inviteMember: async ({ organizationId, email, role, teamId }) => {
-        set({ isInviting: true });
-        try {
-          await lambdaClient.organization.inviteMember.mutate({
-            email,
-            organizationId,
-            role,
-            teamId,
-          });
-        } catch (error) {
-          set({ error });
-          throw error;
-        } finally {
-          set({ isInviting: false });
-        }
+      showCreateOrgModal: () => {
+        set({ CreateOrgModal: true });
       },
+      hideCreateOrgModal: () => {
+        set({ CreateOrgModal: false });
+      },
+      // inviteMember: async ({ organizationId, email, role, teamId }) => {
+      //   set({ isInviting: true });
+      //   try {
+      //     await lambdaClient.organization.inviteMember.mutate({
+      //       email,
+      //       organizationId,
+      //       role,
+      //       teamId,
+      //     });
+      //   } catch (error) {
+      //     set({ error });
+      //     throw error;
+      //   } finally {
+      //     set({ isInviting: false });
+      //   }
+      // },
     }),
     {
       name: 'LobeOrganizationStore',

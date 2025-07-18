@@ -12,40 +12,41 @@ import { useOrganizationStore } from '@/store/organization/store';
 import { AppSidebar } from './sidebar/AppSiderbar';
 
 const Main = () => {
-  const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
-
-  const { organizations, isLoading, fetchOrganizations, inviteMember, isInviting } =
-    useOrganizationStore();
+  const {
+    organizations,
+    isLoading,
+    fetchOrganizations,
+    CreateOrgModal: showOrgModel,
+    showCreateOrgModal,
+    hideCreateOrgModal,
+  } = useOrganizationStore();
   const currentOrganization = organizations[0];
   useEffect(() => {
     fetchOrganizations();
   }, [fetchOrganizations]);
   return (
-    <>
+    <div className="bg-black">
       {!currentOrganization && !isLoading ? (
         <Flexbox align="center" justify="center" style={{ minHeight: '40vh', width: '100%' }}>
           <Empty
             description="You are not part of any organization yet."
             image={Empty.PRESENTED_IMAGE_SIMPLE}
           >
-            <Button onClick={() => setShowCreateOrgModal(true)} size="large" type="primary">
+            <Button onClick={() => showCreateOrgModal()} size="large" type="primary">
               Create Organization
             </Button>
           </Empty>
         </Flexbox>
       ) : (
-        <div className="bg-black">
+        <>
           <SidebarProvider>
-            <AppSidebar />
+            <AppSidebar userOrgs={organizations} />
             <SidebarInset></SidebarInset>
           </SidebarProvider>
-        </div>
+        </>
       )}
-      <CreateOrganizationModal
-        onClose={() => setShowCreateOrgModal(false)}
-        open={showCreateOrgModal}
-      />
-    </>
+      <CreateOrganizationModal onClose={() => hideCreateOrgModal()} open={showOrgModel} />
+    </div>
   );
 };
 
