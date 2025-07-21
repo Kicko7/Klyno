@@ -14,7 +14,9 @@ import {
   Sparkles,
   Users,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import * as React from 'react';
+import { useCallback } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -40,6 +42,9 @@ import {
   SidebarMenuSubItem,
   SidebarRail,
 } from '@/components/ui/sidebar';
+
+import { useSessionStore } from '@/store/session';
+import { useOrganizationStore } from '@/store/organization/store';
 
 import CompanySelector from './CompanySelector';
 
@@ -76,6 +81,11 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 }
 
 export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
+  const router = useRouter();
+  const createSession = useSessionStore((s) => s.createSession);
+  const { organizations } = useOrganizationStore();
+  const currentOrganization = organizations[0];
+
   const [openSections, setOpenSections] = React.useState({
     recent: true,
     private: true,
@@ -91,30 +101,35 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
     }));
   };
 
+  const handleNewPrivateChat = useCallback(async () => {
+    try {
+      // Create a new session
+      const newSessionId = await createSession({
+        meta: {
+          title: 'New Private Chat',
+          description: `Private chat session for ${currentOrganization?.name || 'organization'}`,
+        },
+      });
+      
+      // Navigate to the chat view
+      router.push('/teams?view=chat');
+    } catch (error) {
+      console.error('Failed to create new private chat session:', error);
+    }
+  }, [createSession, currentOrganization, router]);
+
   return (
     <Sidebar className="border-r border-border/40  text-slate-100 ml-12" {...props}>
       <SidebarHeader className="border-b border-grey p-4 bg-black">
         <CompanySelector />
         <div className="mt-4 px-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white justify-start gap- mr-0">
-                <Plus className="w-4 h-4" />
-                New private chat
-                <ChevronDown className="w-4 h-4 ml-auto" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56 bg-slate-800 border-slate-700 text-slate-100">
-              <DropdownMenuItem className="hover:bg-slate-700 focus:bg-slate-700">
-                <MessageCircle className="w-4 h-4 mr-2" />
-                New Chat
-              </DropdownMenuItem>
-              <DropdownMenuItem className="hover:bg-slate-700 focus:bg-slate-700">
-                <FileText className="w-4 h-4 mr-2" />
-                New Document
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button 
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white justify-start gap-2 mr-0"
+            onClick={handleNewPrivateChat}
+          >
+            <Plus className="w-4 h-4" />
+            New private chat
+          </Button>
         </div>
       </SidebarHeader>
 
