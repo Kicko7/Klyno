@@ -10,8 +10,19 @@ export const LobeMetaDataSchema = z.object({
    */
   backgroundColor: z.string().optional(),
   description: z.string().optional(),
-
+  /**
+   * Whether this is a team chat session
+   */
+  isTeamChat: z.boolean().optional(),
+  /**
+   * Organization ID for team chats
+   */
+  organizationId: z.string().optional(),
   tags: z.array(z.string()).optional(),
+  /**
+   * Team members for collaborative chats
+   */
+  teamMembers: z.array(z.string()).optional(),
   /**
    * 名称
    */

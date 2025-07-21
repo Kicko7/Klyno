@@ -29,7 +29,11 @@ const renderFooter: FooterRender = ({ expand, onExpandChange }) => (
   <Footer expand={expand} onExpandChange={onExpandChange} />
 );
 
-const Desktop = memo(() => {
+interface DesktopProps {
+  onSend?: () => void;
+}
+
+const Desktop = memo<DesktopProps>(({ onSend }) => {
   const [inputHeight, updatePreference] = useGlobalStore((s) => [
     systemStatusSelectors.inputHeight(s),
     s.updateSystemStatus,
@@ -42,6 +46,7 @@ const Desktop = memo(() => {
       onInputHeightChange={(height) => {
         updatePreference({ inputHeight: height });
       }}
+      onSend={onSend}
       renderFooter={renderFooter}
       renderTextArea={renderTextArea}
       rightActions={rightActions}

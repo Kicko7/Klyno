@@ -1,9 +1,11 @@
 'use client';
 
 import { useResponsive } from 'antd-style';
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { memo, useCallback, useEffect } from 'react';
 import { Flexbox } from 'react-layout-kit';
+import { Button } from '@/components/ui/button';
+import { UserPlus } from 'lucide-react';
 
 import ChatHydration from '@/app/[variants]/(main)/chat/(workspace)/@conversation/features/ChatHydration';
 import ChatInput from '@/app/[variants]/(main)/chat/(workspace)/@conversation/features/ChatInput';
@@ -20,6 +22,7 @@ const TeamChat = memo(() => {
   const { mobile } = useResponsive();
   const { organizations } = useOrganizationStore();
   const currentOrganization = organizations[0];
+  const [showMemberModal, setShowMemberModal] = useState(false);
 
   const activeId = useSessionStore((s) => s.activeId);
   const createSession = useSessionStore((s) => s.createSession);
@@ -36,6 +39,9 @@ const TeamChat = memo(() => {
           meta: {
             title: 'Team Chat',
             description: `Team conversation for ${currentOrganization?.name || 'organization'}`,
+            isTeamChat: true,
+            organizationId: currentOrganization?.id,
+            teamMembers: [],
           },
         });
         // The createSession function already switches to the new session by default
@@ -52,31 +58,39 @@ const TeamChat = memo(() => {
         meta: {
           title: 'Team Chat',
           description: `Team conversation for ${currentOrganization?.name || 'organization'}`,
+          isTeamChat: true,
+          organizationId: currentOrganization?.id,
+          teamMembers: [],
         },
       });
     }
   }, [hasActiveSession, createSession, currentOrganization]);
 
   return (
-    <div className="flex flex-col h-full w-full min-h-[600px] bg-black rounded-lg border border-gray-600/30 overflow-hidden shadow-lg">
-      {/* Chat Header */}
-      <div className="px-5 py-4 border-b border-gray-600/30 bg-black">
-        <h3 className="text-white text-lg font-semibold m-0">Team Chat</h3>
-        <p className="text-gray-400 text-sm mt-1 m-0">Chat with your team AI assistant</p>
+    <div className="flex flex-col h-full w-full bg-black overflow-hidden relative">
+      {/* Add Members Button */}
+      <div className="absolute top-2 right-2 z-20">
+        <Button
+          onClick={() => setShowMemberModal(true)}
+          size="sm"
+          variant="ghost"
+          className="bg-white/10 hover:bg-white/20 text-white"
+        >
+          <UserPlus className="w-4 h-4 mr-2" />
+          Add Members
+        </Button>
       </div>
 
-      {/* Chat Content */}
-      <div className="flex-1 overflow-hidden flex flex-col relative bg-[#262C33]">
-        <ZenModeToast />
+      {/* Chat Content - Same layout as main chat */}
+      <ZenModeToast />
+      
+      <Suspense fallback={<SkeletonList mobile={mobile} />}>
+        <ChatList mobile={mobile} />
+      </Suspense>
 
-        <Suspense fallback={<SkeletonList mobile={mobile} />}>
-          <ChatList mobile={mobile} />
-        </Suspense>
-
-        <ChatInput mobile={mobile || false} onSend={handleSendMessage} />
-        <ChatHydration />
-        <ThreadHydration />
-      </div>
+      <ChatInput mobile={mobile || false} onSend={handleSendMessage} />
+      <ChatHydration />
+      <ThreadHydration />
     </div>
   );
 });

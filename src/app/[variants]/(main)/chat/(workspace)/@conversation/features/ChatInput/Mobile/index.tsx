@@ -32,7 +32,11 @@ const defaultLeftActions: ActionKeys[] = [
 
 const defaultRightActions: ActionKeys[] = ['clear'];
 
-const MobileChatInput = memo(() => {
+interface MobileProps {
+  onSend?: () => void;
+}
+
+const MobileChatInput = memo<MobileProps>(({ onSend }) => {
   const theme = useTheme();
   const ref = useRef<TextAreaRef>(null);
   const [expand, setExpand] = useState<boolean>(false);
@@ -46,15 +50,20 @@ const MobileChatInput = memo(() => {
     s.stopGenerateMessage,
   ]);
 
+  const handleSend = () => {
+    setExpand(false);
+    if (onSend) {
+      onSend();
+    } else {
+      sendMessage();
+    }
+  };
+
   return (
     <InputArea
       expand={expand}
       onInput={onInput}
-      onSend={() => {
-        setExpand(false);
-
-        sendMessage();
-      }}
+      onSend={handleSend}
       ref={ref}
       setExpand={setExpand}
       style={{

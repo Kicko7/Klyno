@@ -55,7 +55,7 @@ const WelcomeLayout = memo<WelcomeLayoutProps>(({ mobile }) => {
           <ChatList mobile={mobile} />
         </Flexbox>
       )}
-      <ChatInput mobile={mobile} onSend={handleSendMessage} />
+      <ChatInput mobile={mobile || false} onSend={handleSendMessage} />
     </Flexbox>
   );
 });

@@ -44,23 +44,18 @@ import {
 } from '@/components/ui/sidebar';
 
 import { useSessionStore } from '@/store/session';
+import { sessionSelectors } from '@/store/session/selectors';
 import { useOrganizationStore } from '@/store/organization/store';
 
 import CompanySelector from './CompanySelector';
 
-const recentItems = [
-  {
-    title: 'Chats',
-    icon: MessageCircle,
-    items: [{ title: 'Example 2', time: '14h' }],
-  },
-];
-
+// This will be dynamically populated with team chat sessions
 const mainItems = [
   { title: 'Pages', icon: FileText },
   { title: 'Gallery', icon: ImageIcon },
   { title: 'Tools', icon: Settings },
 ];
+
 
 const sharedItems = [
   {
@@ -83,8 +78,16 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
   const router = useRouter();
   const createSession = useSessionStore((s) => s.createSession);
+  const switchSession = useSessionStore((s) => s.switchSession);
   const { organizations } = useOrganizationStore();
   const currentOrganization = organizations[0];
+  
+  // Get team chat sessions for the current organization
+  const teamChats = useSessionStore(
+    (s) => currentOrganization?.id 
+      ? sessionSelectors.teamChatSessionsByOrg(currentOrganization.id)(s)
+      : []
+  );
 
   const [openSections, setOpenSections] = React.useState({
     recent: true,
@@ -108,6 +111,9 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
         meta: {
           title: 'New Private Chat',
           description: `Private chat session for ${currentOrganization?.name || 'organization'}`,
+          isTeamChat: true,
+          organizationId: currentOrganization?.id,
+          teamMembers: [],
         },
       });
       
@@ -117,6 +123,11 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
       console.error('Failed to create new private chat session:', error);
     }
   }, [createSession, currentOrganization, router]);
+  
+  const handleChatClick = useCallback((chatId: string) => {
+    switchSession(chatId);
+    router.push('/teams?view=chat');
+  }, [switchSession, router]);
 
   return (
     <Sidebar className="border-r border-border/40  text-slate-100 ml-12" {...props}>
@@ -134,6 +145,46 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
       </SidebarHeader>
 
       <SidebarContent className="bg-black px-4 py-4">
+        {/* Chats Section - Show team chats */}
+        <SidebarGroup>
+          <Collapsible open={openSections.chats} onOpenChange={() => toggleSection('chats')}>
+            <CollapsibleTrigger asChild>
+              <SidebarGroupLabel className="text-white text-xs uppercase tracking-wider font-medium hover:text-slate-300 cursor-pointer flex items-center gap-1">
+                {openSections.chats ? (
+                  <ChevronDown className="w-3 h-3" />
+                ) : (
+                  <ChevronRight className="w-3 h-3" />
+                )}
+                Chats
+              </SidebarGroupLabel>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {teamChats.map((chat) => (
+                    <SidebarMenuItem key={chat.id}>
+                      <SidebarMenuButton 
+                        className="text-slate-300 hover:text-slate-200 hover:bg-slate-800"
+                        onClick={() => handleChatClick(chat.id)}
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        <span>{chat.meta?.title || 'Untitled Chat'}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                  {teamChats.length === 0 && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton className="text-slate-400 cursor-default">
+                        <span>No chats yet</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </SidebarGroup>
+
         {/* Recent Section */}
         <SidebarGroup>
           <Collapsible open={openSections.recent} onOpenChange={() => toggleSection('recent')}>
@@ -150,40 +201,6 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
             <CollapsibleContent>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {recentItems.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <Collapsible
-                        open={openSections.chats}
-                        onOpenChange={() => toggleSection('chats')}
-                      >
-                        <CollapsibleTrigger asChild>
-                          <SidebarMenuButton className="text-slate-200 hover:text-slate-300 hover:bg-slate-800">
-                            <item.icon className="w-4 h-4" />
-                            <span>{item.title}</span>
-                            {openSections.chats ? (
-                              <ChevronDown className="w-3 h-3 ml-auto" />
-                            ) : (
-                              <ChevronRight className="w-3 h-3 ml-auto" />
-                            )}
-                          </SidebarMenuButton>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <SidebarMenuSub>
-                            {item.items?.map((subItem) => (
-                              <SidebarMenuSubItem key={subItem.title}>
-                                <SidebarMenuSubButton className="text-slate-300 hover:text-slate-200 hover:bg-black/60">
-                                  <span className="text-slate-400">{subItem.title}</span>
-                                  <span className="ml-auto text-xs text-slate-300">
-                                    {subItem.time}
-                                  </span>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            ))}
-                          </SidebarMenuSub>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    </SidebarMenuItem>
-                  ))}
                   {mainItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton className="text-slate-300 hover:text-slate-100 hover:bg-slate-800">

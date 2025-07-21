@@ -35,6 +35,11 @@ const CustomTextLogo = memo<FlexboxProps & { size: number }>(({ size, style, ...
 
 const CustomImageLogo = memo<Omit<ImageProps, 'alt' | 'src'> & { size: number }>(
   ({ size, ...rest }) => {
+    // Don't render image if BRANDING_LOGO_URL is empty
+    if (!BRANDING_LOGO_URL) {
+      return <CustomTextLogo size={size} {...rest} />;
+    }
+    
     return (
       <Image
         alt={BRANDING_NAME}
@@ -74,12 +79,16 @@ const CustomLogo = memo<LobeChatProps>(({ extra, size = 32, className, style, ty
   switch (type) {
     case '3d':
     case 'flat': {
-      logoComponent = <CustomImageLogo size={size} style={style} {...rest} />;
+      logoComponent = BRANDING_LOGO_URL ? 
+        <CustomImageLogo size={size} style={style} {...rest} /> :
+        <CustomTextLogo size={size} style={style} {...rest} />;
       break;
     }
     case 'mono': {
-      logoComponent = (
+      logoComponent = BRANDING_LOGO_URL ? (
         <CustomImageLogo size={size} style={{ filter: 'grayscale(100%)', ...style }} {...rest} />
+      ) : (
+        <CustomTextLogo size={size} style={style} {...rest} />
       );
       break;
     }
@@ -90,8 +99,8 @@ const CustomLogo = memo<LobeChatProps>(({ extra, size = 32, className, style, ty
     case 'combine': {
       logoComponent = (
         <>
-          <CustomImageLogo size={size} />
-          <CustomTextLogo size={size} style={{ marginLeft: Math.round(size / 4) }} />
+          {BRANDING_LOGO_URL && <CustomImageLogo size={size} />}
+          <CustomTextLogo size={size} style={{ marginLeft: BRANDING_LOGO_URL ? Math.round(size / 4) : 0 }} />
         </>
       );
 
@@ -105,7 +114,9 @@ const CustomLogo = memo<LobeChatProps>(({ extra, size = 32, className, style, ty
       break;
     }
     default: {
-      logoComponent = <CustomImageLogo size={size} style={style} {...rest} />;
+      logoComponent = BRANDING_LOGO_URL ? 
+        <CustomImageLogo size={size} style={style} {...rest} /> :
+        <CustomTextLogo size={size} style={style} {...rest} />;
       break;
     }
   }

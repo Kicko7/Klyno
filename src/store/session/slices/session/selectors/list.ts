@@ -44,6 +44,16 @@ const isSessionListInit = (s: SessionStore) => s.isSessionsFirstFetchFinished;
 // use to judge whether a session is fully activated
 const isSomeSessionActive = (s: SessionStore) => !!s.activeId && isSessionListInit(s);
 
+// Team chat selectors
+const teamChatSessions = (s: SessionStore): LobeSessions => 
+  allSessions(s).filter((session) => session.meta?.isTeamChat === true);
+
+const teamChatSessionsByOrg = (organizationId: string) => (s: SessionStore): LobeSessions =>
+  teamChatSessions(s).filter((session) => session.meta?.organizationId === organizationId);
+
+const nonTeamChatSessions = (s: SessionStore): LobeSessions =>
+  allSessions(s).filter((session) => !session.meta?.isTeamChat);
+
 export const sessionSelectors = {
   currentSession,
   currentSessionSafe,
@@ -55,5 +65,8 @@ export const sessionSelectors = {
   isInboxSession,
   isSessionListInit,
   isSomeSessionActive,
+  nonTeamChatSessions,
   pinnedSessions,
+  teamChatSessions,
+  teamChatSessionsByOrg,
 };
