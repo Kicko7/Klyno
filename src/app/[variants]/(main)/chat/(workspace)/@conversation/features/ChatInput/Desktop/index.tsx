@@ -46,7 +46,6 @@ const Desktop = memo<DesktopProps>(({ onSend }) => {
       onInputHeightChange={(height) => {
         updatePreference({ inputHeight: height });
       }}
-      onSend={onSend}
       renderFooter={renderFooter}
       renderTextArea={renderTextArea}
       rightActions={rightActions}

@@ -82,6 +82,7 @@ export const useTeams = () => {
           description: teamData.description || '',
           name: teamData.name,
           organizationId: organizations[0].id,
+          organizerId: organizations[0].id, // Using organization ID as organizer ID
         });
         await fetchTeams();
       }

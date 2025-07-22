@@ -3,6 +3,7 @@ import { lambdaClient } from '@/libs/trpc/client';
 export interface IOrganizationService {
   // Team member methods
   addTeamMember: (params: {
+    token: string;
     email: string;
     organizationId: string;
     role: 'member' | 'admin';
@@ -21,6 +22,7 @@ export interface IOrganizationService {
     description?: string;
     name: string;
     organizationId: string;
+    organizerId: string;
     slug: string;
   }) => Promise<any>;
 
@@ -75,6 +77,7 @@ export class OrganizationService implements IOrganizationService {
     description?: string;
     name: string;
     organizationId: string;
+    organizerId: string;
     slug: string;
   }) => {
     return lambdaClient.organization.createTeam.mutate(params);
@@ -89,6 +92,7 @@ export class OrganizationService implements IOrganizationService {
   };
 
   addTeamMember = (params: {
+    token: string;
     email: string;
     organizationId: string;
     role: 'member' | 'admin';
