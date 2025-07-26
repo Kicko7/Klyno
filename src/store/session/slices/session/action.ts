@@ -276,15 +276,18 @@ export const createSessionSlice: StateCreator<
     await get().refreshSessions();
   },
   internal_processSessions: (sessions, sessionGroups) => {
+    // Filter out team chats from main chat page
+    const nonTeamChatSessions = sessions.filter((session) => !session.meta?.isTeamChat);
+    
     const customGroups = sessionGroups.map((item) => ({
       ...item,
-      children: sessions.filter((i) => i.group === item.id && !i.pinned),
+      children: nonTeamChatSessions.filter((i) => i.group === item.id && !i.pinned),
     }));
 
-    const defaultGroup = sessions.filter(
+    const defaultGroup = nonTeamChatSessions.filter(
       (item) => (!item.group || item.group === 'default') && !item.pinned,
     );
-    const pinnedGroup = sessions.filter((item) => item.pinned);
+    const pinnedGroup = nonTeamChatSessions.filter((item) => item.pinned);
 
     set(
       {

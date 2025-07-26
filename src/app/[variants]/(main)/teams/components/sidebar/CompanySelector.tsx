@@ -37,9 +37,7 @@ const CompanySelector = () => {
     }
   };
 
-  console.log(organizations, 'these are orgs');
   const ShowCompany = ({ org }: { org: any }) => {
-    console.log(org, selectedOrganization, 'these are ssgss');
 
     if (!org) {
       return (

@@ -13,6 +13,7 @@ import { messages, messagesFiles } from './message';
 import { organizationInvitations, organizationMembers, organizations, teamMembers, teams } from './organization';
 import { chunks, unstructuredChunks } from './rag';
 import { sessionGroups, sessions } from './session';
+import { teamChats, teamChatMessages } from './teamChat';
 import { threads, topicDocuments, topics } from './topic';
 import { users } from './user';
 
@@ -304,5 +305,25 @@ export const teamChannelsRelations = relations(teamChannels, ({ one }) => ({
   team: one(teams, {
     fields: [teamChannels.teamId],
     references: [teams.id],
+  }),
+}));
+
+// Team Chat relations
+export const teamChatsRelations = relations(teamChats, ({ one, many }) => ({
+  user: one(users, {
+    fields: [teamChats.userId],
+    references: [users.id],
+  }),
+  messages: many(teamChatMessages),
+}));
+
+export const teamChatMessagesRelations = relations(teamChatMessages, ({ one }) => ({
+  teamChat: one(teamChats, {
+    fields: [teamChatMessages.teamChatId],
+    references: [teamChats.id],
+  }),
+  user: one(users, {
+    fields: [teamChatMessages.userId],
+    references: [users.id],
   }),
 }));

@@ -30,8 +30,9 @@ const Main = () => {
   } = useOrganizationStore();
   const currentOrganization = organizations[0];
   useEffect(() => {
-    fetchOrganizations();
+    fetchOrganizations()
   }, [fetchOrganizations]);
+  
 
   const renderContent = () => {
     if (view === 'members') {

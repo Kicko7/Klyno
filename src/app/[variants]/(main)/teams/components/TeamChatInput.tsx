@@ -24,27 +24,33 @@ const leftActions = [
 
 const rightActions = ['clear'] as ActionKeys[];
 
-const TeamChatInput = () => {
-  const { send } = useSendMessage();
-  const router = useRouter();
-  const [loading, inputMessage, updateInputMessage] = useChatStore((s) => [
-    chatSelectors.isAIGenerating(s),
-    s.inputMessage,
-    s.updateInputMessage,
-  ]);
+interface TeamChatInputProps {
+  teamChatId?: string;
+  onSendMessage?: (content: string) => Promise<void>;
+}
+
+const TeamChatInput = ({ teamChatId, onSendMessage }: TeamChatInputProps) => {
+  const [inputMessage, setInputMessage] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
   const [inputHeight, updatePreference] = useGlobalStore((s) => [
     systemStatusSelectors.inputHeight(s),
     s.updateSystemStatus,
   ]);
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const messageToSend = inputMessage.trim();
-    if (messageToSend) {
-      send();
-      // Navigate to chat view after sending
-      router.push('/teams?view=chat');
+    if (messageToSend && onSendMessage && teamChatId) {
+      setLoading(true);
+      try {
+        await onSendMessage(messageToSend);
+        setInputMessage(''); // Clear input after sending
+      } catch (error) {
+        console.error('Failed to send message:', error);
+      } finally {
+        setLoading(false);
+      }
     }
-  }, [send, inputMessage, router]);
+  }, [inputMessage, onSendMessage, teamChatId]);
 
   return (
     <DraggablePanel
@@ -74,7 +80,7 @@ const TeamChatInput = () => {
         />
         <InputArea
           loading={loading}
-          onChange={updateInputMessage}
+          onChange={(value) => setInputMessage(value)}
           onSend={handleSend}
           value={inputMessage}
         />

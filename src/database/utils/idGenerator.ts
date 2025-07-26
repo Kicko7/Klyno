@@ -11,6 +11,8 @@ const prefixes = {
   plugins: 'plg',
   sessionGroups: 'sg',
   sessions: 'ssn',
+  team_chats: 'tcht',
+  team_chat_messages: 'tchm',
   threads: 'thd',
   topics: 'tpc',
   user: 'user',

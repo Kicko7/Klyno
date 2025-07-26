@@ -43,11 +43,11 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar';
 
-import { useSessionStore } from '@/store/session';
-import { sessionSelectors } from '@/store/session/selectors';
 import { useOrganizationStore } from '@/store/organization/store';
+import { useTeamChatStore } from '@/store/teamChat';
 
 import CompanySelector from './CompanySelector';
+import { ChatItemDropdown } from './ChatItemDropdown';
 
 // This will be dynamically populated with team chat sessions
 const mainItems = [
@@ -77,17 +77,26 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 
 export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
   const router = useRouter();
-  const createSession = useSessionStore((s) => s.createSession);
-  const switchSession = useSessionStore((s) => s.switchSession);
   const { organizations } = useOrganizationStore();
   const currentOrganization = organizations[0];
   
-  // Get team chat sessions for the current organization
-  const teamChats = useSessionStore(
-    (s) => currentOrganization?.id 
-      ? sessionSelectors.teamChatSessionsByOrg(currentOrganization.id)(s)
-      : []
-  );
+  // Use the new team chat store
+  const {
+    teamChats,
+    activeTeamChatId,
+    createTeamChat,
+    setActiveTeamChat,
+    loadTeamChats,
+    isLoading,
+  } = useTeamChatStore();
+  
+  // Load team chats when organization changes
+  React.useEffect(() => {
+    if (currentOrganization?.id) {
+      console.log('🔍 Loading team chats for sidebar:', currentOrganization.id);
+      loadTeamChats(currentOrganization.id);
+    }
+  }, [currentOrganization?.id, loadTeamChats]);
 
   const [openSections, setOpenSections] = React.useState({
     recent: true,
@@ -96,6 +105,8 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
     chats: true,
     clientWork: true,
   });
+  
+  const [isCreatingChat, setIsCreatingChat] = React.useState(false);
 
   const toggleSection = (section: string) => {
     setOpenSections((prev) => ({
@@ -105,29 +116,25 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
   };
 
   const handleNewPrivateChat = useCallback(async () => {
+    if (isCreatingChat || !currentOrganization?.id) return;
+    
     try {
-      // Create a new session
-      const newSessionId = await createSession({
-        meta: {
-          title: 'New Private Chat',
-          description: `Private chat session for ${currentOrganization?.name || 'organization'}`,
-          isTeamChat: true,
-          organizationId: currentOrganization?.id,
-          teamMembers: [],
-        },
-      });
+      setIsCreatingChat(true);
+      console.log('🚀 Creating new team chat from sidebar button...');
       
-      // Navigate to the chat view
+      await createTeamChat(currentOrganization.id);
       router.push('/teams?view=chat');
     } catch (error) {
-      console.error('Failed to create new private chat session:', error);
+      console.error('Failed to create new team chat:', error);
+    } finally {
+      setIsCreatingChat(false);
     }
-  }, [createSession, currentOrganization, router]);
+  }, [createTeamChat, currentOrganization?.id, router, isCreatingChat]);
   
   const handleChatClick = useCallback((chatId: string) => {
-    switchSession(chatId);
+    setActiveTeamChat(chatId);
     router.push('/teams?view=chat');
-  }, [switchSession, router]);
+  }, [setActiveTeamChat, router]);
 
   return (
     <Sidebar className="border-r border-border/40  text-slate-100 ml-12" {...props}>
@@ -135,11 +142,12 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
         <CompanySelector />
         <div className="mt-4 px-1">
           <Button 
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white justify-start gap-2 mr-0"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white justify-start gap-2 mr-0 disabled:opacity-50"
             onClick={handleNewPrivateChat}
+            disabled={isCreatingChat}
           >
             <Plus className="w-4 h-4" />
-            New private chat
+            {isCreatingChat ? 'Creating...' : 'New private chat'}
           </Button>
         </div>
       </SidebarHeader>
@@ -161,17 +169,30 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
             <CollapsibleContent>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {teamChats.map((chat) => (
-                    <SidebarMenuItem key={chat.id}>
-                      <SidebarMenuButton 
-                        className="text-slate-300 hover:text-slate-200 hover:bg-slate-800"
-                        onClick={() => handleChatClick(chat.id)}
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                        <span>{chat.meta?.title || 'Untitled Chat'}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
+                  {teamChats.map((chat) => {
+                    const isPublic = chat.metadata?.isPublic || false;
+                    return (
+                      <SidebarMenuItem key={chat.id}>
+                        <div className="relative group">
+                          <SidebarMenuButton 
+                            className={`bg-black/20 text-slate-300 hover:text-slate-200 hover:bg-slate-800 pr-8 ${
+                              activeTeamChatId === chat.id ? 'bg-slate-800 text-white' : ''
+                            } ${isPublic ? 'border-l-2 border-emerald-500' : ''}`}
+                            onClick={() => handleChatClick(chat.id)}
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            <span className="flex-1 truncate">{chat.title || 'Untitled Chat'}</span>
+                            {isPublic && (
+                              <Users className="w-3 h-3 text-emerald-400 ml-1" />
+                            )}
+                          </SidebarMenuButton>
+                          <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ChatItemDropdown chat={chat} />
+                          </div>
+                        </div>
+                      </SidebarMenuItem>
+                    );
+                  })}
                   {teamChats.length === 0 && (
                     <SidebarMenuItem>
                       <SidebarMenuButton className="text-slate-400 cursor-default">

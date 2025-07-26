@@ -287,6 +287,13 @@
       "when": 1752452190358,
       "tag": "0040_light_captain_flint",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1753269960554,
+      "tag": "0041_ambitious_warbound",
+      "breakpoints": true
     }
   ],
   "version": "6"
