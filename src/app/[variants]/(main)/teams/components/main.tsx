@@ -40,7 +40,7 @@ const Main = () => {
     }
     if (view === 'chat') {
       return (
-        <div className="h-full w-full p-6 bg-black">
+        <div className="h-full w-full bg-black">
           <TeamChat />
         </div>
       );

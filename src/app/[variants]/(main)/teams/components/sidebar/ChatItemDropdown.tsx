@@ -143,7 +143,7 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
       {/* Edit Modal */}
       <Modal
         open={isEditDialogOpen}
-        onClose={() => setIsEditDialogOpen(false)}
+        onCancel={() => setIsEditDialogOpen(false)}
         title="Edit Chat Name"
         footer={
           <div className="flex gap-2 justify-end">
@@ -184,7 +184,7 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
       {/* Delete Modal */}
       <Modal
         open={isDeleteDialogOpen}
-        onClose={() => setIsDeleteDialogOpen(false)}
+        onCancel={() => setIsDeleteDialogOpen(false)}
         title="Delete Chat"
         footer={
           <div className="flex gap-2 justify-end">

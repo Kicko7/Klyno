@@ -2,11 +2,13 @@ import React from 'react';
 
 import KlynoWelcome from '@/components/KlynoWelcome';
 import { useOrganizationStore } from '@/store/organization/store';
+import { useTeamChatStore } from '@/store/teamChat';
 
 import TeamChatInput from './TeamChatInput';
 
 const TeamWelcome = () => {
   const { organizations } = useOrganizationStore();
+  const { activeTeamChatId } = useTeamChatStore();
   const currentOrganization = organizations[0];
 
   return (
@@ -19,7 +21,7 @@ const TeamWelcome = () => {
       {/* Chat Input - Fixed at bottom */}
       <div className="w-full p-6 bg-black border-t border-gray-600/30">
         <div className=" mx-auto">
-          <TeamChatInput />
+          {activeTeamChatId && <TeamChatInput teamChatId={activeTeamChatId} />}
         </div>
       </div>
     </div>

@@ -5,11 +5,16 @@ import { TeamChatService } from '@/services/teamChatService';
 import { useUserStore } from '@/store/user';
 import { isServerMode } from '@/const/version';
 import { lambdaClient } from '@/libs/trpc/client';
+import { CreateMessageParams } from '@/types/message';
+import { chatService } from '@/services/chat';
+import { useAgentStore } from '@/store/agent';
+import { agentSelectors } from '@/store/agent/selectors';
 
 interface TeamChatState {
   // State
   teamChats: TeamChatItem[];
   activeTeamChatId: string | null;
+  activeTopicId: string | null;
   messages: Record<string, TeamChatMessageItem[]>; // teamChatId -> messages
   isLoading: boolean;
   isLoadingMessages: boolean;
@@ -17,12 +22,15 @@ interface TeamChatState {
 
   // Actions
   createTeamChat: (organizationId: string, title?: string) => Promise<string>;
+  createNewTeamChatWithTopic: (organizationId: string, title?: string) => Promise<{ teamChatId: string; topicId: string }>;
   loadTeamChats: (organizationId: string) => Promise<void>;
-  setActiveTeamChat: (id: string) => void;
+  setActiveTeamChat: (id: string, topicId?: string) => void;
+  switchToTeamChatTopic: (teamChatId: string, topicId: string) => void;
   updateTeamChat: (id: string, data: { title?: string; description?: string; metadata?: any }) => Promise<void>;
   deleteTeamChat: (id: string) => Promise<void>;
   loadMessages: (teamChatId: string) => Promise<void>;
-  sendMessage: (teamChatId: string, content: string) => Promise<void>;
+  sendMessage: (teamChatId: string, content: string, messageType?: 'user' | 'assistant', messageId?: string, retry?: boolean) => Promise<void>;
+  retryMessage: (teamChatId: string, messageId: string, originalUserMessage: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -91,6 +99,7 @@ export const useTeamChatStore = create<TeamChatState>()(
       // Initial state
       teamChats: [],
       activeTeamChatId: null,
+      activeTopicId: null,
       messages: {},
       isLoading: false,
       isLoadingMessages: false,
@@ -157,6 +166,23 @@ export const useTeamChatStore = create<TeamChatState>()(
         }
       },
 
+      // Create a new team chat with topic ID for URL routing
+      createNewTeamChatWithTopic: async (organizationId: string, title = 'New Chat') => {
+        try {
+          const teamChatId = await get().createTeamChat(organizationId, title);
+          const topicId = `topic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          
+          // Set the topic ID in state
+          set({ activeTopicId: topicId });
+          
+          console.log('✅ Team chat with topic created:', { teamChatId, topicId });
+          return { teamChatId, topicId };
+        } catch (error) {
+          console.error('❌ Failed to create team chat with topic:', error);
+          throw error;
+        }
+      },
+
       // Load all team chats for an organization
       loadTeamChats: async (organizationId: string) => {
         try {
@@ -189,9 +215,21 @@ export const useTeamChatStore = create<TeamChatState>()(
       },
 
       // Set active team chat
-      setActiveTeamChat: (id: string) => {
-        console.log('🎯 Setting active team chat:', id);
-        set({ activeTeamChatId: id });
+      setActiveTeamChat: (id: string, topicId?: string) => {
+        console.log('🎯 Setting active team chat:', id, topicId);
+        set({ 
+          activeTeamChatId: id,
+          activeTopicId: topicId || null
+        });
+      },
+
+      // Switch to a specific team chat topic (for URL routing)
+      switchToTeamChatTopic: (teamChatId: string, topicId: string) => {
+        console.log('🔄 Switching to team chat topic:', teamChatId, topicId);
+        set({ 
+          activeTeamChatId: teamChatId,
+          activeTopicId: topicId
+        });
       },
 
       // Update a team chat
@@ -294,37 +332,163 @@ export const useTeamChatStore = create<TeamChatState>()(
       },
 
       // Send a message in team chat
-      sendMessage: async (teamChatId: string, content: string) => {
+sendMessage: async (teamChatId: string, content: string, messageType: 'user' | 'assistant' = 'user', messageId?: string, retry: boolean = false) => {
         try {
-          console.log('📤 Sending message to team chat:', teamChatId);
+          console.log('📤 Sending message to team chat:', teamChatId, messageType);
 
+          // First, update the UI immediately for better UX
+          set(state => {
+            const existingMessages = state.messages[teamChatId] || [];
+            let updatedMessages;
+            
+            if (messageId) {
+              // Update existing message if messageId is provided
+              const existingIndex = existingMessages.findIndex(m => m.id === messageId);
+              if (existingIndex >= 0) {
+                updatedMessages = [...existingMessages];
+                updatedMessages[existingIndex] = { ...updatedMessages[existingIndex], content };
+              } else {
+                // Add new message if not found
+                const newMessage = {
+                  id: messageId,
+                  content,
+                  messageType,
+                  teamChatId,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                };
+                updatedMessages = [...existingMessages, newMessage as any];
+              }
+            } else {
+              // Add new message with generated ID
+              const newMessage = {
+                id: `temp-${Date.now()}`,
+                content,
+                messageType,
+                teamChatId,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              };
+              updatedMessages = [...existingMessages, newMessage as any];
+            }
+            
+            return {
+              messages: {
+                ...state.messages,
+                [teamChatId]: updatedMessages,
+              },
+            };
+          });
+
+          // Then persist to database in background
           let message;
           if (isServerMode) {
             console.log('🚄 Using tRPC client to send message');
             message = await lambdaClient.teamChat.addMessage.mutate({
               teamChatId,
               content,
+              messageType,
             });
           } else {
             const service = await getTeamChatService();
             message = await service.addMessageToChat(teamChatId, {
               content,
+              messageType,
+              id: messageId,
             });
           }
 
-          set(state => ({
-            messages: {
-              ...state.messages,
-              [teamChatId]: [...(state.messages[teamChatId] || []), message],
-            },
-          }));
+          console.log('✅ Message sent/updated');
 
-          console.log('✅ Message sent');
+          // Retry logic if it's a retry attempt
+          if (retry && messageType === 'assistant') {
+            console.log('🔄 Retrying AI message with updated API key...');
+            // Code to retry AI generation
+            const state = get();
+            const existingMessages = state.messages[teamChatId] || [];
+            const originalMessage = existingMessages.find(m => m.id === messageId);
+            if (originalMessage && originalMessage.messageType === 'assistant') {
+              // Here you'd re-trigger the AI message generation, similar to the logic in TeamChatInput
+            }
+          }
         } catch (error) {
           console.error('❌ Failed to send message:', error);
           set({ 
             error: error instanceof Error ? error.message : 'Failed to send message',
           });
+        }
+      },
+
+      // Retry a failed AI message
+      retryMessage: async (teamChatId: string, messageId: string, originalUserMessage: string) => {
+        try {
+          console.log('🔄 Retrying message:', messageId);
+          const sessionId = teamChatId; // Use team chat ID as session ID
+          const messages: CreateMessageParams[] = [{
+            role: 'user',
+            content: originalUserMessage,
+            sessionId,
+          }];
+
+          const agentConfig = agentSelectors.currentAgentConfig(useAgentStore.getState());
+          if (!agentConfig) throw new Error('No agent configuration found');
+
+          // Add system role if configured
+          if (agentConfig.systemRole) {
+            messages.unshift({ role: 'system', content: agentConfig.systemRole, sessionId });
+          }
+
+          let aiResponse = '';
+          await chatService.createAssistantMessageStream({
+            params: {
+              messages: messages as any,
+              model: agentConfig.model,
+              provider: agentConfig.provider,
+              ...agentConfig.params,
+              plugins: agentConfig.plugins,
+            },
+            onMessageHandle: (chunk) => {
+              // Handle different chunk types like main chat
+              switch (chunk.type) {
+                case 'text': {
+                  aiResponse += chunk.text;
+                  // Update the assistant message in real-time for streaming effect
+                  get().sendMessage(teamChatId, aiResponse, 'assistant', messageId);
+                  break;
+                }
+                case 'tool_calls': {
+                  // Handle tool calls if needed
+                  console.log('Tool calls received:', chunk.tool_calls);
+                  break;
+                }
+                case 'reasoning': {
+                  // Handle reasoning if needed
+                  console.log('Reasoning chunk:', chunk.text);
+                  break;
+                }
+                default: {
+                  // Handle other chunk types
+                  if ('text' in chunk && chunk.text) {
+                    aiResponse += chunk.text;
+                    get().sendMessage(teamChatId, aiResponse, 'assistant', messageId);
+                  }
+                }
+              }
+            },
+            onFinish: async (finalContent) => {
+              const finalMessage = finalContent || aiResponse || 'No response generated';
+              await get().sendMessage(teamChatId, finalMessage, 'assistant', messageId);
+            },
+            onErrorHandle: (error) => {
+              console.error('AI retry error:', error);
+              get().sendMessage(teamChatId, 'Failed to generate AI response after retry.', 'assistant', messageId);
+            },
+          });
+
+          console.log('✅ Retry attempt completed for message:', messageId);
+        } catch (error) {
+          console.error('❌ Failed to retry message:', error);
+          get().sendMessage(teamChatId, 'Failed to generate AI response.', 'assistant', messageId);
         }
       },
 

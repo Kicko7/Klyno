@@ -28,12 +28,35 @@ export class TeamChatService {
   };
 
   // Add a message to a team chat
-  addMessageToChat = async (teamChatId: string, data: Omit<NewTeamChatMessage, 'userId' | 'teamChatId'>) => {
+  addMessageToChat = async (teamChatId: string, data: Omit<NewTeamChatMessage, 'userId' | 'teamChatId'> & { id?: string }) => {
+    const messageId = data.id || idGenerator('team_chat_messages');
+    
+    // Check if message already exists and update it
+    if (data.id) {
+      const existingMessage = await this.db.query.teamChatMessages.findFirst({
+        where: eq(teamChatMessages.id, data.id)
+      });
+      
+      if (existingMessage) {
+        const result = await this.db.update(teamChatMessages)
+          .set({
+            content: data.content,
+            messageType: data.messageType,
+            updatedAt: new Date(),
+          })
+          .where(eq(teamChatMessages.id, data.id))
+          .returning();
+        
+        return result[0];
+      }
+    }
+    
+    // Create new message
     const result = await this.db.insert(teamChatMessages).values({
       ...data,
       teamChatId,
       userId: this.userId,
-      id: idGenerator('team_chat_messages'),
+      id: messageId,
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
@@ -45,7 +68,7 @@ export class TeamChatService {
   getMessages = async (teamChatId: string, limit = 50): Promise<TeamChatMessageItem[]> => {
     return this.db.query.teamChatMessages.findMany({
       where: eq(teamChatMessages.teamChatId, teamChatId),
-      orderBy: [desc(teamChatMessages.createdAt)],
+      orderBy: [teamChatMessages.createdAt], // Order by ascending (oldest first)
       limit,
     });
   };

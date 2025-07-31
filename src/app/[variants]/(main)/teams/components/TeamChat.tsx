@@ -20,6 +20,7 @@ import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
 import AddMemberModal from './AddMemberModal';
 import TeamChatContent from './TeamChatContent';
+import TeamChatHydration from './TeamChatHydration';
 
 const TeamChat = memo(() => {
   const { mobile } = useResponsive();
@@ -50,7 +51,7 @@ const TeamChat = memo(() => {
       loadTeamChats(currentOrganization.id);
     }
   }, [currentOrganization?.id, loadTeamChats]);
-
+  
   // Auto-create first team chat if none exists
   useEffect(() => {
     if (currentOrganization?.id && teamChats.length === 0 && !isLoading) {
@@ -85,7 +86,7 @@ const TeamChat = memo(() => {
   }, [currentOrganization, teamChats, activeTeamChatId, isLoading]);
 
   return (
-    <div className="flex flex-col h-full w-full bg-black overflow-hidden relative">
+    <div className="flex flex-col h-full w-full bg-black relative">
       {/* Team Chat Header */}
       <ChatHeader
         left={
@@ -142,6 +143,9 @@ const TeamChat = memo(() => {
         organizationId={currentOrganization?.id}
         teamId={activeTeamChatId || undefined}
       />
+      
+      {/* Team Chat Hydration for URL params */}
+      <TeamChatHydration />
     </div>
   );
 });

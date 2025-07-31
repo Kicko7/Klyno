@@ -1,9 +1,21 @@
 'use client';
 
+import { RobotOutlined, UserOutlined } from '@ant-design/icons';
 import React from 'react';
-import { memo } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { Flexbox } from 'react-layout-kit';
+
+import { DEFAULT_USER_AVATAR } from '@/const/meta';
 import { TeamChatMessageItem } from '@/database/schemas/teamChat';
+import ChatItem from '@/features/ChatItem';
+import { useSessionStore } from '@/store/session';
+import { sessionMetaSelectors } from '@/store/session/slices/session/selectors';
+import { useTeamChatStore } from '@/store/teamChat';
+import { useUserStore } from '@/store/user';
+import { userProfileSelectors } from '@/store/user/selectors';
+
+import TeamAPIKeyForm from './TeamAPIKeyForm';
+import TeamChatWelcome from './TeamChatWelcome';
 
 interface TeamChatMessagesProps {
   messages: TeamChatMessageItem[];
@@ -11,6 +23,15 @@ interface TeamChatMessagesProps {
 }
 
 const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLoading }) => {
+  const userAvatar = useUserStore(userProfileSelectors.userAvatar);
+  const agentMeta = useSessionStore(sessionMetaSelectors.currentAgentMeta);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center text-slate-400">
@@ -20,57 +41,95 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
   }
 
   if (!messages || messages.length === 0) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-slate-400">
-        <div className="text-center">
-          <div className="mb-4">
-            <div className="text-lg font-semibold text-white mb-2">Welcome to your team chat!</div>
-            <p className="text-sm">Start a conversation with your team members.</p>
-            <p className="text-xs mt-1">Send your first message below.</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <TeamChatWelcome />;
   }
 
   return (
     <Flexbox
-      flex={1}
       style={{
-        overflowX: 'hidden',
-        overflowY: 'auto',
-        position: 'relative',
         padding: '16px',
+        width: '100%',
+        flexDirection: 'column',
+        gap: '16px',
+        overflowY: 'auto',
       }}
       width={'100%'}
+      height={'60vh'}
     >
-      {messages.map((message) => (
-        <div
-          key={message.id}
-          className={`mb-4 ${
-            message.messageType === 'user' 
-              ? 'ml-auto max-w-[70%]' 
-              : 'mr-auto max-w-[70%]'
-          }`}
-        >
-          <div
-            className={`p-3 rounded-lg ${
-              message.messageType === 'user'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-700 text-white'
-            }`}
-            style={{
-              wordWrap: 'break-word',
-              whiteSpace: 'pre-wrap',
-            }}
-          >
-            {message.content}
-          </div>
-          <div className="text-xs text-gray-400 mt-1 px-1">
-            {new Date(message.createdAt).toLocaleTimeString()}
-          </div>
-        </div>
-      ))}
+      {messages.map((message) => {
+        const isAssistant = message.messageType === 'assistant';
+
+        // Check if this is an API key error message
+        let isApiKeyError = false;
+        let errorProvider = 'openai';
+        let actualMessage = message.content;
+
+        if (isAssistant && message.content) {
+          try {
+            const parsed = JSON.parse(message.content);
+            if (parsed.error?.type === 'InvalidProviderAPIKey') {
+              isApiKeyError = true;
+              errorProvider = parsed.error.body?.provider || 'openai';
+              actualMessage = parsed.content || message.content;
+            }
+          } catch (e) {
+            // Not JSON, use as regular message
+          }
+        }
+
+        const avatar = isAssistant
+          ? {
+              avatar: agentMeta.avatar || <RobotOutlined />,
+              title: agentMeta.title || 'AI Assistant',
+              backgroundColor: agentMeta.backgroundColor,
+            }
+          : {
+              avatar: userAvatar || DEFAULT_USER_AVATAR,
+              title: 'You',
+            };
+
+        // If this is an API key error, show the configuration form
+        if (isApiKeyError) {
+          return (
+            <div key={message.id} style={{ margin: '16px 0' }}>
+              <div
+                style={{
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  marginBottom: '8px',
+                }}
+              >
+                <div style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '8px' }}>
+                  🔑 API Key Required
+                </div>
+                <div style={{ color: '#6b7280', fontSize: '14px', marginBottom: '12px' }}>
+                  To continue chatting with the AI, please configure your{' '}
+                  {errorProvider.toUpperCase()} API key below:
+                </div>
+                <TeamAPIKeyForm id={message.id} provider={errorProvider} />
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <ChatItem
+            key={message.id}
+            avatar={avatar}
+            editing={false}
+            loading={!message.content && isAssistant} // Show loading for empty assistant messages
+            message={actualMessage || ''}
+            placement={isAssistant ? 'left' : 'right'}
+            primary={!isAssistant}
+            time={new Date(message.createdAt).getTime()}
+            variant="bubble"
+          />
+        );
+      })}
+      {/* Invisible div to help with auto-scrolling */}
+      <div ref={messagesEndRef} />
     </Flexbox>
   );
 });

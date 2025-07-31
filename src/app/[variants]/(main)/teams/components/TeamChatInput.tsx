@@ -1,10 +1,6 @@
-import React, { useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useCallback, useState } from 'react';
 import { Flexbox } from 'react-layout-kit';
 import { DraggablePanel } from '@lobehub/ui';
-import { useSendMessage } from '@/features/ChatInput/useSend';
-import { useChatStore } from '@/store/chat';
-import { chatSelectors } from '@/store/chat/slices/message/selectors';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
 import { ActionKeys } from '@/features/ChatInput/ActionBar/config';
@@ -12,6 +8,14 @@ import { CHAT_TEXTAREA_HEIGHT } from '@/const/layoutTokens';
 import InputArea from '@/features/ChatInput/Desktop/InputArea';
 import Head from '@/features/ChatInput/Desktop/Header';
 import Footer from '@/app/[variants]/(main)/chat/(workspace)/@conversation/features/ChatInput/Desktop/Footer';
+import { useAgentStore } from '@/store/agent';
+import { agentSelectors } from '@/store/agent/selectors';
+import { chatService } from '@/services/chat';
+import { useTeamChatStore } from '@/store/teamChat';
+import { fileChatSelectors, useFileStore } from '@/store/file';
+import { CreateMessageParams } from '@/types/message';
+import { nanoid } from '@/utils/uuid';
+import { useTeamChatRoute } from '@/hooks/useTeamChatRoute';
 
 const leftActions = [
   'model',
@@ -25,32 +29,156 @@ const leftActions = [
 const rightActions = ['clear'] as ActionKeys[];
 
 interface TeamChatInputProps {
-  teamChatId?: string;
-  onSendMessage?: (content: string) => Promise<void>;
+  teamChatId: string;
+  organizationId?: string; // For creating new chats when needed
 }
 
-const TeamChatInput = ({ teamChatId, onSendMessage }: TeamChatInputProps) => {
-  const [inputMessage, setInputMessage] = React.useState('');
-  const [loading, setLoading] = React.useState(false);
+const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
+  const [inputMessage, setInputMessage] = useState('');
+  const [loading, setLoading] = useState(false);
   const [inputHeight, updatePreference] = useGlobalStore((s) => [
     systemStatusSelectors.inputHeight(s),
     s.updateSystemStatus,
   ]);
 
+  // Get team chat store methods and routing
+  const { sendMessage: sendTeamMessage, createNewTeamChatWithTopic, activeTopicId } = useTeamChatStore();
+  const { createNewTeamChat, switchToTeamChat } = useTeamChatRoute();
+  
+  // Get agent configuration for AI
+  const agentConfig = useAgentStore(agentSelectors.currentAgentConfig);
+  const agentChatConfig = useAgentStore(agentSelectors.currentAgentConfig);
+  
+  // Get file store for attachments
+  const fileList = useFileStore(fileChatSelectors.chatUploadFileList);
+  const clearChatUploadFileList = useFileStore((s) => s.clearChatUploadFileList);
+  const isUploadingFiles = useFileStore(fileChatSelectors.isUploadingFiles);
+
   const handleSend = useCallback(async () => {
     const messageToSend = inputMessage.trim();
-    if (messageToSend && onSendMessage && teamChatId) {
-      setLoading(true);
-      try {
-        await onSendMessage(messageToSend);
-        setInputMessage(''); // Clear input after sending
-      } catch (error) {
-        console.error('Failed to send message:', error);
-      } finally {
-        setLoading(false);
+    if (!messageToSend && fileList.length === 0) return;
+    if (loading || isUploadingFiles) return;
+
+    // Clear input immediately for better UX
+    setInputMessage('');
+    clearChatUploadFileList();
+    setLoading(true);
+    
+    try {
+      console.log('Sending user message:', messageToSend);
+      // 1. Add user message to UI immediately (non-blocking)
+      sendTeamMessage(teamChatId, messageToSend, 'user');
+      console.log('User message sent successfully');
+      
+      // 2. Create a temporary assistant message for AI response with empty content initially
+      const assistantMessageId = nanoid();
+      sendTeamMessage(teamChatId, '', 'assistant', assistantMessageId);
+      console.log('Placeholder assistant message created:', assistantMessageId);
+      
+      // 3. Generate AI response using the chat service
+      const sessionId = teamChatId; // Use team chat ID as session ID
+      const messages: CreateMessageParams[] = [
+        {
+          role: 'user',
+          content: messageToSend,
+          sessionId,
+          files: fileList.map(f => f.id).filter(Boolean),
+        }
+      ];
+
+      // Add system role if configured
+      if (agentConfig.systemRole) {
+        messages.unshift({
+          role: 'system',
+          content: agentConfig.systemRole,
+          sessionId,
+        });
       }
+
+      let aiResponse = '';
+      
+      // Stream AI response using proper streaming API
+      await chatService.createAssistantMessageStream({
+        params: {
+          messages: messages as any,
+          model: agentConfig.model,
+          provider: agentConfig.provider,
+          ...agentConfig.params,
+          plugins: agentConfig.plugins,
+        },
+        onMessageHandle: (chunk) => {
+          // Handle different chunk types like main chat
+          switch (chunk.type) {
+            case 'text': {
+              aiResponse += chunk.text;
+              // Update the assistant message in real-time for streaming effect
+              sendTeamMessage(teamChatId, aiResponse, 'assistant', assistantMessageId);
+              break;
+            }
+            case 'tool_calls': {
+              // Handle tool calls if needed
+              console.log('Tool calls received:', chunk.tool_calls);
+              break;
+            }
+            case 'reasoning': {
+              // Handle reasoning if needed
+              console.log('Reasoning chunk:', chunk.text);
+              break;
+            }
+            default: {
+              // Handle other chunk types
+              if ('text' in chunk && chunk.text) {
+                aiResponse += chunk.text;
+                sendTeamMessage(teamChatId, aiResponse, 'assistant', assistantMessageId);
+              }
+            }
+          }
+        },
+        onFinish: async (finalContent) => {
+          // Use accumulated response if no final content provided
+          const finalMessage = finalContent || aiResponse || 'No response generated';
+          await sendTeamMessage(teamChatId, finalMessage, 'assistant', assistantMessageId);
+        },
+        onErrorHandle: (error) => {
+          console.error('AI response error:', error);
+          
+          // Check if it's an API key error
+          if (error?.type === 'InvalidProviderAPIKey') {
+            // Create a special error message that will trigger the API key form
+            const errorMessage = {
+              id: assistantMessageId,
+              content: 'API key configuration required',
+              error: {
+                type: 'InvalidProviderAPIKey',
+                body: {
+                  provider: agentConfig.provider || 'openai'
+                }
+              },
+              messageType: 'assistant',
+              metadata: {
+                isError: true,
+                errorType: 'InvalidProviderAPIKey',
+                provider: agentConfig.provider || 'openai'
+              }
+            };
+            
+            // Store the error message in team chat for special handling
+            sendTeamMessage(teamChatId, JSON.stringify(errorMessage), 'assistant', assistantMessageId);
+          } else {
+            sendTeamMessage(teamChatId, 'Sorry, I encountered an error processing your request.', 'assistant', assistantMessageId);
+          }
+        },
+      });
+      
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // Show error message to user
+      const errorMessageId = nanoid();
+      await sendTeamMessage(teamChatId, 'Sorry, I encountered an error processing your request.', 'assistant', errorMessageId);
+    } finally {
+      setLoading(false);
     }
-  }, [inputMessage, onSendMessage, teamChatId]);
+  }, [inputMessage, loading, isUploadingFiles, fileList, teamChatId, sendTeamMessage, agentConfig, clearChatUploadFileList]);
 
   return (
     <DraggablePanel
@@ -69,7 +197,7 @@ const TeamChatInput = ({ teamChatId, onSendMessage }: TeamChatInputProps) => {
       <Flexbox
         gap={8}
         height={'100%'}
-        paddingBlock={'4px 16px'}
+        // paddingBlock={'4px 16px'}
         style={{ minHeight: CHAT_TEXTAREA_HEIGHT, position: 'relative' }}
       >
         <Head

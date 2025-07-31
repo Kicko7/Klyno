@@ -4,8 +4,7 @@ import React, { useEffect, Suspense } from 'react';
 import { memo } from 'react';
 import { Flexbox } from 'react-layout-kit';
 import { useTeamChatStore } from '@/store/teamChat';
-import TeamChatInput from './TeamChatInput';
-import TeamChatMessages from './TeamChatMessages';
+import TeamChatLayout from './layout/TeamChatLayout';
 
 interface TeamChatContentProps {
   teamChatId: string;
@@ -14,7 +13,7 @@ interface TeamChatContentProps {
 }
 
 const TeamChatContent: React.FC<TeamChatContentProps> = memo(({ teamChatId, mobile, onNewChat }) => {
-  const { teamChats, messages, isLoadingMessages, sendMessage, loadMessages, setActiveTeamChat } = useTeamChatStore();
+  const { teamChats, loadMessages, setActiveTeamChat } = useTeamChatStore();
 
   // Find the current chat
   const currentChat = teamChats.find(chat => chat.id === teamChatId);
@@ -46,19 +45,9 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(({ teamChatId, mobi
   }
 
   return (
-    <>
-      {/* Chat Messages */}
-      <TeamChatMessages
-        messages={messages[teamChatId] || []}
-        isLoading={isLoadingMessages}
-      />
-      
-      {/* Chat Input */}
-      <TeamChatInput
-        teamChatId={teamChatId}
-        onSendMessage={(content) => sendMessage(teamChatId, content)}
-      />
-    </>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <TeamChatLayout teamChatId={teamChatId} mobile={mobile} />
+    </div>
   );
 });
 
