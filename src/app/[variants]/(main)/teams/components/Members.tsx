@@ -150,7 +150,7 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
   }
 
   return (
-    <div className="min-h-screen bg-[#262C33] text-white">
+    <div className="min-h-screen bg-black text-white">
       <div className="p-6 w-full h-full">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
@@ -180,11 +180,6 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
             value={searchTerm}
             onChange={handleSearchChange}
             className="bg-[#2a3038] border-gray-600/50 text-white placeholder-gray-400 hover:border-gray-500 focus:border-blue-500"
-            style={{
-              backgroundColor: '#2a3038',
-              borderColor: 'rgba(107, 114, 128, 0.5)',
-              color: '#ffffff',
-            }}
           />
         </div>
 
@@ -194,25 +189,20 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
             <Spin size="large" />
           </div>
         ) : (
-          <div className="bg-[#2a3038] rounded-lg border border-gray-600/30 shadow-sm">
+          <div className="rounded-lg border-white/10 shadow-sm">
             <List
               dataSource={paginatedMembers}
               renderItem={(member: any) => (
-                <List.Item className="border-b border-gray-600/30 px-6 py-4 hover:bg-[#2f3640] transition-colors">
+                <List.Item className="border-b border-white/10 px-6 py-4 m-2 transition-colors">
                   <List.Item.Meta
                     avatar={
-                      <Avatar size={48} className="bg-blue-600 text-white font-medium">
-                        {member.name?.charAt(0)?.toUpperCase() ||
-                          member.userId?.charAt(0)?.toUpperCase() ||
-                          member.email?.charAt(0)?.toUpperCase() ||
-                          'U'}
+                      <Avatar size={48} className=" bg-blue-600 text-white font-medium">
+                        {member.email?.charAt(0)?.toUpperCase()}
                       </Avatar>
                     }
                     title={
                       <div className="flex items-center gap-3 flex-wrap">
-                        <Text className="text-white text-lg font-medium">
-                          {member.name || member.userId || 'Unknown User'}
-                        </Text>
+                        <Text className="text-white text-lg font-medium">{member.email}</Text>
                         <Tag color={getRoleColor(member.role || member.memberRole)}>
                           {getRoleDisplayName(member.role || member.memberRole)}
                         </Tag>
@@ -220,9 +210,6 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
                     }
                     description={
                       <div className="space-y-1">
-                        <Text className="text-gray-400 block">
-                          {member.email && <span className="mr-4">{member.email}</span>}
-                        </Text>
                         <Text className="text-gray-400 text-sm">
                           Joined{' '}
                           {member.createdAt

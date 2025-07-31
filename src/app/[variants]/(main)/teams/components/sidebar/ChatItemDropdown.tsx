@@ -1,6 +1,7 @@
 'use client';
 
-import { MoreHorizontal, Edit3, Trash2, Users } from 'lucide-react';
+import { Modal } from '@lobehub/ui';
+import { Edit3, MoreHorizontal, Trash2, Users } from 'lucide-react';
 import React, { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -12,10 +13,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Modal } from '@lobehub/ui';
-
-import { useTeamChatStore } from '@/store/teamChat';
 import { TeamChatItem } from '@/database/schemas/teamChat';
+import { useTeamChatStore } from '@/store/teamChat';
 
 interface ChatItemDropdownProps {
   chat: TeamChatItem;
@@ -28,7 +27,7 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
   const [editTitle, setEditTitle] = useState(chat.title || '');
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  
+
   const { updateTeamChat, deleteTeamChat } = useTeamChatStore();
 
   const handleEdit = () => {
@@ -75,12 +74,12 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
     try {
       const currentMetadata = chat.metadata || {};
       const isCurrentlyPublic = currentMetadata.isPublic;
-      
+
       await updateTeamChat(chat.id, {
         metadata: {
           ...currentMetadata,
           isPublic: !isCurrentlyPublic,
-        }
+        },
       });
       onClose?.();
     } catch (error) {
@@ -97,7 +96,7 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 w-6 p-0 text-slate-400 hover:text-slate-200 hover:bg-slate-700"
+            className="h-6 w-6 p-0 text-slate-400 hover:text-slate-200 hover:bg-white/20"
             onClick={(e) => {
               e.stopPropagation();
             }}
@@ -105,13 +104,13 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48 bg-slate-800 border-slate-700">
+        <DropdownMenuContent align="end" className="w-48 bg-black border-slate-700">
           <DropdownMenuItem
             onClick={(e) => {
               e.stopPropagation();
               handleEdit();
             }}
-            className="text-slate-200 hover:bg-slate-700 focus:bg-slate-700"
+            className="text-slate-200 hover:bg-white/10 focus:bg-white/10 hover:text-white focus:text-white"
           >
             <Edit3 className="mr-2 h-4 w-4" />
             Edit Name
@@ -121,7 +120,7 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
               e.stopPropagation();
               handleMakePublic();
             }}
-            className="text-slate-200 hover:bg-slate-700 focus:bg-slate-700"
+            className="text-slate-200 hover:bg-white/10 focus:bg-white/10 hover:text-white focus:text-white"
           >
             <Users className="mr-2 h-4 w-4" />
             {isPublic ? 'Make Private' : 'Make Public'}
@@ -132,7 +131,7 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
               e.stopPropagation();
               handleDelete();
             }}
-            className="text-red-400 hover:bg-red-900/20 focus:bg-red-900/20"
+            className="text-red-400 hover:bg-white/20 focus:bg-white/20 hover:text-red-500 focus:text-red-500"
           >
             <Trash2 className="mr-2 h-4 w-4" />
             Delete Chat
@@ -150,14 +149,14 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
             <Button
               variant="outline"
               onClick={() => setIsEditDialogOpen(false)}
-              className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600"
+              className="bg-black border-slate-700 text-slate-200 hover:bg-white/10"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSaveEdit}
               disabled={isUpdating || !editTitle.trim()}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-black hover:bg-white/20 text-white"
             >
               {isUpdating ? 'Saving...' : 'Save'}
             </Button>
@@ -173,7 +172,7 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
               id="chatTitle"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="bg-slate-700 border-slate-600 text-slate-200"
+              className="bg-black border-slate-700 text-slate-200 hover:bg-white/10"
               placeholder="Enter chat name..."
               maxLength={100}
             />
@@ -191,14 +190,14 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
             <Button
               variant="outline"
               onClick={() => setIsDeleteDialogOpen(false)}
-              className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600"
+              className="bg-black border-slate-700 text-slate-200 hover:bg-white/10"
             >
               Cancel
             </Button>
             <Button
               onClick={handleConfirmDelete}
               disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-black hover:bg-white/20 text-red-500"
             >
               {isDeleting ? 'Deleting...' : 'Delete'}
             </Button>
@@ -207,8 +206,8 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
       >
         <div className="space-y-4">
           <p className="text-slate-300">
-            Are you sure you want to delete "{chat.title || 'Untitled Chat'}"? 
-            This action cannot be undone and all messages will be permanently removed.
+            Are you sure you want to delete "{chat.title || 'Untitled Chat'}"? This action cannot be
+            undone and all messages will be permanently removed.
           </p>
         </div>
       </Modal>
