@@ -42,12 +42,11 @@ import {
   SidebarMenuSubItem,
   SidebarRail,
 } from '@/components/ui/sidebar';
-
 import { useOrganizationStore } from '@/store/organization/store';
 import { useTeamChatStore } from '@/store/teamChat';
 
-import CompanySelector from './CompanySelector';
 import { ChatItemDropdown } from './ChatItemDropdown';
+import CompanySelector from './CompanySelector';
 
 // This will be dynamically populated with team chat sessions
 const mainItems = [
@@ -55,7 +54,6 @@ const mainItems = [
   { title: 'Gallery', icon: ImageIcon },
   { title: 'Tools', icon: Settings },
 ];
-
 
 const sharedItems = [
   {
@@ -79,7 +77,7 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
   const router = useRouter();
   const { organizations } = useOrganizationStore();
   const currentOrganization = organizations[0];
-  
+
   // Use the new team chat store
   const {
     teamChats,
@@ -89,7 +87,7 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
     loadTeamChats,
     isLoading,
   } = useTeamChatStore();
-  
+
   // Load team chats when organization changes
   React.useEffect(() => {
     if (currentOrganization?.id) {
@@ -105,7 +103,7 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
     chats: true,
     clientWork: true,
   });
-  
+
   const [isCreatingChat, setIsCreatingChat] = React.useState(false);
 
   const toggleSection = (section: string) => {
@@ -117,11 +115,11 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
 
   const handleNewPrivateChat = useCallback(async () => {
     if (isCreatingChat || !currentOrganization?.id) return;
-    
+
     try {
       setIsCreatingChat(true);
       console.log('🚀 Creating new team chat from sidebar button...');
-      
+
       await createTeamChat(currentOrganization.id);
       router.push('/teams?view=chat');
     } catch (error) {
@@ -130,18 +128,21 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
       setIsCreatingChat(false);
     }
   }, [createTeamChat, currentOrganization?.id, router, isCreatingChat]);
-  
-  const handleChatClick = useCallback((chatId: string) => {
-    setActiveTeamChat(chatId);
-    router.push('/teams?view=chat');
-  }, [setActiveTeamChat, router]);
+
+  const handleChatClick = useCallback(
+    (chatId: string) => {
+      setActiveTeamChat(chatId);
+      router.push('/teams?view=chat');
+    },
+    [setActiveTeamChat, router],
+  );
 
   return (
     <Sidebar className="border-r border-border/40  text-slate-100 ml-12" {...props}>
       <SidebarHeader className="border-b border-grey p-4 bg-black">
         <CompanySelector />
         <div className="mt-4 px-1">
-          <Button 
+          <Button
             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white justify-start gap-2 mr-0 disabled:opacity-50"
             onClick={handleNewPrivateChat}
             disabled={isCreatingChat}
@@ -172,19 +173,17 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
                   {teamChats.map((chat) => {
                     const isPublic = chat.metadata?.isPublic || false;
                     return (
-                      <SidebarMenuItem key={chat.id}>
+                      <SidebarMenuItem key={chat.id} className="bg-black">
                         <div className="relative group">
-                          <SidebarMenuButton 
-                            className={`bg-black/20 text-slate-300 hover:text-slate-200 hover:bg-slate-800 pr-8 ${
-                              activeTeamChatId === chat.id ? 'bg-slate-800 text-white' : ''
+                          <SidebarMenuButton
+                            className={`bg-black text-slate-300 hover:bg-white/10 pr-8 transition-all duration-300 ease-in-out ${
+                              activeTeamChatId === chat.id ? 'bg-white/20 text-white' : ''
                             } ${isPublic ? 'border-l-2 border-emerald-500' : ''}`}
-                            onClick={() => handleChatClick(chat.id)}
+                            onClick={(e) => handleChatClick(chat.id)}
                           >
                             <MessageCircle className="w-4 h-4" />
                             <span className="flex-1 truncate">{chat.title || 'Untitled Chat'}</span>
-                            {isPublic && (
-                              <Users className="w-3 h-3 text-emerald-400 ml-1" />
-                            )}
+                            {isPublic && <Users className="w-3 h-3 text-emerald-400 ml-1" />}
                           </SidebarMenuButton>
                           <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <ChatItemDropdown chat={chat} />
@@ -224,7 +223,7 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
                 <SidebarMenu>
                   {mainItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton className="text-slate-300 hover:text-slate-100 hover:bg-slate-800">
+                      <SidebarMenuButton className="text-slate-300 hover:text-slate-100 hover:bg-white/10">
                         <item.icon className="w-4 h-4" />
                         <span>{item.title}</span>
                       </SidebarMenuButton>
@@ -253,7 +252,7 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton className="text-slate-300 hover:text-slate-100 hover:bg-slate-800">
+                    <SidebarMenuButton className="text-slate-300 hover:text-slate-100 hover:bg-white/10">
                       <span>Create Private Project</span>
                       <Plus className="w-4 h-4 ml-auto" />
                     </SidebarMenuButton>
@@ -287,7 +286,7 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
                         onOpenChange={() => toggleSection('clientWork')}
                       >
                         <CollapsibleTrigger asChild>
-                          <SidebarMenuButton className="text-slate-300 hover:text-slate-100 hover:bg-slate-800">
+                          <SidebarMenuButton className="text-slate-300 hover:text-slate-100 hover:!bg-white/10 bg-black">
                             <span className="w-4 h-4 flex items-center justify-center text-emerald-400 font-bold text-xs">
                               C
                             </span>
@@ -303,7 +302,7 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
                           <SidebarMenuSub>
                             {item.items?.map((subItem) => (
                               <SidebarMenuSubItem key={subItem.title}>
-                                <SidebarMenuSubButton className="text-slate-400 hover:text-slate-200 hover:bg-slate-800">
+                                <SidebarMenuSubButton className="text-slate-400 hover:text-slate-200 hover:bg-white/10">
                                   <FolderOpen className="w-4 h-4 text-yellow-500" />
                                   <span>{subItem.title}</span>
                                 </SidebarMenuSubButton>
