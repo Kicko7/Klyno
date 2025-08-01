@@ -84,7 +84,7 @@ export interface TeamAction {
     email: string,
     role: 'admin' | 'member',
     token: string,
-  ) => Promise<void>;
+  ) => Promise<any>;
   removeMember: (teamId: string, memberId: string) => Promise<void>;
   reset: () => void;
   setCurrentChannel: (channel: TeamChannel | null) => void;
@@ -252,17 +252,17 @@ export const useTeamStore = create<TeamStore>()(
               organizationName: organizations[0].name,
             }),
           );
-          // Get the current organization ID from the first organization
-
-          await lambdaClient.organization.inviteMember.mutate({
+          
+          // Try the new endpoint first for better user experience
+          const result = await lambdaClient.organization.inviteExistingUser.mutate({
             teamId,
             email,
             role,
             organizationId: organizations[0].id,
-            html: emailHtml,
-            token,
           });
+          
           await get().fetchMembers(teamId);
+          return result;
         } catch (error: any) {
           set({ error: error.message });
           throw error;

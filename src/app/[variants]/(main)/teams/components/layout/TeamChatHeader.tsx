@@ -66,48 +66,49 @@ const TeamChatHeader = memo<TeamChatHeaderProps>(({ teamChatId }) => {
   }
 
   return (
-    <ChatHeader
-      left={
-        <Flexbox align={'center'} gap={12} horizontal>
-          <Avatar
-            avatar={agentMeta.avatar}
-            background={agentMeta.backgroundColor}
-            size={32}
-            title={agentMeta.title || 'AI Assistant'}
-          />
-          <Flexbox align={'center'} className={styles.container} gap={8} horizontal>
-            <div className={styles.title}>
-              {currentChat.title || 'Team AI Chat'}
-            </div>
-            <div style={{ 
-              fontSize: '12px', 
-              color: '#6b7280',
-              padding: '2px 6px',
-              background: 'rgba(34, 197, 94, 0.1)',
-              borderRadius: '4px',
-              border: '1px solid rgba(34, 197, 94, 0.2)'
-            }}>
-              🤖 AI Chat
-            </div>
-          </Flexbox>
-        </Flexbox>
-      }
-      right={
-        <Flexbox align={'center'} gap={8} horizontal>
-          <div style={{ 
-            fontSize: '12px', 
-            color: '#6b7280',
-            padding: '4px 8px',
-            background: 'rgba(59, 130, 246, 0.1)',
-            borderRadius: '6px',
-            border: '1px solid rgba(59, 130, 246, 0.2)'
-          }}>
-            Team Chat
-          </div>
-        </Flexbox>
-      }
-      style={{ paddingInline: 8, position: 'initial', zIndex: 11 }}
-    />
+    <></>
+    // <ChatHeader
+    //   left={
+    //     <Flexbox align={'center'} gap={12} horizontal>
+    //       <Avatar
+    //         avatar={agentMeta.avatar}
+    //         background={agentMeta.backgroundColor}
+    //         size={32}
+    //         title={agentMeta.title || 'AI Assistant'}
+    //       />
+    //       <Flexbox align={'center'} className={styles.container} gap={8} horizontal>
+    //         <div className={styles.title}>
+    //           {currentChat.title || 'Team AI Chat'}
+    //         </div>
+    //         <div style={{ 
+    //           fontSize: '12px', 
+    //           color: '#6b7280',
+    //           padding: '2px 6px',
+    //           background: 'rgba(34, 197, 94, 0.1)',
+    //           borderRadius: '4px',
+    //           border: '1px solid rgba(34, 197, 94, 0.2)'
+    //         }}>
+    //           🤖 AI Chat
+    //         </div>
+    //       </Flexbox>
+    //     </Flexbox>
+    //   }
+    //   right={
+    //     <Flexbox align={'center'} gap={8} horizontal>
+    //       <div style={{ 
+    //         fontSize: '12px', 
+    //         color: '#6b7280',
+    //         padding: '4px 8px',
+    //         background: 'rgba(59, 130, 246, 0.1)',
+    //         borderRadius: '6px',
+    //         border: '1px solid rgba(59, 130, 246, 0.2)'
+    //       }}>
+    //         Team Chat
+    //       </div>
+    //     </Flexbox>
+    //   }
+    //   style={{ paddingInline: 8, position: 'initial', zIndex: 11 }}
+    // />
   );
 });
 

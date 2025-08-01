@@ -29,15 +29,24 @@ export const InviteMember = ({
   const handleAddMember = async (values: { email: string; role: string }) => {
     setAddingMember(true);
     try {
-      await inviteMember(
+      const result = await inviteMember(
         teamId,
         values.email,
         values.role as 'admin' | 'member',
         team?.teamJoinCode || '',
       );
-      message.success(
-        `Invitation sent to ${values.email}. They'll be prompted to join when they sign in.`,
-      );
+      
+      // Check if the result indicates a user was added or an invitation was sent
+      if (result?.userAdded) {
+        message.success(
+          `${values.email} has been added to the team successfully!`,
+        );
+      } else {
+        message.success(
+          `Invitation sent to ${values.email}. They'll be prompted to join when they sign up.`,
+        );
+      }
+      
       setShowAddMemberModal(false);
       addMemberForm.resetFields();
     } catch (error: any) {

@@ -19,10 +19,9 @@ const TeamChatHydration = memo(() => {
   useLayoutEffect(() => {
     // Subscribe to store changes and update URL
     const unsubscribeTopic = useTeamChatStore.subscribe(
-      (s) => s.activeTopicId,
       (state) => {
-        setTopic(!state ? null : state);
-      },
+        setTopic(!state.activeTopicId ? null : state.activeTopicId);
+      }
     );
 
     return () => {

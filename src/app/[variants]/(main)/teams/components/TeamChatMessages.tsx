@@ -54,7 +54,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
         overflowY: 'auto',
       }}
       width={'100%'}
-      height={'60vh'}
+      height={'80vh'}
     >
       {messages.map((message) => {
         const isAssistant = message.messageType === 'assistant';

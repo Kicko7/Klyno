@@ -22,6 +22,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { renderEmail } from '@/libs/emails/render-email';
 import { OrganizationInvitation } from '@/libs/emails/templates/organization-invitation';
 import { useOrganizationStore } from '@/store/organization/store';
+import AddOrganizationMemberModal from './AddOrganizationMemberModal';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -35,7 +36,6 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [form] = Form.useForm();
 
   const {
     organizationMembers,
@@ -105,26 +105,9 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
     setShowInviteModal(true);
   };
 
-  const handleInviteSubmit = async () => {
-    if (!currentOrganization?.id) return;
-
-    try {
-      const values = await form.validateFields();
-      const token = nanoid();
-
-      await inviteMember({
-        email: values.email,
-        organizationId: currentOrganization.id,
-        role: values.role,
-        teamId: '', // Empty team ID for organization-level invitations
-      });
-
-      message.success('Member invited successfully!');
-      setShowInviteModal(false);
-      form.resetFields();
-    } catch (error: any) {
-      console.error('Failed to invite member:', error);
-      message.error(error.message || 'Failed to invite member');
+  const handleInviteSuccess = () => {
+    if (currentOrganization?.id) {
+      fetchOrganizationMembers(currentOrganization.id);
     }
   };
 
@@ -297,84 +280,15 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
         )}
       </div>
 
-      {/* Invite Member Modal */}
-      <Modal
-        title={<span className="text-white">Invite New Member</span>}
+      {/* Add Organization Member Modal */}
+      <AddOrganizationMemberModal
         open={showInviteModal}
-        onCancel={() => {
+        onClose={() => {
           setShowInviteModal(false);
-          form.resetFields();
+          handleInviteSuccess();
         }}
-        onOk={handleInviteSubmit}
-        confirmLoading={isInviting}
-        className="invite-member-modal"
-        styles={{
-          mask: { backgroundColor: 'rgba(0, 0, 0, 0.7)' },
-          content: { backgroundColor: '#1f2937', border: '1px solid #374151' },
-        }}
-      >
-        <div className="bg-gray-800 p-6 rounded-lg">
-          <Form form={form} layout="vertical" className="space-y-4">
-            <Form.Item
-              label={<span className="text-white">Email Address</span>}
-              name="email"
-              rules={[
-                { required: true, message: 'Please enter an email address' },
-                { type: 'email', message: 'Please enter a valid email address' },
-              ]}
-            >
-              <Input
-                placeholder="Enter email address"
-                className="bg-gray-700 border-gray-600 text-white"
-                style={{
-                  backgroundColor: '#374151',
-                  borderColor: '#4b5563',
-                  color: '#ffffff',
-                }}
-              />
-            </Form.Item>
-
-            <Form.Item
-              label={<span className="text-white">Role</span>}
-              name="role"
-              initialValue="member"
-              rules={[{ required: true, message: 'Please select a role' }]}
-            >
-              <Select
-                placeholder="Select a role"
-                className="custom-select"
-                style={{
-                  backgroundColor: '#374151',
-                }}
-                dropdownStyle={{
-                  backgroundColor: '#374151',
-                  border: '1px solid #4b5563',
-                }}
-              >
-                <Option value="member">
-                  <div className="flex items-center gap-2">
-                    <Tag color="blue">Member</Tag>
-                    <span className="text-gray-300">Can view and participate</span>
-                  </div>
-                </Option>
-                <Option value="admin">
-                  <div className="flex items-center gap-2">
-                    <Tag color="red">Admin</Tag>
-                    <span className="text-gray-300">Can manage members and settings</span>
-                  </div>
-                </Option>
-              </Select>
-            </Form.Item>
-
-            <div className="bg-gray-700 p-3 rounded-lg">
-              <Text className="text-gray-300 text-sm">
-                💡 The invited user will receive an email invitation and can accept it to join the
-                organization.
-              </Text>
-            </div>
-          </Form>
-        </div>
-      </Modal>
+        organizationId={currentOrganization?.id}
+      />
     </div>
   );
 };

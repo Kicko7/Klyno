@@ -140,7 +140,6 @@ const TeamChat = memo(() => {
       <AddMemberModal
         open={showMemberModal}
         onClose={() => setShowMemberModal(false)}
-        organizationId={currentOrganization?.id}
         teamId={activeTeamChatId || undefined}
       />
       

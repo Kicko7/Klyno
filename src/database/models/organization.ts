@@ -363,4 +363,19 @@ export class OrganizationModel {
     });
     return invitation;
   }
+
+  async findUserByEmail(email: string) {
+    const user = await this.db.query.users.findFirst({
+      where: (users, { eq }) => eq(users.email, email),
+    });
+    return user;
+  }
+
+  async isUserTeamMember(teamId: string, userId: string) {
+    const member = await this.db.query.teamMembers.findFirst({
+      where: (teamMembers, { and, eq }) => 
+        and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)),
+    });
+    return !!member;
+  }
 }

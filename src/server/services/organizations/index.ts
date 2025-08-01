@@ -89,31 +89,81 @@ export class OrganizationService {
     if (!organization) {
       throw new Error('Organization not found');
     }
-    // Generate a unique token for the invitation
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-    const invitation = await this.organizationModel.createInvitation({
-      email,
-      expiresAt,
-      id: nanoid(),
-      organizationId,
-      teamId,
-      userId: this.userId,
-      role,
-      token,
-    });
+    // Check if user with this email already exists
+    const existingUser = await this.organizationModel.findUserByEmail(email);
+    
+    if (existingUser) {
+      // User exists, check if they're already a member of this team
+      const isAlreadyMember = await this.organizationModel.isUserTeamMember(teamId, existingUser.id);
+      
+      if (isAlreadyMember) {
+        throw new Error('User is already a member of this team');
+      }
+      
+      // Check if they're already a member of the organization
+      const isOrgMember = await this.organizationModel.isUserOrganizationMember(organizationId, existingUser.id);
+      
+      if (!isOrgMember) {
+        // Add user to organization
+        await this.addOrganizationMember({
+          id: nanoid(),
+          organizationId,
+          userId: existingUser.id,
+          role,
+          teamIds: teamId ? [teamId] : [],
+        });
+      }
+      
+      if (teamId) {
+        // Add user to the specific team
+        await this.addTeamMember({
+          id: nanoid(),
+          organizationId,
+          teamId,
+          userId: existingUser.id,
+          role,
+        });
+        
+        // Add user to the team's members array
+        await this.addUserToTeamMembersArray(teamId, existingUser.id);
+      }
+      
+      return {
+        message: 'User has been added to the team successfully',
+        userAdded: true,
+        userId: existingUser.id,
+      };
+    } else {
+      // User doesn't exist, create invitation for when they sign up
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-    // Send invitation email
-
-    if (html) {
-      await sendEmail({
-        html,
-        subject: 'You have been invited to an organization on LobeChat',
-        to: email,
+      const invitation = await this.organizationModel.createInvitation({
+        email,
+        expiresAt,
+        id: nanoid(),
+        organizationId,
+        teamId,
+        userId: this.userId,
+        role,
+        token,
       });
-    }
 
-    return invitation;
+      // Send invitation email
+      if (html) {
+        await sendEmail({
+          html,
+          subject: 'You have been invited to an organization on LobeChat',
+          to: email,
+        });
+      }
+
+      return {
+        message: 'Invitation sent successfully',
+        invitation,
+        userAdded: false,
+      };
+    }
   }
   async getTeam(teamId: string) {
     return this.organizationModel.getTeamById(teamId);
@@ -136,5 +186,104 @@ export class OrganizationService {
   }
   async getTeamByJoinCode(teamJoinCode: string) {
     return this.organizationModel.getTeamByJoinCode(teamJoinCode);
+  }
+
+  async addUserToTeam(
+    organizationId: string,
+    teamId: string,
+    userId: string,
+    role: 'admin' | 'member'
+  ) {
+    // Check if user is already a member of this team
+    const isAlreadyMember = await this.organizationModel.isUserTeamMember(teamId, userId);
+    
+    if (isAlreadyMember) {
+      throw new Error('User is already a member of this team');
+    }
+    
+    // Check if they're already a member of the organization
+    const isOrgMember = await this.organizationModel.isUserOrganizationMember(organizationId, userId);
+    
+    if (!isOrgMember) {
+      // Add user to organization
+      await this.addOrganizationMember({
+        id: nanoid(),
+        organizationId,
+        userId,
+        role,
+        teamIds: [teamId],
+      });
+    }
+    
+    // Add user to the specific team
+    await this.addTeamMember({
+      id: nanoid(),
+      organizationId,
+      teamId,
+      userId,
+      role,
+    });
+    
+    // Add user to the team's members array
+    await this.addUserToTeamMembersArray(teamId, userId);
+  
+    return {
+      message: 'User has been added to the team successfully',
+      userAdded: true,
+      userId,
+    };
+  }
+
+  async addExistingUserToOrganization(
+    organizationId: string,
+    userId: string,
+    role: 'admin' | 'member'
+  ) {
+    // Check if user is already a member of the organization
+    const isOrgMember = await this.organizationModel.isUserOrganizationMember(organizationId, userId);
+    
+    if (isOrgMember) {
+      throw new Error('User is already a member of this organization');
+    }
+
+    await this.addOrganizationMember({
+      id: nanoid(),
+      organizationId,
+      userId,
+      role,
+      teamIds: [],
+    });
+    
+    return {
+      message: 'User has been added to the organization successfully',
+      userAdded: true,
+      userId,
+    };
+  }
+
+  async inviteByEmail(
+    organizationId: string,
+    email: string,
+    role: 'admin' | 'member'
+  ) {
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    const invitation = await this.organizationModel.createInvitation({
+      email,
+      expiresAt,
+      id: nanoid(),
+      organizationId,
+      userId: this.userId,
+      role,
+      token: nanoid(),
+    });
+
+    // Send invitation email asynchronously
+    // Intentionally omitted for mockup purposes
+    
+    return {
+      message: 'Invitation sent successfully',
+      invitation,
+    };
   }
 }

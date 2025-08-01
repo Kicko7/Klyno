@@ -122,6 +122,43 @@ export const organizationRouter = router({
         input.html,
       );
     }),
+
+  inviteExistingUser: organizationProcedure
+    .input(
+      z.object({
+        email: z.string().email(),
+        organizationId: z.string(),
+        role: z.enum(['admin', 'member']),
+        teamId: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ctx.organizationService.inviteMember(
+        input.organizationId,
+        'direct-invite', // Token not needed for existing users
+        input.teamId || '',
+        input.email,
+        input.role,
+      );
+    }),
+
+  inviteByUserId: organizationProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        organizationId: z.string(),
+        role: z.enum(['admin', 'member']),
+        teamId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ctx.organizationService.addUserToTeam(
+        input.organizationId,
+        input.teamId,
+        input.userId,
+        input.role,
+      );
+    }),
   getTeamMembers: organizationProcedure
     .input(z.object({ teamId: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -156,5 +193,37 @@ export const organizationRouter = router({
     )
     .query(async ({ ctx, input }) => {
       return ctx.organizationService.getTeamByJoinCode(input.joinCode);
+    }),
+
+  addExistingUserToOrganization: organizationProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        organizationId: z.string(),
+        role: z.enum(['admin', 'member']),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ctx.organizationService.addExistingUserToOrganization(
+        input.organizationId,
+        input.userId,
+        input.role,
+      );
+    }),
+
+  inviteByEmail: organizationProcedure
+    .input(
+      z.object({
+        email: z.string().email(),
+        organizationId: z.string(),
+        role: z.enum(['admin', 'member']),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ctx.organizationService.inviteByEmail(
+        input.organizationId,
+        input.email,
+        input.role,
+      );
     }),
 });

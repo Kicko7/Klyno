@@ -1,25 +1,24 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Modal, Input, Button, Form, Select, message } from 'antd';
-import { UserPlus, Mail } from 'lucide-react';
-import { organizationService } from '@/services/organization';
-import { nanoid } from 'nanoid';
+import { Modal, Button, Form, Select, message } from 'antd';
+import { UserPlus } from 'lucide-react';
 import { lambdaClient } from '@/libs/trpc/client';
 
 interface AddMemberModalProps {
   open: boolean;
   onClose: () => void;
+  organizationId?: string;
   teamId?: string;
 }
 
 interface WorkspaceUser {
   id: string;
   name: string;
-  email?: string;
+  email: string;
 }
 
-const AddMemberModal = ({ open, onClose, teamId }: AddMemberModalProps) => {
+const AddMemberModal = ({ open, onClose, organizationId, teamId }: AddMemberModalProps) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
@@ -27,17 +26,13 @@ const AddMemberModal = ({ open, onClose, teamId }: AddMemberModalProps) => {
 
   useEffect(() => {
     const fetchWorkspaceUsers = async () => {
-      if (!teamId || !open) return;
-      
-      // Get team data to find organizationId
-      const team = await lambdaClient.organization.getTeamById.query({ id: teamId });
-      if (!team?.organizationId) return;
+      if (!organizationId || !open) return;
       
       setLoadingUsers(true);
       try {
         // Fetch users in the organization who are not already in this team
         const orgMembers = await lambdaClient.organization.getOrganizationMembers.query({
-          organizationId: team.organizationId
+          organizationId
         });
         
         // Get current team members to exclude them from the selection
@@ -59,38 +54,28 @@ const AddMemberModal = ({ open, onClose, teamId }: AddMemberModalProps) => {
         setWorkspaceUsers(availableUsers);
       } catch (error) {
         console.error('Error fetching workspace users:', error);
-        // Fallback to mock data for now
-        setWorkspaceUsers([
-          { id: '1', name: 'User One', email: 'user1@example.com' },
-          { id: '2', name: 'User Two', email: 'user2@example.com' }
-        ]);
+        message.error('Failed to load workspace users');
       } finally {
         setLoadingUsers(false);
       }
     };
 
     fetchWorkspaceUsers();
-  }, [teamId, open]);
+  }, [organizationId, teamId, open]);
 
   const handleSubmit = async (values: { userId: string; role: 'admin' | 'member' }) => {
     try {
       setLoading(true);
       
-      if (!teamId) {
-        throw new Error('Team ID is required');
-      }
-      
-      // Get team data to find organizationId
-      const team = await lambdaClient.organization.getTeamById.query({ id: teamId });
-      if (!team?.organizationId) {
-        throw new Error('Organization ID not found for this team');
+      if (!organizationId || !teamId) {
+        throw new Error('Organization ID and Team ID are required');
       }
       
       // Use the new endpoint to directly add existing user to team
       await lambdaClient.organization.inviteByUserId.mutate({
         userId: values.userId,
         role: values.role,
-        organizationId: team.organizationId,
+        organizationId,
         teamId,
       });
       
@@ -146,7 +131,7 @@ const AddMemberModal = ({ open, onClose, teamId }: AddMemberModalProps) => {
               <Select.Option key={user.id} value={user.id}>
                 <div className="flex flex-col">
                   <span className="font-medium">{user.name}</span>
-                  {user.email && <span className="text-sm text-gray-500">{user.email}</span>}
+                  <span className="text-sm text-gray-500">{user.email}</span>
                 </div>
               </Select.Option>
             ))}
