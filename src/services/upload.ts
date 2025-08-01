@@ -157,6 +157,7 @@ class UploadService {
 
     xhr.open('PUT', preSignUrl);
     xhr.setRequestHeader('Content-Type', file.type);
+    xhr.setRequestHeader('x-amz-acl', 'public-read');
     const data = await file.arrayBuffer();
 
     await new Promise((resolve, reject) => {

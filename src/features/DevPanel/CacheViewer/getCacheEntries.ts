@@ -29,7 +29,29 @@ export const getCacheFiles = async (): Promise<NextCacheFileData[]> => {
         });
       });
 
-      const jsonData = JSON.parse(fileContent.toString());
+      const contentStr = fileContent.toString().trim();
+      // console.log('filecontentbeforeparse', contentStr);
+
+      let jsonData;
+      try {
+        // Try to clean the string if there are any BOM or special characters
+        const cleanContent = contentStr.replace(/^\uFEFF/, '');
+        jsonData = JSON.parse(cleanContent);
+
+        // If the response contains base64 encoded body, decode it
+        if (jsonData.data?.body && typeof jsonData.data.body === 'string') {
+          try {
+            const decodedBody = Buffer.from(jsonData.data.body, 'base64').toString();
+            jsonData.data.body = JSON.parse(decodedBody);
+          } catch (bodyError) {
+            console.log('Failed to parse base64 body, keeping as is:', bodyError);
+          }
+        }
+      } catch (parseError) {
+        console.error(`Error parsing JSON for file ${file}:`, parseError);
+        // console.error('Content causing error:', contentStr);
+        return false;
+      }
 
       return nextCacheFileSchema.parse({
         ...jsonData,
@@ -40,8 +62,9 @@ export const getCacheFiles = async (): Promise<NextCacheFileData[]> => {
       if (error instanceof ZodError) {
         const issues = error.issues;
         console.error(`File ${file} do not match the schema`, issues);
+      } else {
+        console.error(`Error parsing ${file}:`, error);
       }
-      console.error(`Error parsing ${file}`);
       return false;
     }
   })) as NextCacheFileData[];
