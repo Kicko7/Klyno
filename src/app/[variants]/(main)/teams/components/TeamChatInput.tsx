@@ -3,18 +3,22 @@ import React, { useCallback, useState } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
 import Footer from '@/app/[variants]/(main)/chat/(workspace)/@conversation/features/ChatInput/Desktop/Footer';
+import { chainAnswerWithContext } from '@/chains/answerWithContext';
+import { chainRewriteQuery } from '@/chains/rewriteQuery';
 import { CHAT_TEXTAREA_HEIGHT } from '@/const/layoutTokens';
+import { TeamChatMessageItem } from '@/database/schemas/teamChat';
 import { ActionKeys } from '@/features/ChatInput/ActionBar/config';
 import Head from '@/features/ChatInput/Desktop/Header';
 import InputArea from '@/features/ChatInput/Desktop/InputArea';
 import { useTeamChatRoute } from '@/hooks/useTeamChatRoute';
 import { chatService } from '@/services/chat';
-import { useAgentStore } from '@/store/agent';
+import { getAgentStoreState, useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
 import { fileChatSelectors, useFileStore } from '@/store/file';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
 import { useTeamChatStore } from '@/store/teamChat';
+import { MessageRoleType } from '@/types/message';
 import { ChatMessage, CreateMessageParams } from '@/types/message';
 import { clientEncodeAsync } from '@/utils/tokenizer/client';
 import { nanoid } from '@/utils/uuid';
@@ -35,7 +39,49 @@ interface TeamChatInputProps {
   organizationId?: string; // For creating new chats when needed
 }
 
+// Maximum number of history messages to include in context
+const MAX_HISTORY_MESSAGES = 20;
+
+// Function to gather chat history and construct context
+const gatherChatHistory = async (
+  teamChatId: string,
+  currentMessage: string,
+  messages: Record<string, TeamChatMessageItem[]>,
+  agentConfig: any,
+): Promise<CreateMessageParams[]> => {
+  const result: CreateMessageParams[] = [];
+
+  // Add system role if configured
+  if (agentConfig.systemRole) {
+    result.push({
+      role: 'system',
+      content: agentConfig.systemRole,
+      sessionId: teamChatId,
+    });
+  }
+
+  // Get chat history
+  const chatHistory = messages[teamChatId] || [];
+
+  // Take the last MAX_HISTORY_MESSAGES messages
+  const recentHistory = chatHistory.slice(-MAX_HISTORY_MESSAGES);
+
+  // Add history messages
+  recentHistory.forEach((msg) => {
+    result.push({
+      role: msg.messageType as MessageRoleType,
+      content: msg.content,
+      sessionId: teamChatId,
+    });
+  });
+
+  return result;
+};
+
 const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
+  // Get team chat store
+  const teamChatStore = useTeamChatStore();
+  const agentState = getAgentStoreState();
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [inputHeight, updatePreference] = useGlobalStore((s) => [
@@ -62,6 +108,7 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
 
   const handleSend = useCallback(async () => {
     const messageToSend = inputMessage.trim();
+    const agentConfig = agentSelectors.currentAgentConfig(agentState);
     if (!messageToSend && fileList.length === 0) return;
     if (loading || isUploadingFiles) return;
 
@@ -95,33 +142,84 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
       sendTeamMessage(teamChatId, '', 'assistant', assistantMessageId);
       console.log('Placeholder assistant message created:', assistantMessageId);
 
-      // 3. Generate AI response using the chat service
-      const sessionId = teamChatId; // Use team chat ID as session ID
-      const messages: CreateMessageParams[] = [
-        {
-          role: 'user',
-          content: messageToSend,
-          sessionId,
-          files: fileList
-            .map((f) => ({
-              id: f.id,
-              fileType: f.file.type || 'application/octet-stream',
-              name: f.file.name,
-              size: f.file.size,
-              url: f.fileUrl || '',
-            }))
-            .filter(Boolean),
-        },
-      ];
+      // 3. Generate AI response using the chat service with history and RAG
+      const sessionId = teamChatId;
 
-      // Add system role if configured
-      if (agentConfig.systemRole) {
-        messages.unshift({
-          role: 'system',
-          content: agentConfig.systemRole,
-          sessionId,
-        });
+      // Get chat history including system role if configured
+      const messages = await gatherChatHistory(
+        teamChatId,
+        messageToSend,
+        teamChatStore.messages,
+        agentConfig,
+      );
+
+      // Add current user message
+      const currentMessage: CreateMessageParams = {
+        role: 'user',
+        content: messageToSend,
+        sessionId,
+        files: fileList
+          .map((f) => ({
+            id: f.id,
+            fileType: f.file.type || 'application/octet-stream',
+            name: f.file.name,
+            size: f.file.size,
+            url: f.fileUrl || '',
+          }))
+          .filter(Boolean),
+      };
+
+      // Check if search/RAG is enabled and handle it
+      const isSearchEnabled = agentConfig.plugins?.includes('search');
+      if (isSearchEnabled) {
+        try {
+          // Get chat history for context
+          const historyContext = messages.filter((m) => m.role !== 'system').map((m) => m.content);
+
+          // Rewrite query for better semantic search
+          // Create payload for query rewriting
+          const rewritePayload = chainRewriteQuery(messageToSend, historyContext);
+
+          // Get rewritten query
+          const rewriteResponse = await chatService.createAssistantMessage({
+            messages: rewritePayload.messages as ChatMessage[],
+            model: agentConfig.model,
+            provider: agentConfig.provider,
+          });
+
+          const rewrittenQuery = rewriteResponse.text || messageToSend;
+
+          // Get relevant chunks from knowledge base
+          // Use chat service to get search results
+          const searchResponse = await chatService.createAssistantMessage({
+            messages: [
+              {
+                role: 'user',
+                content: String(rewrittenQuery),
+                id: nanoid(),
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                meta: {},
+              },
+            ],
+            model: agentConfig.model,
+            provider: agentConfig.provider,
+            enabledSearch: true,
+          });
+
+          if (searchResponse.text) {
+            // Add search results as context
+            currentMessage.content =
+              `${messageToSend}\n\nRelevant context:\n${searchResponse.text}`.trim();
+          }
+        } catch (error) {
+          console.error('Error processing RAG context:', error);
+          // Continue without RAG if there's an error
+        }
       }
+
+      // Add the current message to the history
+      messages.push(currentMessage);
 
       let aiResponse = '';
 
@@ -252,6 +350,9 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
     sendTeamMessage,
     agentConfig,
     clearChatUploadFileList,
+    teamChatStore,
+    chatService,
+    agentState,
   ]);
 
   return (
