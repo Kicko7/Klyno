@@ -1,9 +1,10 @@
-import React, { useCallback } from 'react';
-import { List, Typography } from 'antd';
 import { MessageOutlined } from '@ant-design/icons';
+import { List, Typography } from 'antd';
+import React, { useCallback } from 'react';
+
 import { TeamChatItem } from '@/database/schemas/teamChat';
-import { useTeamChatStore } from '@/store/teamChat';
 import { useTeamChatRoute } from '@/hooks/useTeamChatRoute';
+import { useTeamChatStore } from '@/store/teamChat';
 
 const { Text } = Typography;
 
@@ -13,26 +14,26 @@ interface TeamChatListItemProps {
   isActive?: boolean;
 }
 
-const TeamChatListItem: React.FC<TeamChatListItemProps> = ({ 
-  teamChat, 
-  teamId, 
-  isActive = false 
+const TeamChatListItem: React.FC<TeamChatListItemProps> = ({
+  teamChat,
+  teamId,
+  isActive = false,
 }) => {
   const { setActiveTeamChat } = useTeamChatStore();
   const { switchToTeamChat } = useTeamChatRoute();
 
   const handleClick = useCallback(() => {
     console.log('🔄 Switching to team chat:', teamChat.id);
-    
+
     // Generate a topic ID for this chat if it doesn't have one
     const topicId = `topic_${teamChat.id}_${Date.now()}`;
-    
+
     // Set active in store
     setActiveTeamChat(teamChat.id, topicId);
-    
-    // Navigate with topic ID in URL
-    switchToTeamChat(teamId, topicId);
-    
+
+    // Navigate with chat ID and topic ID in URL
+    switchToTeamChat(teamId, teamChat.id, topicId);
+
     console.log('✅ Switched to team chat:', { teamChatId: teamChat.id, topicId });
   }, [teamChat.id, teamId, setActiveTeamChat, switchToTeamChat]);
 

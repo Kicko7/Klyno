@@ -1,26 +1,28 @@
 'use client';
 
+import { ModelTag } from '@lobehub/icons';
+import { ActionIcon } from '@lobehub/ui';
+import { ChatHeader } from '@lobehub/ui/chat';
 import { useResponsive } from 'antd-style';
+import { UserPlus } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { memo, useCallback, useEffect } from 'react';
 import { Flexbox } from 'react-layout-kit';
-import { ActionIcon } from '@lobehub/ui';
-import { UserPlus } from 'lucide-react';
-import { DESKTOP_HEADER_ICON_SIZE } from '@/const/layoutTokens';
 
-import { SkeletonList } from '@/features/Conversation';
-import { useOrganizationStore } from '@/store/organization/store';
-import { useTeamChatStore } from '@/store/teamChat';
-import { ChatHeader } from '@lobehub/ui/chat';
-import TeamMain from './TeamMain';
 import HeaderAction from '@/app/[variants]/(main)/chat/(workspace)/_layout/Desktop/ChatHeader/HeaderAction';
+import { DESKTOP_HEADER_ICON_SIZE } from '@/const/layoutTokens';
+import { SkeletonList } from '@/features/Conversation';
 import ModelSwitchPanel from '@/features/ModelSwitchPanel';
-import { ModelTag } from '@lobehub/icons';
 import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
+import { useOrganizationStore } from '@/store/organization/store';
+import { useTeamChatStore } from '@/store/teamChat';
+
 import AddMemberModal from './AddMemberModal';
 import TeamChatContent from './TeamChatContent';
 import TeamChatHydration from './TeamChatHydration';
+import TeamMain from './TeamMain';
 
 const TeamChat = memo(() => {
   const { mobile } = useResponsive();
@@ -37,7 +39,7 @@ const TeamChat = memo(() => {
     loadTeamChats,
     setActiveTeamChat,
   } = useTeamChatStore();
-  
+
   // Get current model for the model switcher
   const [model, provider] = useAgentStore((s) => [
     agentSelectors.currentAgentModel(s),
@@ -51,22 +53,30 @@ const TeamChat = memo(() => {
       loadTeamChats(currentOrganization.id);
     }
   }, [currentOrganization?.id, loadTeamChats]);
-  
-  // Auto-create first team chat if none exists
+
+  const searchParams = useSearchParams();
+  const chatId = searchParams.get('chatId');
+
+  // Handle chat ID from URL and show welcome page when no chat ID
   useEffect(() => {
-    if (currentOrganization?.id && teamChats.length === 0 && !isLoading) {
+    if (chatId) {
+      // If chat ID is in URL, set it as active
+      console.log('🎯 Setting active team chat from URL:', chatId);
+      setActiveTeamChat(chatId);
+    } else {
+      // If no chat ID in URL, just update the state directly
+      console.log('👋 No chat ID in URL, showing welcome page');
+      useTeamChatStore.setState({ activeTeamChatId: null });
+    }
+  }, [chatId, setActiveTeamChat]);
+
+  // Only create first team chat if welcome page is shown and no chats exist
+  useEffect(() => {
+    if (!chatId && currentOrganization?.id && teamChats.length === 0 && !isLoading) {
       console.log('🚀 No team chats found, creating first one...');
       createTeamChat(currentOrganization.id);
     }
-  }, [currentOrganization?.id, teamChats.length, isLoading, createTeamChat]);
-
-  // Set active chat to first available if none selected
-  useEffect(() => {
-    if (teamChats.length > 0 && !activeTeamChatId) {
-      console.log('🎯 Setting active team chat to first available:', teamChats[0].id);
-      setActiveTeamChat(teamChats[0].id);
-    }
-  }, [teamChats, activeTeamChatId, setActiveTeamChat]);
+  }, [currentOrganization?.id, teamChats.length, isLoading, createTeamChat, chatId]);
 
   const handleNewChat = useCallback(async () => {
     if (currentOrganization?.id) {
@@ -117,8 +127,8 @@ const TeamChat = memo(() => {
           <SkeletonList mobile={mobile} />
         </div>
       ) : activeTeamChatId ? (
-        <TeamChatContent 
-          teamChatId={activeTeamChatId} 
+        <TeamChatContent
+          teamChatId={activeTeamChatId}
           mobile={mobile || false}
           onNewChat={handleNewChat}
         />
@@ -126,7 +136,7 @@ const TeamChat = memo(() => {
         <div className="flex-1 flex items-center justify-center text-slate-400">
           <div className="text-center">
             <p>No team chat available</p>
-            <button 
+            <button
               onClick={handleNewChat}
               className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded"
             >
@@ -135,14 +145,14 @@ const TeamChat = memo(() => {
           </div>
         </div>
       )}
-      
+
       {/* Add Member Modal */}
       <AddMemberModal
         open={showMemberModal}
         onClose={() => setShowMemberModal(false)}
         teamId={activeTeamChatId || undefined}
       />
-      
+
       {/* Team Chat Hydration for URL params */}
       <TeamChatHydration />
     </div>

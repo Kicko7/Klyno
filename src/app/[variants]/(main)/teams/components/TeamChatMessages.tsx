@@ -1,6 +1,8 @@
 'use client';
 
-import { RobotOutlined, UserOutlined } from '@ant-design/icons';
+import { ModelTag } from '@lobehub/icons';
+import { useTheme } from 'antd-style';
+import isEqual from 'lodash/isEqual';
 import React from 'react';
 import { memo, useEffect, useRef } from 'react';
 import { Flexbox } from 'react-layout-kit';
@@ -10,12 +12,14 @@ import { TeamChatMessageItem } from '@/database/schemas/teamChat';
 import ChatItem from '@/features/ChatItem';
 import { useSessionStore } from '@/store/session';
 import { sessionMetaSelectors } from '@/store/session/slices/session/selectors';
+import { sessionSelectors } from '@/store/session/slices/session/selectors/list';
 import { useTeamChatStore } from '@/store/teamChat';
 import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
 
 import TeamAPIKeyForm from './TeamAPIKeyForm';
 import TeamChatWelcome from './TeamChatWelcome';
+import Usage from '@/features/Conversation/Extras/Usage';
 
 interface TeamChatMessagesProps {
   messages: TeamChatMessageItem[];
@@ -24,7 +28,11 @@ interface TeamChatMessagesProps {
 
 const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLoading }) => {
   const userAvatar = useUserStore(userProfileSelectors.userAvatar);
-  const agentMeta = useSessionStore(sessionMetaSelectors.currentAgentMeta);
+  const [agentMeta, currentSession] = useSessionStore(
+    (s) => [sessionMetaSelectors.currentAgentMeta(s), sessionSelectors.currentSession(s)],
+    isEqual,
+  );
+  const theme = useTheme();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
@@ -58,8 +66,6 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
     >
       {messages.map((message) => {
         const isAssistant = message.messageType === 'assistant';
-
-        // Check if this is an API key error message
         let isApiKeyError = false;
         let errorProvider = 'openai';
         let actualMessage = message.content;
@@ -78,11 +84,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
         }
 
         const avatar = isAssistant
-          ? {
-              avatar: agentMeta.avatar || <RobotOutlined />,
-              title: agentMeta.title || 'AI Assistant',
-              backgroundColor: agentMeta.backgroundColor,
-            }
+          ? currentSession?.meta || agentMeta // Use current session meta or fallback to agent meta
           : {
               avatar: userAvatar || DEFAULT_USER_AVATAR,
               title: 'You',
@@ -124,7 +126,16 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
             placement={isAssistant ? 'left' : 'right'}
             primary={!isAssistant}
             time={new Date(message.createdAt).getTime()}
-            variant="bubble"
+            messageExtra={
+              isAssistant && (message.metadata as any)?.totalTokens ? (
+                <Usage
+                  metadata={(message.metadata as any) || {}}
+                  model={(message.metadata as any)?.model || 'assistant'}
+                  provider={(message.metadata as any)?.provider || 'openai'}
+                />
+              ) : undefined
+            }
+            variant={'bubble'}
           />
         );
       })}

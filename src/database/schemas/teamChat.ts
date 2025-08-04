@@ -66,13 +66,8 @@ export const teamChatMessages = pgTable('team_chat_messages', {
   content: text('content').notNull(),
   messageType: varchar('message_type', { length: 50 }).default('user'), // 'user', 'assistant', 'system'
   
-  // Message metadata
-  metadata: jsonb('metadata').$type<{
-    model?: string;
-    provider?: string;
-    tokens?: number;
-    [key: string]: any;
-  }>().default({}),
+  // Message metadata - store complete usage information like regular chat
+  metadata: jsonb('metadata').default({}),
   
   ...timestamps,
 });

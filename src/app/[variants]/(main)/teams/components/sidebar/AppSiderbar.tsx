@@ -120,21 +120,49 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
       setIsCreatingChat(true);
       console.log('🚀 Creating new team chat from sidebar button...');
 
-      await createTeamChat(currentOrganization.id);
-      router.push('/teams?view=chat');
+      // Create new chat and get its ID
+      const newChatId = await createTeamChat(currentOrganization.id);
+
+      // Generate a topic ID for the new chat
+      const topicId = `topic_${newChatId}_${Date.now()}`;
+
+      // Set active chat in store
+      setActiveTeamChat(newChatId, topicId);
+
+      // Navigate with chat ID and topic in URL
+      const query = new URLSearchParams({
+        view: 'chat',
+        chatId: newChatId,
+        topic: topicId,
+      }).toString();
+
+      router.push(`/teams?${query}`);
     } catch (error) {
       console.error('Failed to create new team chat:', error);
     } finally {
       setIsCreatingChat(false);
     }
-  }, [createTeamChat, currentOrganization?.id, router, isCreatingChat]);
+  }, [createTeamChat, currentOrganization?.id, router, isCreatingChat, setActiveTeamChat]);
 
   const handleChatClick = useCallback(
     (chatId: string) => {
+      // If it's already the active chat, no need to navigate
+      if (activeTeamChatId === chatId) {
+        return;
+      }
+
+      // Set active chat in store
       setActiveTeamChat(chatId);
-      router.push('/teams?view=chat');
+
+      // Navigate with chat ID in URL
+      const query = new URLSearchParams({
+        view: 'chat',
+        chatId: chatId,
+      }).toString();
+
+      router.push(`/teams?${query}`);
     },
-    [setActiveTeamChat, router],
+    [setActiveTeamChat, router, activeTeamChatId],
   );
 
   return (

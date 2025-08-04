@@ -15,6 +15,7 @@ import { useTeamChatStore } from '@/store/teamChat';
 import { fileChatSelectors, useFileStore } from '@/store/file';
 import { CreateMessageParams } from '@/types/message';
 import { nanoid } from '@/utils/uuid';
+import { clientEncodeAsync } from '@/utils/tokenizer/client';
 import { useTeamChatRoute } from '@/hooks/useTeamChatRoute';
 
 const leftActions = [
@@ -67,6 +68,7 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
     try {
       console.log('Sending user message:', messageToSend);
       // 1. Add user message to UI immediately (non-blocking)
+      // Send user message without token count - it will be included in the API's totalTokens
       sendTeamMessage(teamChatId, messageToSend, 'user');
       console.log('User message sent successfully');
       
@@ -134,10 +136,23 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
             }
           }
         },
-        onFinish: async (finalContent) => {
+        onFinish: async (finalContent, context) => {
           // Use accumulated response if no final content provided
           const finalMessage = finalContent || aiResponse || 'No response generated';
-          await sendTeamMessage(teamChatId, finalMessage, 'assistant', assistantMessageId);
+          
+          // Extract usage information and include model/provider for proper display
+          const metadata = context?.usage ? { 
+            ...context.usage,
+            model: agentConfig.model,
+            provider: agentConfig.provider,
+            // Use the API's token count directly
+            totalTokens: context.usage.totalTokens || 0
+          } : {
+            model: agentConfig.model,
+            provider: agentConfig.provider
+          };
+          
+          await sendTeamMessage(teamChatId, finalMessage, 'assistant', assistantMessageId, false, metadata);
         },
         onErrorHandle: (error) => {
           console.error('AI response error:', error);
