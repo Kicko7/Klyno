@@ -35,15 +35,19 @@ interface TeamMainProps {
 const TeamMain = memo<TeamMainProps>(({ className }) => {
   const { t } = useTranslation(['chat']);
   const { styles } = useStyles();
-  
+
   const { organizations } = useOrganizationStore();
-  const currentOrganization = organizations[0];
-  
-  const { teamChats, activeTeamChatId, isLoading } = useTeamChatStore();
-  const activeTeamChat = teamChats.find(chat => chat.id === activeTeamChatId);
-  
+  const currentOrganization = organizations?.[0];
+
+  const { teamChatsByOrg, activeTeamChatId, isLoading, currentOrganizationId } = useTeamChatStore();
+
+  // Get chats for current organization
+  const teamChats = currentOrganizationId ? teamChatsByOrg[currentOrganizationId] || [] : [];
+  const activeTeamChat = teamChats.find((chat) => chat.id === activeTeamChatId);
+
   // Use team chat title or fallback
-  const displayTitle = activeTeamChat?.title || `Team Chat - ${currentOrganization?.name || 'Organization'}`;
+  const displayTitle =
+    activeTeamChat?.title || `Team Chat - ${currentOrganization?.name || 'Organization'}`;
 
   if (isLoading)
     return (
@@ -59,12 +63,7 @@ const TeamMain = memo<TeamMainProps>(({ className }) => {
 
   return (
     <Flexbox align={'center'} className={className} gap={12} horizontal>
-      <Avatar
-        avatar={'🤖'}
-        background={'#0066cc'}
-        size={32}
-        title={displayTitle}
-      />
+      <Avatar avatar={'🤖'} background={'#0066cc'} size={32} title={displayTitle} />
       <Flexbox align={'center'} className={styles.container} gap={8} horizontal>
         <div className={styles.title}>{displayTitle}</div>
       </Flexbox>

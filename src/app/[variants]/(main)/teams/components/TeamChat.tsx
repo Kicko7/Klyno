@@ -5,7 +5,7 @@ import { ActionIcon } from '@lobehub/ui';
 import { ChatHeader } from '@lobehub/ui/chat';
 import { useResponsive } from 'antd-style';
 import { UserPlus } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { memo, useCallback, useEffect } from 'react';
 import { Flexbox } from 'react-layout-kit';
@@ -19,26 +19,35 @@ import { agentSelectors } from '@/store/agent/selectors';
 import { useOrganizationStore } from '@/store/organization/store';
 import { useTeamChatStore } from '@/store/teamChat';
 
+import TeamChatSessionHydration from '../features/TeamChatSessionHydration';
+import TeamChatWorkspace from '../features/TeamChatWorkspace';
 import AddMemberModal from './AddMemberModal';
 import TeamChatContent from './TeamChatContent';
-import TeamChatHydration from './TeamChatHydration';
 import TeamMain from './TeamMain';
 
 const TeamChat = memo(() => {
   const { mobile } = useResponsive();
-  const { organizations } = useOrganizationStore();
-  const currentOrganization = organizations[0];
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const chatId = searchParams.get('chatId') || '';
+  const { organizations, selectedOrganizationId } = useOrganizationStore();
+  const currentOrganization = organizations?.find((org) => org.id === selectedOrganizationId);
   const [showMemberModal, setShowMemberModal] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   // Use dedicated team chat store
   const {
-    teamChats,
+    teamChatsByOrg,
     activeTeamChatId,
     isLoading,
     createTeamChat,
     loadTeamChats,
     setActiveTeamChat,
+    currentOrganizationId,
   } = useTeamChatStore();
+
+  // Get chats for current organization
+  const teamChats = currentOrganization?.id ? teamChatsByOrg[currentOrganization.id] || [] : [];
 
   // Get current model for the model switcher
   const [model, provider] = useAgentStore((s) => [
@@ -46,50 +55,81 @@ const TeamChat = memo(() => {
     agentSelectors.currentAgentModelProvider(s),
   ]);
 
-  // Initialize team chats when component loads
+  // Load team chats when organization changes
   useEffect(() => {
     if (currentOrganization?.id) {
       console.log('🔍 Loading team chats for organization:', currentOrganization.id);
       loadTeamChats(currentOrganization.id);
+      // Clear active chat and URL when organization changes
+      setActiveTeamChat(null);
+      router.push('/teams');
     }
-  }, [currentOrganization?.id, loadTeamChats]);
+  }, [currentOrganization?.id, loadTeamChats, setActiveTeamChat, router]);
 
-  const searchParams = useSearchParams();
-  const chatId = searchParams.get('chatId');
-
-  // Handle chat ID from URL and show welcome page when no chat ID
+  // Validate chat access and set active chat
   useEffect(() => {
     if (chatId) {
-      // If chat ID is in URL, set it as active
-      console.log('🎯 Setting active team chat from URL:', chatId);
-      setActiveTeamChat(chatId);
-    } else {
-      // If no chat ID in URL, just update the state directly
-      console.log('👋 No chat ID in URL, showing welcome page');
-      useTeamChatStore.setState({ activeTeamChatId: null });
+      // Find the chat in current organization's chats
+      const chat = teamChats.find((c) => c.id === chatId);
+      if (chat && chat.organizationId === currentOrganization?.id) {
+        setActiveTeamChat(chatId);
+      } else {
+        // If chat doesn't belong to current organization, clear URL
+        console.log('⚠️ Chat not found in current organization');
+        router.push('/teams');
+      }
     }
-  }, [chatId, setActiveTeamChat]);
+  }, [chatId, teamChats, currentOrganization?.id, setActiveTeamChat, router]);
 
   // Only create first team chat if welcome page is shown and no chats exist
   useEffect(() => {
-    if (!chatId && currentOrganization?.id && teamChats.length === 0 && !isLoading) {
+    if (
+      !hasInitialized &&
+      !chatId &&
+      currentOrganization?.id &&
+      (teamChats || []).length === 0 &&
+      !isLoading
+    ) {
+      setHasInitialized(true);
       console.log('🚀 No team chats found, creating first one...');
-      createTeamChat(currentOrganization.id);
+      // Validate organization
+      if (!organizations.some((org) => org.id === currentOrganization.id)) {
+        console.error('❌ Invalid organization selected for chat creation');
+        return;
+      }
+      createTeamChat(currentOrganization.id, 'Team Chat', {
+        organizationId: currentOrganization.id,
+      });
     }
-  }, [currentOrganization?.id, teamChats.length, isLoading, createTeamChat, chatId]);
+  }, [
+    hasInitialized,
+    currentOrganization?.id,
+    (teamChats || []).length,
+    isLoading,
+    createTeamChat,
+    chatId,
+    organizations,
+  ]);
 
   const handleNewChat = useCallback(async () => {
     if (currentOrganization?.id) {
+      // Validate organization
+      if (!organizations.some((org) => org.id === currentOrganization.id)) {
+        console.error('❌ Invalid organization selected for chat creation');
+        return;
+      }
       console.log('🚀 Creating new team chat...');
-      await createTeamChat(currentOrganization.id);
+      await createTeamChat(currentOrganization.id, 'Team Chat', {
+        organizationId: currentOrganization.id,
+      });
     }
-  }, [currentOrganization?.id, createTeamChat]);
+  }, [currentOrganization?.id, createTeamChat, organizations]);
 
   // Debug logging
   useEffect(() => {
     console.log('🔍 TeamChat Debug:', {
       currentOrganization: currentOrganization?.id,
-      teamChats: teamChats.length,
+      teamChats: (teamChats || []).length,
       activeTeamChatId,
       isLoading,
     });
@@ -121,30 +161,38 @@ const TeamChat = memo(() => {
         style={{ paddingInline: 8, position: 'initial', zIndex: 11 }}
       />
 
-      {/* Team Chat Content */}
-      {isLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <SkeletonList mobile={mobile} />
-        </div>
-      ) : activeTeamChatId ? (
-        <TeamChatContent
-          teamChatId={activeTeamChatId}
-          mobile={mobile || false}
-          onNewChat={handleNewChat}
-        />
-      ) : (
-        <div className="flex-1 flex items-center justify-center text-slate-400">
-          <div className="text-center">
-            <p>No team chat available</p>
-            <button
-              onClick={handleNewChat}
-              className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded"
-            >
-              Create Team Chat
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Main Content Area */}
+      <Flexbox flex={1} horizontal>
+        {/* Team Chat Content */}
+        <Flexbox flex={1}>
+          {isLoading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <SkeletonList mobile={mobile} />
+            </div>
+          ) : activeTeamChatId ? (
+            <TeamChatContent
+              teamChatId={activeTeamChatId}
+              mobile={mobile || false}
+              onNewChat={handleNewChat}
+            />
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-slate-400">
+              <div className="text-center">
+                <p>No team chat available</p>
+                <button
+                  onClick={handleNewChat}
+                  className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded"
+                >
+                  Create Team Chat
+                </button>
+              </div>
+            </div>
+          )}
+        </Flexbox>
+
+        {/* Team Chat Workspace */}
+        <TeamChatWorkspace mobile={mobile} />
+      </Flexbox>
 
       {/* Add Member Modal */}
       <AddMemberModal
@@ -153,8 +201,8 @@ const TeamChat = memo(() => {
         teamId={activeTeamChatId || undefined}
       />
 
-      {/* Team Chat Hydration for URL params */}
-      <TeamChatHydration />
+      {/* Team Chat Session Hydration for URL params */}
+      <TeamChatSessionHydration />
     </div>
   );
 });

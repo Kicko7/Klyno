@@ -1,22 +1,23 @@
+import { DraggablePanel } from '@lobehub/ui';
 import React, { useCallback, useState } from 'react';
 import { Flexbox } from 'react-layout-kit';
-import { DraggablePanel } from '@lobehub/ui';
-import { useGlobalStore } from '@/store/global';
-import { systemStatusSelectors } from '@/store/global/selectors';
-import { ActionKeys } from '@/features/ChatInput/ActionBar/config';
-import { CHAT_TEXTAREA_HEIGHT } from '@/const/layoutTokens';
-import InputArea from '@/features/ChatInput/Desktop/InputArea';
-import Head from '@/features/ChatInput/Desktop/Header';
+
 import Footer from '@/app/[variants]/(main)/chat/(workspace)/@conversation/features/ChatInput/Desktop/Footer';
+import { CHAT_TEXTAREA_HEIGHT } from '@/const/layoutTokens';
+import { ActionKeys } from '@/features/ChatInput/ActionBar/config';
+import Head from '@/features/ChatInput/Desktop/Header';
+import InputArea from '@/features/ChatInput/Desktop/InputArea';
+import { useTeamChatRoute } from '@/hooks/useTeamChatRoute';
+import { chatService } from '@/services/chat';
 import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
-import { chatService } from '@/services/chat';
-import { useTeamChatStore } from '@/store/teamChat';
 import { fileChatSelectors, useFileStore } from '@/store/file';
-import { CreateMessageParams } from '@/types/message';
-import { nanoid } from '@/utils/uuid';
+import { useGlobalStore } from '@/store/global';
+import { systemStatusSelectors } from '@/store/global/selectors';
+import { useTeamChatStore } from '@/store/teamChat';
+import { ChatMessage, CreateMessageParams } from '@/types/message';
 import { clientEncodeAsync } from '@/utils/tokenizer/client';
-import { useTeamChatRoute } from '@/hooks/useTeamChatRoute';
+import { nanoid } from '@/utils/uuid';
 
 const leftActions = [
   'model',
@@ -43,13 +44,17 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
   ]);
 
   // Get team chat store methods and routing
-  const { sendMessage: sendTeamMessage, createNewTeamChatWithTopic, activeTopicId } = useTeamChatStore();
+  const {
+    sendMessage: sendTeamMessage,
+    createNewTeamChatWithTopic,
+    activeTopicId,
+  } = useTeamChatStore();
   const { createNewTeamChat, switchToTeamChat } = useTeamChatRoute();
-  
+
   // Get agent configuration for AI
   const agentConfig = useAgentStore(agentSelectors.currentAgentConfig);
   const agentChatConfig = useAgentStore(agentSelectors.currentAgentConfig);
-  
+
   // Get file store for attachments
   const fileList = useFileStore(fileChatSelectors.chatUploadFileList);
   const clearChatUploadFileList = useFileStore((s) => s.clearChatUploadFileList);
@@ -64,19 +69,32 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
     setInputMessage('');
     clearChatUploadFileList();
     setLoading(true);
-    
+
     try {
+      // Validate files before sending
+      if (fileList.length > 0) {
+        console.log('Validating files before sending:', fileList);
+        fileList.forEach((file) => {
+          if (!file.file.name) {
+            throw new Error(`File is missing required name`);
+          }
+          if (!file.file.size) {
+            throw new Error(`File ${file.file.name} is missing required size`);
+          }
+        });
+      }
+
       console.log('Sending user message:', messageToSend);
       // 1. Add user message to UI immediately (non-blocking)
       // Send user message without token count - it will be included in the API's totalTokens
       sendTeamMessage(teamChatId, messageToSend, 'user');
       console.log('User message sent successfully');
-      
+
       // 2. Create a temporary assistant message for AI response with empty content initially
       const assistantMessageId = nanoid();
       sendTeamMessage(teamChatId, '', 'assistant', assistantMessageId);
       console.log('Placeholder assistant message created:', assistantMessageId);
-      
+
       // 3. Generate AI response using the chat service
       const sessionId = teamChatId; // Use team chat ID as session ID
       const messages: CreateMessageParams[] = [
@@ -84,8 +102,16 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
           role: 'user',
           content: messageToSend,
           sessionId,
-          files: fileList.map(f => f.id).filter(Boolean),
-        }
+          files: fileList
+            .map((f) => ({
+              id: f.id,
+              fileType: f.file.type || 'application/octet-stream',
+              name: f.file.name,
+              size: f.file.size,
+              url: f.fileUrl || '',
+            }))
+            .filter(Boolean),
+        },
       ];
 
       // Add system role if configured
@@ -98,11 +124,11 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
       }
 
       let aiResponse = '';
-      
+
       // Stream AI response using proper streaming API
       await chatService.createAssistantMessageStream({
         params: {
-          messages: messages as any,
+          messages: messages as unknown as ChatMessage[],
           model: agentConfig.model,
           provider: agentConfig.provider,
           ...agentConfig.params,
@@ -139,24 +165,33 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
         onFinish: async (finalContent, context) => {
           // Use accumulated response if no final content provided
           const finalMessage = finalContent || aiResponse || 'No response generated';
-          
+
           // Extract usage information and include model/provider for proper display
-          const metadata = context?.usage ? { 
-            ...context.usage,
-            model: agentConfig.model,
-            provider: agentConfig.provider,
-            // Use the API's token count directly
-            totalTokens: context.usage.totalTokens || 0
-          } : {
-            model: agentConfig.model,
-            provider: agentConfig.provider
-          };
-          
-          await sendTeamMessage(teamChatId, finalMessage, 'assistant', assistantMessageId, false, metadata);
+          const metadata = context?.usage
+            ? {
+                ...context.usage,
+                model: agentConfig.model,
+                provider: agentConfig.provider,
+                // Use the API's token count directly
+                totalTokens: context.usage.totalTokens || 0,
+              }
+            : {
+                model: agentConfig.model,
+                provider: agentConfig.provider,
+              };
+
+          await sendTeamMessage(
+            teamChatId,
+            finalMessage,
+            'assistant',
+            assistantMessageId,
+            false,
+            metadata,
+          );
         },
         onErrorHandle: (error) => {
           console.error('AI response error:', error);
-          
+
           // Check if it's an API key error
           if (error?.type === 'InvalidProviderAPIKey') {
             // Create a special error message that will trigger the API key form
@@ -166,42 +201,65 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
               error: {
                 type: 'InvalidProviderAPIKey',
                 body: {
-                  provider: agentConfig.provider || 'openai'
-                }
+                  provider: agentConfig.provider || 'openai',
+                },
               },
               messageType: 'assistant',
               metadata: {
                 isError: true,
                 errorType: 'InvalidProviderAPIKey',
-                provider: agentConfig.provider || 'openai'
-              }
+                provider: agentConfig.provider || 'openai',
+              },
             };
-            
+
             // Store the error message in team chat for special handling
-            sendTeamMessage(teamChatId, JSON.stringify(errorMessage), 'assistant', assistantMessageId);
+            sendTeamMessage(
+              teamChatId,
+              JSON.stringify(errorMessage),
+              'assistant',
+              assistantMessageId,
+            );
           } else {
-            sendTeamMessage(teamChatId, 'Sorry, I encountered an error processing your request.', 'assistant', assistantMessageId);
+            sendTeamMessage(
+              teamChatId,
+              'Sorry, I encountered an error processing your request.',
+              'assistant',
+              assistantMessageId,
+            );
           }
         },
       });
-      
     } catch (error) {
       console.error('Failed to send message:', error);
-      // Show error message to user
+      // Show detailed error message to user
       const errorMessageId = nanoid();
-      await sendTeamMessage(teamChatId, 'Sorry, I encountered an error processing your request.', 'assistant', errorMessageId);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error sending message';
+      await sendTeamMessage(
+        teamChatId,
+        `Sorry, I encountered an error processing your request: ${errorMessage}`,
+        'assistant',
+        errorMessageId,
+      );
     } finally {
       setLoading(false);
     }
-  }, [inputMessage, loading, isUploadingFiles, fileList, teamChatId, sendTeamMessage, agentConfig, clearChatUploadFileList]);
+  }, [
+    inputMessage,
+    loading,
+    isUploadingFiles,
+    fileList,
+    teamChatId,
+    sendTeamMessage,
+    agentConfig,
+    clearChatUploadFileList,
+  ]);
 
   return (
     <DraggablePanel
       minHeight={CHAT_TEXTAREA_HEIGHT}
       onSizeChange={(_, size) => {
         if (!size) return;
-        const height =
-          typeof size.height === 'string' ? Number.parseInt(size.height) : size.height;
+        const height = typeof size.height === 'string' ? Number.parseInt(size.height) : size.height;
         if (!height) return;
         updatePreference({ inputHeight: height });
       }}
@@ -234,4 +292,3 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
 };
 
 export default TeamChatInput;
-

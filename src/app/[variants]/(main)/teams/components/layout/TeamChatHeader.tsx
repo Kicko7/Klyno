@@ -39,9 +39,12 @@ interface TeamChatHeaderProps {
 const TeamChatHeader = memo<TeamChatHeaderProps>(({ teamChatId }) => {
   const { t } = useTranslation('chat');
   const { styles } = useStyles();
-  
-  const { teamChats, activeTeamChatId } = useTeamChatStore();
-  const currentChat = teamChats.find(chat => chat.id === teamChatId);
+
+  const { teamChatsByOrg, activeTeamChatId, currentOrganizationId } = useTeamChatStore();
+
+  // Get chats for current organization
+  const teamChats = currentOrganizationId ? teamChatsByOrg[currentOrganizationId] || [] : [];
+  const currentChat = teamChats.find((chat) => chat.id === teamChatId);
   const agentMeta = useSessionStore(sessionMetaSelectors.currentAgentMeta);
   const showHeader = useGlobalStore(systemStatusSelectors.showChatHeader);
 
@@ -80,8 +83,8 @@ const TeamChatHeader = memo<TeamChatHeaderProps>(({ teamChatId }) => {
     //         <div className={styles.title}>
     //           {currentChat.title || 'Team AI Chat'}
     //         </div>
-    //         <div style={{ 
-    //           fontSize: '12px', 
+    //         <div style={{
+    //           fontSize: '12px',
     //           color: '#6b7280',
     //           padding: '2px 6px',
     //           background: 'rgba(34, 197, 94, 0.1)',
@@ -95,8 +98,8 @@ const TeamChatHeader = memo<TeamChatHeaderProps>(({ teamChatId }) => {
     //   }
     //   right={
     //     <Flexbox align={'center'} gap={8} horizontal>
-    //       <div style={{ 
-    //         fontSize: '12px', 
+    //       <div style={{
+    //         fontSize: '12px',
     //         color: '#6b7280',
     //         padding: '4px 8px',
     //         background: 'rgba(59, 130, 246, 0.1)',

@@ -122,11 +122,11 @@ export interface ChatMessage {
 }
 
 export interface CreateMessageParams
-  extends Partial<Omit<ChatMessage, 'content' | 'role' | 'topicId' | 'chunksList'>> {
+  extends Partial<Omit<ChatMessage, 'content' | 'role' | 'topicId' | 'chunksList' | 'files'>> {
   content: string;
   error?: ChatMessageError | null;
   fileChunks?: MessageSemanticSearchChunk[];
-  files?: string[];
+  files?: ChatFileItem[];
   fromModel?: string;
   fromProvider?: string;
   role: MessageRoleType;

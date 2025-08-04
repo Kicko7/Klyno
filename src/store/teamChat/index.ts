@@ -12,24 +12,48 @@ import { agentSelectors } from '@/store/agent/selectors';
 import { useUserStore } from '@/store/user';
 import { CreateMessageParams } from '@/types/message';
 
+interface TeamChatMetadata {
+  organizationId: string;
+  [key: string]: any;
+}
+
 interface TeamChatState {
   // State
-  teamChats: TeamChatItem[];
+  teamChatsByOrg: Record<string, TeamChatItem[]>; // organizationId -> chats
   activeTeamChatId: string | null;
   activeTopicId: string | null;
   messages: Record<string, TeamChatMessageItem[]>; // teamChatId -> messages
   isLoading: boolean;
   isLoadingMessages: boolean;
   error: string | null;
+  currentOrganizationId: string | null; // Track current organization
+
+  // Session-like state
+  isSessionsFirstFetchFinished: boolean;
+  isSearching: boolean;
+  searchKeywords: string;
+  signalSessionMeta?: AbortController;
+
+  // Workspace state
+  workspaceEnabled: boolean;
+  workspaceConfig: {
+    isVisible: boolean;
+    width: number;
+  };
 
   // Actions
-  createTeamChat: (organizationId: string, title?: string) => Promise<string>;
+  createTeamChat: (
+    organizationId: string,
+    title?: string,
+    metadata?: TeamChatMetadata,
+  ) => Promise<string>;
   createNewTeamChatWithTopic: (
     organizationId: string,
     title?: string,
+    metadata?: TeamChatMetadata,
   ) => Promise<{ teamChatId: string; topicId: string }>;
   loadTeamChats: (organizationId: string) => Promise<void>;
-  setActiveTeamChat: (id: string, topicId?: string) => void;
+  setActiveTeamChat: (id: string | null, topicId?: string) => void;
   switchToTeamChatTopic: (teamChatId: string, topicId: string) => void;
   updateTeamChat: (
     id: string,
@@ -51,6 +75,11 @@ interface TeamChatState {
     originalUserMessage: string,
   ) => Promise<void>;
   clearError: () => void;
+
+  // Workspace actions
+  toggleWorkspace: () => void;
+  setWorkspaceWidth: (width: number) => void;
+  setWorkspaceVisible: (visible: boolean) => void;
 }
 
 const getTeamChatService = async () => {
@@ -123,18 +152,39 @@ export const useTeamChatStore = create<TeamChatState>()(
   devtools(
     (set, get) => ({
       // Initial state
-      teamChats: [],
+      teamChatsByOrg: {},
       activeTeamChatId: null,
       activeTopicId: null,
       messages: {},
       isLoading: false,
       isLoadingMessages: false,
       error: null,
+      currentOrganizationId: null,
+
+      // Session-like state
+      isSessionsFirstFetchFinished: false,
+      isSearching: false,
+      searchKeywords: '',
+      signalSessionMeta: undefined,
+
+      // Workspace state
+      workspaceEnabled: true,
+      workspaceConfig: {
+        isVisible: true,
+        width: 320,
+      },
 
       // Create a new team chat
-      createTeamChat: async (organizationId: string, title = 'Team Chat') => {
+      createTeamChat: async (
+        organizationId: string,
+        title = 'Team Chat',
+        metadata?: TeamChatMetadata,
+      ) => {
         try {
           set({ isLoading: true, error: null });
+          if (!organizationId) {
+            throw new Error('organizationId is required to create a team chat');
+          }
           console.log('🚀 Creating team chat for organization:', organizationId);
 
           let newChatId: string;
@@ -154,8 +204,12 @@ export const useTeamChatStore = create<TeamChatState>()(
 
             if (newChat) {
               set((state) => ({
-                teamChats: [...state.teamChats, newChat],
+                teamChatsByOrg: {
+                  ...state.teamChatsByOrg,
+                  [organizationId]: [...(state.teamChatsByOrg[organizationId] || []), newChat],
+                },
                 activeTeamChatId: newChat.id,
+                currentOrganizationId: organizationId,
                 isLoading: false,
               }));
             } else {
@@ -167,17 +221,19 @@ export const useTeamChatStore = create<TeamChatState>()(
               organizationId,
               title,
               description: `Team chat for organization ${organizationId}`,
-              metadata: {
-                teamMembers: [],
-              },
+              metadata: { ...(metadata || {}), organizationId },
             });
 
             newChatId = newChat.id;
 
             // Add to state
             set((state) => ({
-              teamChats: [...state.teamChats, newChat],
+              teamChatsByOrg: {
+                ...state.teamChatsByOrg,
+                [organizationId]: [...(state.teamChatsByOrg[organizationId] || []), newChat],
+              },
               activeTeamChatId: newChat.id,
+              currentOrganizationId: organizationId,
               isLoading: false,
             }));
           }
@@ -195,9 +251,13 @@ export const useTeamChatStore = create<TeamChatState>()(
       },
 
       // Create a new team chat with topic ID for URL routing
-      createNewTeamChatWithTopic: async (organizationId: string, title = 'New Chat') => {
+      createNewTeamChatWithTopic: async (
+        organizationId: string,
+        title = 'New Chat',
+        metadata?: TeamChatMetadata,
+      ) => {
         try {
-          const teamChatId = await get().createTeamChat(organizationId, title);
+          const teamChatId = await get().createTeamChat(organizationId, title, metadata);
           const topicId = `topic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
           // Set the topic ID in state
@@ -214,6 +274,11 @@ export const useTeamChatStore = create<TeamChatState>()(
       // Load all team chats for an organization
       loadTeamChats: async (organizationId: string) => {
         try {
+          if (!organizationId) {
+            console.error('❌ No organization ID provided');
+            return;
+          }
+
           set({ isLoading: true, error: null });
           console.log('📥 Loading team chats for organization:', organizationId);
 
@@ -229,12 +294,17 @@ export const useTeamChatStore = create<TeamChatState>()(
             chats = await service.getChatsByOrganization(organizationId);
           }
 
-          console.log('✅ Loaded team chats:', chats.length);
+          // console.log('✅ Loaded team chats:', chats.length);
 
-          set({
-            teamChats: chats,
+          // Update chats for this organization and set it as current
+          set((state) => ({
+            teamChatsByOrg: {
+              ...state.teamChatsByOrg,
+              [organizationId]: chats,
+            },
+            currentOrganizationId: organizationId,
             isLoading: false,
-          });
+          }));
         } catch (error) {
           console.error('❌ Failed to load team chats:', error);
           set({
@@ -247,6 +317,15 @@ export const useTeamChatStore = create<TeamChatState>()(
       // Set active team chat
       setActiveTeamChat: (id: string | null, topicId?: string) => {
         console.log('🎯 Setting active team chat:', id, topicId);
+        // If id is null, clear both activeTeamChatId and activeTopicId
+        if (id === null) {
+          set({
+            activeTeamChatId: null,
+            activeTopicId: null,
+          });
+          return;
+        }
+        // Otherwise set the new active chat and topic
         set({
           activeTeamChatId: id,
           activeTopicId: topicId || null,
@@ -281,12 +360,21 @@ export const useTeamChatStore = create<TeamChatState>()(
           }
 
           // Update in state
-          set((state) => ({
-            teamChats: state.teamChats.map((chat) =>
-              chat.id === id ? { ...chat, ...updatedChat } : chat,
-            ),
-            isLoading: false,
-          }));
+          set((state) => {
+            const orgId = state.currentOrganizationId;
+            if (!orgId) return { isLoading: false };
+
+            const orgChats = state.teamChatsByOrg[orgId] || [];
+            return {
+              teamChatsByOrg: {
+                ...state.teamChatsByOrg,
+                [orgId]: orgChats.map((chat: TeamChatItem) =>
+                  chat.id === id ? { ...chat, ...updatedChat } : chat,
+                ),
+              },
+              isLoading: false,
+            };
+          });
 
           console.log('✅ Team chat updated:', id);
         } catch (error) {
@@ -314,11 +402,20 @@ export const useTeamChatStore = create<TeamChatState>()(
           }
 
           // Remove from state
-          set((state) => ({
-            teamChats: state.teamChats.filter((chat) => chat.id !== id),
-            activeTeamChatId: state.activeTeamChatId === id ? null : state.activeTeamChatId,
-            isLoading: false,
-          }));
+          set((state) => {
+            const orgId = state.currentOrganizationId;
+            if (!orgId) return { isLoading: false };
+
+            const orgChats = state.teamChatsByOrg[orgId] || [];
+            return {
+              teamChatsByOrg: {
+                ...state.teamChatsByOrg,
+                [orgId]: orgChats.filter((chat: TeamChatItem) => chat.id !== id),
+              },
+              activeTeamChatId: state.activeTeamChatId === id ? null : state.activeTeamChatId,
+              isLoading: false,
+            };
+          });
 
           console.log('✅ Team chat deleted:', id);
         } catch (error) {
@@ -354,7 +451,7 @@ export const useTeamChatStore = create<TeamChatState>()(
             isLoadingMessages: false,
           }));
 
-          console.log('✅ Loaded messages:', messages.length);
+          // console.log('✅ Loaded messages:', messages.length);
         } catch (error) {
           console.error('❌ Failed to load messages:', error);
           set({
@@ -364,27 +461,27 @@ export const useTeamChatStore = create<TeamChatState>()(
         }
       },
 
-        // Send a message in team chat
-  sendMessage: async (
-    teamChatId: string,
-    content: string,
-    messageType: 'user' | 'assistant' = 'user',
-    messageId?: string,
-    retry: boolean = false,
-    metadata?: any,
-  ) => {
-    try {
-      console.log('📤 Sending message to team chat:', teamChatId, messageType);
+      // Send a message in team chat
+      sendMessage: async (
+        teamChatId: string,
+        content: string,
+        messageType: 'user' | 'assistant' = 'user',
+        messageId?: string,
+        retry: boolean = false,
+        metadata?: any,
+      ) => {
+        try {
+          console.log('📤 Sending message to team chat:', teamChatId, messageType);
 
-      // Use provided metadata (including proper usage tokens) or fall back to simple estimation
-      let messageMetadata = metadata || {};
-      
-      // If no metadata provided for assistant messages, use simple estimation as fallback
-      if (messageType === 'assistant' && !metadata?.totalTokens && !metadata?.tokens) {
-        messageMetadata = {
-          tokens: content ? content.length / 4 : 0, // Simple estimate as fallback
-        };
-      }
+          // Use provided metadata (including proper usage tokens) or fall back to simple estimation
+          let messageMetadata = metadata || {};
+
+          // If no metadata provided for assistant messages, use simple estimation as fallback
+          if (messageType === 'assistant' && !metadata?.totalTokens && !metadata?.tokens) {
+            messageMetadata = {
+              tokens: content ? content.length / 4 : 0, // Simple estimate as fallback
+            };
+          }
 
           // First, update the UI immediately for better UX
           set((state) => {
@@ -540,20 +637,29 @@ export const useTeamChatStore = create<TeamChatState>()(
             },
             onFinish: async (finalContent, context) => {
               const finalMessage = finalContent || aiResponse || 'No response generated';
-              
+
               // Extract usage information and include model/provider for proper display
-              const metadata = context?.usage ? { 
-                ...context.usage,
-                model: agentConfig.model,
-                provider: agentConfig.provider,
-                // Use the API's token count directly
-                totalTokens: context.usage.totalTokens || 0
-              } : {
-                model: agentConfig.model,
-                provider: agentConfig.provider
-              };
-              
-              await get().sendMessage(teamChatId, finalMessage, 'assistant', messageId, false, metadata);
+              const metadata = context?.usage
+                ? {
+                    ...context.usage,
+                    model: agentConfig.model,
+                    provider: agentConfig.provider,
+                    // Use the API's token count directly
+                    totalTokens: context.usage.totalTokens || 0,
+                  }
+                : {
+                    model: agentConfig.model,
+                    provider: agentConfig.provider,
+                  };
+
+              await get().sendMessage(
+                teamChatId,
+                finalMessage,
+                'assistant',
+                messageId,
+                false,
+                metadata,
+              );
             },
             onErrorHandle: (error) => {
               console.error('AI retry error:', error);
@@ -576,6 +682,34 @@ export const useTeamChatStore = create<TeamChatState>()(
       // Clear error
       clearError: () => {
         set({ error: null });
+      },
+
+      // Workspace actions
+      toggleWorkspace: () => {
+        set((state) => ({
+          workspaceConfig: {
+            ...state.workspaceConfig,
+            isVisible: !state.workspaceConfig.isVisible,
+          },
+        }));
+      },
+
+      setWorkspaceWidth: (width: number) => {
+        set((state) => ({
+          workspaceConfig: {
+            ...state.workspaceConfig,
+            width: Math.max(280, Math.min(800, width)), // Constrain width between 280px and 800px
+          },
+        }));
+      },
+
+      setWorkspaceVisible: (visible: boolean) => {
+        set((state) => ({
+          workspaceConfig: {
+            ...state.workspaceConfig,
+            isVisible: visible,
+          },
+        }));
       },
     }),
     {

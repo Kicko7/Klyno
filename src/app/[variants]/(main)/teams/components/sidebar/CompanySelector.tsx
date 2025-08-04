@@ -14,22 +14,32 @@ import { useOrganizationStore } from '@/store/organization/store';
 
 const CompanySelector = () => {
   const router = useRouter();
-  const { showCreateOrgModal, fetchOrganizations, isLoading, organizations } =
-    useOrganizationStore();
-  const [selectedOrganization, setSelectedOrganization] = useState<any>(null);
+  const {
+    showCreateOrgModal,
+    fetchOrganizations,
+    isLoading,
+    organizations,
+    selectedOrganizationId,
+    setSelectedOrganizationId,
+  } = useOrganizationStore();
 
+  // Fetch organizations on mount if not loaded
   useEffect(() => {
     if (!organizations || organizations.length === 0) {
       fetchOrganizations();
     }
   }, [organizations, fetchOrganizations]);
 
-  // Set the first organization as selected when organizations are loaded
+  // Find the selected organization from the store
+  const selectedOrganization =
+    organizations?.find((org) => org.id === selectedOrganizationId) || organizations?.[0] || null;
+
+  // When organizations load and no org is selected, select the first
   useEffect(() => {
-    if (organizations && organizations.length > 0 && !selectedOrganization) {
-      setSelectedOrganization(organizations[0]);
+    if (organizations && organizations.length > 0 && !selectedOrganizationId) {
+      setSelectedOrganizationId(organizations[0].id);
     }
-  }, [organizations, selectedOrganization]);
+  }, [organizations, selectedOrganizationId, setSelectedOrganizationId]);
 
   const handleWorkspaceMembersClick = () => {
     if (selectedOrganization?.id) {
@@ -38,7 +48,6 @@ const CompanySelector = () => {
   };
 
   const ShowCompany = ({ org }: { org: any }) => {
-
     if (!org) {
       return (
         <div className="flex items-center gap-2">
@@ -49,7 +58,6 @@ const CompanySelector = () => {
         </div>
       );
     }
-
     return (
       <div className="flex items-center gap-2">
         <div className="flex items-center justify-center w-8 h-8 bg-white/10 rounded">
@@ -81,7 +89,7 @@ const CompanySelector = () => {
           align="start"
         >
           <div className="p-2">
-            <div 
+            <div
               className="flex items-center gap-2 p-2 rounded hover:bg-white/10 cursor-pointer"
               onClick={handleWorkspaceMembersClick}
             >
@@ -101,8 +109,8 @@ const CompanySelector = () => {
               {organizations.map((org: any) => (
                 <div
                   key={org.id || org.name}
-                  className="flex items-center gap-2 p-2 rounded hover:bg-slate-700 cursor-pointer"
-                  onClick={() => setSelectedOrganization(org)}
+                  className={`flex items-center gap-2 p-2 rounded hover:bg-slate-700 cursor-pointer ${selectedOrganizationId === org.id ? 'bg-slate-800' : ''}`}
+                  onClick={() => setSelectedOrganizationId(org.id)}
                 >
                   <ShowCompany org={org} />
                 </div>

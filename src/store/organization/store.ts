@@ -15,6 +15,7 @@ export interface OrganizationState {
   organizationMembers: any[];
   organizations: any[];
   CreateOrgModal: boolean;
+  selectedOrganizationId?: string;
   showCreateOrgModal: () => void;
   hideCreateOrgModal: () => void;
 }
@@ -29,6 +30,7 @@ export interface OrganizationAction {
     role: 'admin' | 'member';
     teamId: string;
   }) => Promise<void>;
+  setSelectedOrganizationId: (id: string) => void;
 }
 
 export interface OrganizationStore extends OrganizationState, OrganizationAction {}
@@ -42,8 +44,9 @@ const initialOrganizationState: OrganizationState = {
   organizationMembers: [],
   organizations: [],
   CreateOrgModal: false,
-  showCreateOrgModal: () => void {},
-  hideCreateOrgModal: () => void {},
+  selectedOrganizationId: undefined,
+  showCreateOrgModal: () => {},
+  hideCreateOrgModal: () => {},
 };
 
 export const useOrganizationStore = create<OrganizationStore>()(
@@ -77,7 +80,12 @@ export const useOrganizationStore = create<OrganizationStore>()(
         set({ isLoading: true });
         try {
           const organizations = await lambdaClient.organization.getMyOrganizations.query();
-          set({ isLoading: false, organizations });
+          // If no selectedOrganizationId, set to first org
+          let selectedOrganizationId = get().selectedOrganizationId;
+          if (!selectedOrganizationId && organizations.length > 0) {
+            selectedOrganizationId = organizations[0].id;
+          }
+          set({ isLoading: false, organizations, selectedOrganizationId });
         } catch (error) {
           set({ error, isLoading: false });
         }
@@ -93,30 +101,31 @@ export const useOrganizationStore = create<OrganizationStore>()(
         try {
           // Generate a unique token for the invitation
           const token = nanoid();
-          
           // Generate email HTML if needed
           const emailHtml = renderEmail(
             OrganizationInvitation({
-              organizationName: get().organizations.find(org => org.id === organizationId)?.name || 'Organization',
+              organizationName:
+                get().organizations.find((org) => org.id === organizationId)?.name ||
+                'Organization',
+              inviteUrl: `${window.location.origin}/invite?token=${token}`,
+              teamName: '',
             }),
           );
-          
           await lambdaClient.organization.inviteMember.mutate({
-            email,
             organizationId,
+            email,
             role,
             teamId,
             token,
             html: emailHtml,
           });
-          // Refresh organization members after successful invite
-          await get().fetchOrganizationMembers(organizationId);
-        } catch (error) {
-          set({ error });
-          throw error;
-        } finally {
           set({ isInviting: false });
+        } catch (error) {
+          set({ error, isInviting: false });
         }
+      },
+      setSelectedOrganizationId: (id: string) => {
+        set({ selectedOrganizationId: id });
       },
     }),
     {

@@ -75,26 +75,34 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 
 export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
   const router = useRouter();
-  const { organizations } = useOrganizationStore();
-  const currentOrganization = organizations[0];
+  const { organizations, selectedOrganizationId } = useOrganizationStore();
+  const currentOrganization = organizations.find((org) => org.id === selectedOrganizationId);
 
   // Use the new team chat store
   const {
-    teamChats,
+    teamChatsByOrg,
     activeTeamChatId,
     createTeamChat,
     setActiveTeamChat,
     loadTeamChats,
     isLoading,
+    currentOrganizationId,
   } = useTeamChatStore();
+
+  // Get chats for current organization
+  const teamChats = currentOrganization?.id ? teamChatsByOrg[currentOrganization.id] || [] : [];
 
   // Load team chats when organization changes
   React.useEffect(() => {
     if (currentOrganization?.id) {
       console.log('🔍 Loading team chats for sidebar:', currentOrganization.id);
+      // Clear active chat and load new chats
+      setActiveTeamChat(null);
       loadTeamChats(currentOrganization.id);
+      // Reset URL to teams page
+      router.push('/teams');
     }
-  }, [currentOrganization?.id, loadTeamChats]);
+  }, [currentOrganization?.id, loadTeamChats, setActiveTeamChat, router]);
 
   const [openSections, setOpenSections] = React.useState({
     recent: true,

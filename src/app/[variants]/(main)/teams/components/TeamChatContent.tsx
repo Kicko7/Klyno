@@ -16,7 +16,11 @@ interface TeamChatContentProps {
 
 const TeamChatContent: React.FC<TeamChatContentProps> = memo(
   ({ teamChatId, mobile, onNewChat }) => {
-    const { teamChats, loadMessages, setActiveTeamChat } = useTeamChatStore();
+    const { teamChatsByOrg, loadMessages, setActiveTeamChat, currentOrganizationId } =
+      useTeamChatStore();
+
+    // Get chats for current organization
+    const teamChats = currentOrganizationId ? teamChatsByOrg[currentOrganizationId] || [] : [];
 
     // Find the current chat
     const currentChat = teamChats.find((chat) => chat.id === teamChatId);
