@@ -28,7 +28,7 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const { updateTeamChat, deleteTeamChat } = useTeamChatStore();
+  const { updateTeamChat, deleteTeamChat, refreshSidebar } = useTeamChatStore();
 
   const handleEdit = () => {
     setEditTitle(chat.title || '');
@@ -44,6 +44,7 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
     try {
       setIsUpdating(true);
       await updateTeamChat(chat.id, { title: editTitle.trim() });
+      await refreshSidebar(); // Refresh to update sidebar
       setIsEditDialogOpen(false);
       onClose?.();
     } catch (error) {
@@ -61,6 +62,7 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
     try {
       setIsDeleting(true);
       await deleteTeamChat(chat.id);
+      await refreshSidebar(); // Refresh to update sidebar
       setIsDeleteDialogOpen(false);
       onClose?.();
     } catch (error) {
@@ -72,15 +74,15 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
 
   const handleMakePublic = async () => {
     try {
-      const currentMetadata = chat.metadata || {};
-      const isCurrentlyPublic = currentMetadata.isPublic;
+      const isCurrentlyPublic = chat.metadata?.isPublic || false;
 
       await updateTeamChat(chat.id, {
         metadata: {
-          ...currentMetadata,
+          ...(chat.metadata || {}),
           isPublic: !isCurrentlyPublic,
         },
       });
+      await refreshSidebar(); // Refresh to update sidebar
       onClose?.();
     } catch (error) {
       console.error('Failed to toggle public status:', error);

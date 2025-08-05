@@ -341,27 +341,15 @@ export class OrganizationModel {
   async getInvitationByToken(token: string) {
     const invitation = await this.db.query.organizationInvitations.findFirst({
       where: (invitations, { eq }) => eq(invitations.token, token),
-      with: {
-        organization: true,
-        team: true,
-        invitedBy: {
-          with: {
-            user: true,
-          },
-        },
-      },
     });
     return invitation;
   }
 
   async getTeamByJoinCode(teamJoinCode: string) {
-    const invitation = await this.db.query.teams.findFirst({
+    const team = await this.db.query.teams.findFirst({
       where: (teams, { eq }) => eq(teams.teamJoinCode, teamJoinCode),
-      with: {
-        organization: true,
-      },
     });
-    return invitation;
+    return team;
   }
 
   async findUserByEmail(email: string) {
@@ -373,7 +361,7 @@ export class OrganizationModel {
 
   async isUserTeamMember(teamId: string, userId: string) {
     const member = await this.db.query.teamMembers.findFirst({
-      where: (teamMembers, { and, eq }) => 
+      where: (teamMembers, { and, eq }) =>
         and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)),
     });
     return !!member;

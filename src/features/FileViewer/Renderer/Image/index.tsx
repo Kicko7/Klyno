@@ -8,7 +8,7 @@ const ImageRenderer: DocRenderer = ({ mainState: { currentDocument } }) => {
     <Center height={'100%'} width={'100%'}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        alt={fileName}
+        alt={fileName || 'Image preview'}
         height={'100%'}
         src={uri}
         style={{ objectFit: 'contain', overflow: 'hidden' }}

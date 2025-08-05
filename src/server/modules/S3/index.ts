@@ -100,7 +100,7 @@ export class S3 {
 
   public async createPreSignedUrl(key: string): Promise<string> {
     const command = new PutObjectCommand({
-      ACL: this.setAcl ? 'public-read' : undefined,
+      ACL: 'public-read',
       Bucket: this.bucket,
       Key: key,
     });

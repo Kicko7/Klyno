@@ -1,7 +1,15 @@
-import { eq, desc } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
+
+import {
+  NewTeamChat,
+  NewTeamChatMessage,
+  TeamChatMessageItem,
+  teamChatMessages,
+  teamChats,
+} from '@/database/schemas/teamChat';
+import { users } from '@/database/schemas/user';
 import { LobeChatDatabase } from '@/database/type';
 import { idGenerator } from '@/database/utils/idGenerator';
-import { NewTeamChat, NewTeamChatMessage, teamChats, teamChatMessages, TeamChatMessageItem } from '@/database/schemas/teamChat';
 
 export class TeamChatService {
   private db: LobeChatDatabase;
@@ -13,57 +21,112 @@ export class TeamChatService {
   }
 
   // Create a new team chat
-  createTeamChat = async (data: Omit<NewTeamChat, 'userId'>) => {
+  createTeamChat = async (data: Omit<NewTeamChat, 'userId' | 'id'>) => {
     return this.db.transaction(async (trx) => {
-      const newChat = await trx.insert(teamChats).values({
-        ...data,
-        userId: this.userId,
-        id: idGenerator('team_chats'),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }).returning();
+      // Ensure required fields
+      if (!data.organizationId) {
+        throw new Error('organizationId is required');
+      }
+
+      // Create metadata with additional tracking info
+      const metadata = {
+        ...(data.metadata || {}),
+        memberAccess: [
+          {
+            userId: this.userId,
+            role: 'owner' as const,
+            addedAt: new Date().toISOString(),
+            addedBy: this.userId,
+          },
+        ],
+      };
+
+      const newChat = await trx
+        .insert(teamChats)
+        .values({
+          ...data,
+          userId: this.userId,
+          id: idGenerator('team_chats'),
+          metadata,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
 
       return newChat[0];
     });
   };
 
   // Add a message to a team chat
-  addMessageToChat = async (teamChatId: string, data: Omit<NewTeamChatMessage, 'userId' | 'teamChatId'> & { id?: string }) => {
+  addMessageToChat = async (
+    teamChatId: string,
+    data: Omit<NewTeamChatMessage, 'userId' | 'teamChatId'> & { id?: string },
+  ) => {
     const messageId = data.id || idGenerator('team_chat_messages');
-    
+
+    // Get user information for the message
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, this.userId),
+    });
+
+    // Prepare metadata with user information
+    const messageMetadata = {
+      ...(data.metadata || {}),
+      userInfo: user
+        ? {
+            id: user.id,
+            username: user.username ?? undefined,
+            email: user.email ?? undefined,
+            fullName: user.fullName ?? undefined,
+            firstName: user.firstName ?? undefined,
+            lastName: user.lastName ?? undefined,
+            avatar: user.avatar ?? undefined,
+          }
+        : undefined,
+      // Add multi-user chat context for AI
+      isMultiUserChat: true,
+      totalUsersInChat: await this.getActiveUsersInChat(teamChatId),
+    };
+
     // Check if message already exists and update it
     if (data.id) {
       const existingMessage = await this.db.query.teamChatMessages.findFirst({
-        where: eq(teamChatMessages.id, data.id)
+        where: eq(teamChatMessages.id, data.id),
       });
-      
+
       if (existingMessage) {
-        const result = await this.db.update(teamChatMessages)
+        const result = await this.db
+          .update(teamChatMessages)
           .set({
             content: data.content,
             messageType: data.messageType,
+            metadata: messageMetadata,
             updatedAt: new Date(),
           })
           .where(eq(teamChatMessages.id, data.id))
           .returning();
-        
+
         return result[0];
       }
     }
-    
+
     // Create new message
-    const result = await this.db.insert(teamChatMessages).values({
-      ...data,
-      teamChatId,
-      userId: this.userId,
-      id: messageId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }).returning();
-    
+    const result = await this.db
+      .insert(teamChatMessages)
+      .values({
+        ...data,
+        teamChatId,
+        userId: this.userId,
+        id: messageId,
+        metadata: messageMetadata,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+
     return result[0];
   };
-  
+
   // Get messages for a team chat
   getMessages = async (teamChatId: string, limit = 50): Promise<TeamChatMessageItem[]> => {
     return this.db.query.teamChatMessages.findMany({
@@ -73,23 +136,207 @@ export class TeamChatService {
     });
   };
 
-  // Get all team chats for an organization
-  getChatsByOrganization = async (organizationId: string) => {
-    return this.db.query.teamChats.findMany({
-      where: eq(teamChats.organizationId, organizationId)
+  // Get a single team chat by ID
+  getChatById = async (id: string) => {
+    return this.db.query.teamChats.findFirst({
+      where: eq(teamChats.id, id),
     });
   };
 
+  // Get all team chats for an organization that the user has access to
+  getChatsByOrganization = async (organizationId: string) => {
+    console.log('🔍 getChatsByOrganization called:', { organizationId, userId: this.userId });
+
+    // First get all chats for the organization
+    const allChats = await this.db.query.teamChats.findMany({
+      where: eq(teamChats.organizationId, organizationId),
+      orderBy: [desc(teamChats.updatedAt)], // Most recently updated first
+    });
+
+    console.log('🔍 All chats found:', allChats.length);
+
+    // Filter chats based on access:
+    // 1. User is the creator
+    // 2. Chat is public
+    // 3. User is in memberAccess list
+    const filteredChats = allChats.filter((chat) => {
+      const isCreator = chat.userId === this.userId;
+      const isPublic = chat.metadata?.isPublic === true;
+      const hasMemberAccess = chat.metadata?.memberAccess?.some(
+        (member) => member.userId === this.userId,
+      );
+
+      const hasAccess = isCreator || isPublic || hasMemberAccess;
+
+      console.log('🔍 Chat access check:', {
+        chatId: chat.id,
+        chatTitle: chat.title,
+        isCreator,
+        isPublic,
+        hasMemberAccess,
+        hasAccess,
+        memberAccess: chat.metadata?.memberAccess,
+      });
+
+      return hasAccess;
+    });
+
+    console.log('🔍 Filtered chats:', filteredChats.length);
+    return filteredChats;
+  };
+
+  // Update chat access settings
+  updateChatAccess = async (
+    chatId: string,
+    data: {
+      isPublic?: boolean;
+      memberAccess?: {
+        userId: string;
+        role: 'owner' | 'admin' | 'member';
+        addedAt: string;
+        addedBy: string;
+      }[];
+    },
+  ) => {
+    // First check if user has permission to update access
+    const chat = await this.db.query.teamChats.findFirst({
+      where: eq(teamChats.id, chatId),
+    });
+
+    if (!chat) {
+      throw new Error('Chat not found');
+    }
+
+    // Only creator or admins can update access
+    const isCreator = chat.userId === this.userId;
+    const isAdmin = chat.metadata?.memberAccess?.some(
+      (m) => m.userId === this.userId && (m.role === 'admin' || m.role === 'owner'),
+    );
+
+    if (!isCreator && !isAdmin) {
+      throw new Error('You do not have permission to update chat access');
+    }
+
+    // Update the chat
+    const result = await this.db
+      .update(teamChats)
+      .set({
+        ...(typeof data.isPublic === 'boolean' ? { isPublic: data.isPublic } : {}),
+        ...(data.memberAccess
+          ? {
+              metadata: {
+                ...chat.metadata,
+                memberAccess: data.memberAccess,
+              },
+            }
+          : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(teamChats.id, chatId))
+      .returning();
+
+    return result[0];
+  };
+
+  // Add member to chat
+  addChatMember = async (chatId: string, userId: string, role: 'admin' | 'member' = 'member') => {
+    const chat = await this.db.query.teamChats.findFirst({
+      where: eq(teamChats.id, chatId),
+    });
+
+    if (!chat) {
+      throw new Error('Chat not found');
+    }
+
+    // Check if user already has access
+    const existingAccess = chat.metadata?.memberAccess?.find((m) => m.userId === userId);
+    if (existingAccess) {
+      throw new Error('User already has access to this chat');
+    }
+
+    // Add the new member
+    const newMemberAccess = [
+      ...(chat.metadata?.memberAccess || []),
+      {
+        userId,
+        role,
+        addedAt: new Date().toISOString(),
+        addedBy: this.userId,
+      },
+    ];
+
+    const result = await this.db
+      .update(teamChats)
+      .set({
+        metadata: {
+          ...chat.metadata,
+          memberAccess: newMemberAccess,
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(teamChats.id, chatId))
+      .returning();
+
+    return result[0];
+  };
+
+  // Remove member from chat
+  removeChatMember = async (chatId: string, userId: string) => {
+    const chat = await this.db.query.teamChats.findFirst({
+      where: eq(teamChats.id, chatId),
+    });
+
+    if (!chat) {
+      throw new Error('Chat not found');
+    }
+
+    // Cannot remove the creator
+    if (chat.userId === userId) {
+      throw new Error('Cannot remove the chat creator');
+    }
+
+    // Only creator or admins can remove members
+    const isCreator = chat.userId === this.userId;
+    const isAdmin = chat.metadata?.memberAccess?.some(
+      (m) => m.userId === this.userId && (m.role === 'admin' || m.role === 'owner'),
+    );
+
+    if (!isCreator && !isAdmin) {
+      throw new Error('You do not have permission to remove members');
+    }
+
+    // Remove the member
+    const newMemberAccess = chat.metadata?.memberAccess?.filter((m) => m.userId !== userId) || [];
+
+    const result = await this.db
+      .update(teamChats)
+      .set({
+        metadata: {
+          ...chat.metadata,
+          memberAccess: newMemberAccess,
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(teamChats.id, chatId))
+      .returning();
+
+    return result[0];
+  };
+
   // Update a team chat
-  updateTeamChat = async (id: string, data: Partial<Pick<NewTeamChat, 'title' | 'description' | 'metadata'>>) => {
-    const result = await this.db.update(teamChats)
+  updateTeamChat = async (
+    id: string,
+    data: Partial<Pick<NewTeamChat, 'title' | 'description' | 'metadata'>>,
+  ) => {
+    const result = await this.db
+      .update(teamChats)
       .set({
         ...data,
         updatedAt: new Date(),
       })
       .where(eq(teamChats.id, id))
       .returning();
-    
+
     return result[0];
   };
 
@@ -99,5 +346,15 @@ export class TeamChatService {
       await trx.delete(teamChatMessages).where(eq(teamChatMessages.teamChatId, id));
       return trx.delete(teamChats).where(eq(teamChats.id, id));
     });
+  };
+
+  // Get the number of active users in a chat
+  private getActiveUsersInChat = async (teamChatId: string): Promise<number> => {
+    const uniqueUsers = await this.db
+      .selectDistinct({ userId: teamChatMessages.userId })
+      .from(teamChatMessages)
+      .where(eq(teamChatMessages.teamChatId, teamChatId));
+
+    return uniqueUsers.length;
   };
 }

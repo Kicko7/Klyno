@@ -1,5 +1,6 @@
-import { useCallback } from 'react';
 import { useRouter } from 'nextjs-toploader/app';
+import { useCallback } from 'react';
+
 import { useQueryRoute } from '@/hooks/useQueryRoute';
 
 export const useTeamChatRoute = () => {
@@ -7,31 +8,38 @@ export const useTeamChatRoute = () => {
   const queryRoute = useQueryRoute();
 
   const navigateToTeamChat = useCallback(
-    (teamId: string, topicId?: string) => {
-      const basePath = `/teams/${teamId}`;
-      const query: Record<string, string> = {};
-      
+    (teamId: string, chatId?: string, topicId?: string) => {
+      const basePath = `/teams`;
+      const query: Record<string, string> = {
+        view: 'chat',
+      };
+
+      if (chatId) {
+        query.chatId = chatId;
+      }
+
       if (topicId) {
         query.topic = topicId;
       }
-      
-      queryRoute.push(basePath, { query });
+
+      // Use replace with replace: true to ensure old query params are not merged
+      queryRoute.replace(basePath, { query, replace: true });
     },
-    [queryRoute]
+    [queryRoute],
   );
 
   const createNewTeamChat = useCallback(
-    (teamId: string, topicId: string) => {
-      navigateToTeamChat(teamId, topicId);
+    (teamId: string, chatId: string, topicId: string) => {
+      navigateToTeamChat(teamId, chatId, topicId);
     },
-    [navigateToTeamChat]
+    [navigateToTeamChat],
   );
 
   const switchToTeamChat = useCallback(
-    (teamId: string, topicId?: string) => {
-      navigateToTeamChat(teamId, topicId);
+    (teamId: string, chatId?: string, topicId?: string) => {
+      navigateToTeamChat(teamId, chatId, topicId);
     },
-    [navigateToTeamChat]
+    [navigateToTeamChat],
   );
 
   return {

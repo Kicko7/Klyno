@@ -217,6 +217,8 @@ export const organizationRouter = router({
         email: z.string().email(),
         organizationId: z.string(),
         role: z.enum(['admin', 'member']),
+        html: z.string().optional(),
+        token: z.string(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -224,6 +226,8 @@ export const organizationRouter = router({
         input.organizationId,
         input.email,
         input.role,
+        input.html,
+        input.token,
       );
     }),
 });

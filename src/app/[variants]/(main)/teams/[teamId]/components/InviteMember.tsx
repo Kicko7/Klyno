@@ -35,18 +35,16 @@ export const InviteMember = ({
         values.role as 'admin' | 'member',
         team?.teamJoinCode || '',
       );
-      
+
       // Check if the result indicates a user was added or an invitation was sent
       if (result?.userAdded) {
-        message.success(
-          `${values.email} has been added to the team successfully!`,
-        );
+        message.success(`${values.email} has been added to the team successfully!`);
       } else {
         message.success(
           `Invitation sent to ${values.email}. They'll be prompted to join when they sign up.`,
         );
       }
-      
+
       setShowAddMemberModal(false);
       addMemberForm.resetFields();
     } catch (error: any) {

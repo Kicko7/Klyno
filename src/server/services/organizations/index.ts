@@ -92,18 +92,24 @@ export class OrganizationService {
 
     // Check if user with this email already exists
     const existingUser = await this.organizationModel.findUserByEmail(email);
-    
+
     if (existingUser) {
       // User exists, check if they're already a member of this team
-      const isAlreadyMember = await this.organizationModel.isUserTeamMember(teamId, existingUser.id);
-      
+      const isAlreadyMember = await this.organizationModel.isUserTeamMember(
+        teamId,
+        existingUser.id,
+      );
+
       if (isAlreadyMember) {
         throw new Error('User is already a member of this team');
       }
-      
+
       // Check if they're already a member of the organization
-      const isOrgMember = await this.organizationModel.isUserOrganizationMember(organizationId, existingUser.id);
-      
+      const isOrgMember = await this.organizationModel.isUserOrganizationMember(
+        organizationId,
+        existingUser.id,
+      );
+
       if (!isOrgMember) {
         // Add user to organization
         await this.addOrganizationMember({
@@ -114,7 +120,7 @@ export class OrganizationService {
           teamIds: teamId ? [teamId] : [],
         });
       }
-      
+
       if (teamId) {
         // Add user to the specific team
         await this.addTeamMember({
@@ -124,11 +130,11 @@ export class OrganizationService {
           userId: existingUser.id,
           role,
         });
-        
+
         // Add user to the team's members array
         await this.addUserToTeamMembersArray(teamId, existingUser.id);
       }
-      
+
       return {
         message: 'User has been added to the team successfully',
         userAdded: true,
@@ -192,18 +198,21 @@ export class OrganizationService {
     organizationId: string,
     teamId: string,
     userId: string,
-    role: 'admin' | 'member'
+    role: 'admin' | 'member',
   ) {
     // Check if user is already a member of this team
     const isAlreadyMember = await this.organizationModel.isUserTeamMember(teamId, userId);
-    
+
     if (isAlreadyMember) {
       throw new Error('User is already a member of this team');
     }
-    
+
     // Check if they're already a member of the organization
-    const isOrgMember = await this.organizationModel.isUserOrganizationMember(organizationId, userId);
-    
+    const isOrgMember = await this.organizationModel.isUserOrganizationMember(
+      organizationId,
+      userId,
+    );
+
     if (!isOrgMember) {
       // Add user to organization
       await this.addOrganizationMember({
@@ -214,7 +223,7 @@ export class OrganizationService {
         teamIds: [teamId],
       });
     }
-    
+
     // Add user to the specific team
     await this.addTeamMember({
       id: nanoid(),
@@ -223,10 +232,10 @@ export class OrganizationService {
       userId,
       role,
     });
-    
+
     // Add user to the team's members array
     await this.addUserToTeamMembersArray(teamId, userId);
-  
+
     return {
       message: 'User has been added to the team successfully',
       userAdded: true,
@@ -237,11 +246,14 @@ export class OrganizationService {
   async addExistingUserToOrganization(
     organizationId: string,
     userId: string,
-    role: 'admin' | 'member'
+    role: 'admin' | 'member',
   ) {
     // Check if user is already a member of the organization
-    const isOrgMember = await this.organizationModel.isUserOrganizationMember(organizationId, userId);
-    
+    const isOrgMember = await this.organizationModel.isUserOrganizationMember(
+      organizationId,
+      userId,
+    );
+
     if (isOrgMember) {
       throw new Error('User is already a member of this organization');
     }
@@ -253,7 +265,7 @@ export class OrganizationService {
       role,
       teamIds: [],
     });
-    
+
     return {
       message: 'User has been added to the organization successfully',
       userAdded: true,
@@ -264,9 +276,16 @@ export class OrganizationService {
   async inviteByEmail(
     organizationId: string,
     email: string,
-    role: 'admin' | 'member'
+    role: 'admin' | 'member',
+    html?: string,
+    token?: string,
   ) {
+    console.log('Starting inviteByEmail process:', { organizationId, email, role });
+
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const inviteToken = token || nanoid();
+
+    console.log('Creating invitation with token:', token);
 
     const invitation = await this.organizationModel.createInvitation({
       email,
@@ -275,12 +294,34 @@ export class OrganizationService {
       organizationId,
       userId: this.userId,
       role,
-      token: nanoid(),
+      token: inviteToken,
     });
 
-    // Send invitation email asynchronously
-    // Intentionally omitted for mockup purposes
-    
+    console.log('Invitation created successfully:', invitation.id);
+
+    // Send invitation email if HTML is provided
+    if (html) {
+      try {
+        await sendEmail({
+          html,
+          subject: 'You have been invited to join an organization on Klynno AI',
+          to: email,
+        });
+        console.log('Invitation email sent successfully to:', email);
+      } catch (error) {
+        console.error('Failed to send invitation email:', error);
+
+        // If it's a configuration error, provide helpful message
+        if (error instanceof Error && error.message.includes('RESEND_API_KEY')) {
+          console.warn('Email sending is disabled due to missing RESEND_API_KEY configuration');
+          // Still return success since invitation was created
+        } else {
+          // For other errors, log but don't fail the invitation
+          console.error('Email sending failed but invitation was created:', error);
+        }
+      }
+    }
+
     return {
       message: 'Invitation sent successfully',
       invitation,

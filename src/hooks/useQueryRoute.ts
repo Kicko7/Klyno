@@ -18,8 +18,11 @@ interface GenHrefOptions extends QueryRouteOptions {
 }
 
 const genHref = ({ hash, replace, url, prevQuery = {}, query = {} }: GenHrefOptions): string => {
+  // When replace is true, only keep specific parameters we want to preserve
+  const filteredPrevQuery = replace ? {} : prevQuery;
+
   let href = qs.stringifyUrl(
-    { query: replace ? query : { ...prevQuery, ...query }, url },
+    { query: { ...filteredPrevQuery, ...query }, url },
     { skipNull: true },
   );
 
