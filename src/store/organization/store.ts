@@ -107,7 +107,7 @@ export const useOrganizationStore = create<OrganizationStore>()(
               organizationName:
                 get().organizations.find((org) => org.id === organizationId)?.name ||
                 'Organization',
-              inviteUrl: `${window.location.origin}/invite?token=${token}`,
+              inviteUrl: `${window.location.origin}/teams/invite?token=${token}`,
               teamName: '',
             }),
           );

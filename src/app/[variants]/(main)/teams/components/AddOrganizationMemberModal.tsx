@@ -1,8 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Modal, Button, Form, Select, message, Input } from 'antd';
+import { App, Button, Form, Input, Modal, Select } from 'antd';
 import { UserPlus } from 'lucide-react';
+import { nanoid } from 'nanoid';
+import { useEffect, useState } from 'react';
+
+import { renderEmail } from '@/libs/emails/render-email';
+import { OrganizationInvitation } from '@/libs/emails/templates/organization-invitation';
 import { lambdaClient } from '@/libs/trpc/client';
 
 interface AddOrganizationMemberModalProps {
@@ -17,47 +21,49 @@ interface ExistingUser {
   email: string;
 }
 
-const AddOrganizationMemberModal = ({ open, onClose, organizationId }: AddOrganizationMemberModalProps) => {
+const AddOrganizationMemberModal = ({
+  open,
+  onClose,
+  organizationId,
+}: AddOrganizationMemberModalProps) => {
   const [form] = Form.useForm();
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
-  const [inviteMode, setInviteMode] = useState<'existing' | 'email'>('existing');
+  const [inviteMode, setInviteMode] = useState<'existing' | 'email'>('email');
   const [existingUsers, setExistingUsers] = useState<ExistingUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+
+  // Reset form and mode when modal opens/closes
+  useEffect(() => {
+    if (open) {
+      form.resetFields();
+      setInviteMode('email');
+    }
+  }, [open, form]);
 
   useEffect(() => {
     const fetchExistingUsers = async () => {
       if (!organizationId || !open) return;
-      
+
       setLoadingUsers(true);
       try {
-        // Get all organization members to exclude them from the selection
+        // Get all organization members to show them in the existing users list
         const orgMembers = await lambdaClient.organization.getOrganizationMembers.query({
-          organizationId
+          organizationId,
         });
-        
-        const orgMemberIds = orgMembers.map((member: any) => member.userId);
-        
-        // For now, we'll use mock data since we don't have a "getAllUsers" endpoint
-        // In a real application, you would fetch all users from your user system
-        const mockUsers: ExistingUser[] = [
-          { id: 'user_1', name: 'John Doe', email: 'john@company.com' },
-          { id: 'user_2', name: 'Jane Smith', email: 'jane@company.com' },
-          { id: 'user_3', name: 'Mike Johnson', email: 'mike@company.com' },
-          { id: 'user_4', name: 'Sarah Wilson', email: 'sarah@company.com' },
-          { id: 'user_5', name: 'David Brown', email: 'david@company.com' },
-        ];
-        
-        // Filter out users who are already organization members
-        const availableUsers = mockUsers.filter(user => !orgMemberIds.includes(user.id));
-        
-        setExistingUsers(availableUsers);
+
+        // Transform organization members to existing users format
+        const existingUsersList: ExistingUser[] = orgMembers.map((member: any) => ({
+          id: member.userId,
+          name: member.name || member.email,
+          email: member.email,
+        }));
+
+        setExistingUsers(existingUsersList);
+        console.log('Fetched existing organization members:', existingUsersList);
       } catch (error) {
         console.error('Error fetching existing users:', error);
-        // Fallback to mock data
-        setExistingUsers([
-          { id: 'user_1', name: 'John Doe', email: 'john@company.com' },
-          { id: 'user_2', name: 'Jane Smith', email: 'jane@company.com' },
-        ]);
+        setExistingUsers([]);
       } finally {
         setLoadingUsers(false);
       }
@@ -69,37 +75,67 @@ const AddOrganizationMemberModal = ({ open, onClose, organizationId }: AddOrgani
   const handleSubmit = async (values: any) => {
     try {
       setLoading(true);
-      
+
       if (!organizationId) {
         throw new Error('Organization ID is required');
       }
 
       if (inviteMode === 'existing') {
-        // Add existing user to organization
-        await lambdaClient.organization.addExistingUserToOrganization.mutate({
-          userId: values.userId,
-          role: values.role,
-          organizationId,
-        });
-        
-        const selectedUser = existingUsers.find(user => user.id === values.userId);
-        message.success(`${selectedUser?.name || 'User'} has been added to the organization successfully!`);
+        if (existingUsers.length === 0) {
+          message.warning('No organization members available to add.');
+          return;
+        }
+
+        // Note: This would typically add the user to a team, but since we're showing existing members,
+        // we should probably show a different message or handle this differently
+        const selectedUser = existingUsers.find((user) => user.id === values.userId.value);
+        message.info(`${selectedUser?.name || 'User'} is already a member of this organization.`);
       } else {
+        // Get organization info for the email
+        const organization = await lambdaClient.organization.getOrganization.query({
+          id: organizationId,
+        });
+
+        // Generate a unique token for the invitation
+        const inviteToken = nanoid();
+
+        // Generate email HTML on the client side
+        const emailHtml = renderEmail(
+          OrganizationInvitation({
+            organizationName: organization?.name || 'Organization',
+            inviteUrl: `${window.location.origin}/teams/invite?token=${inviteToken}`,
+            teamName: '',
+          }),
+        );
+
         // Invite new user by email
-        await lambdaClient.organization.inviteByEmail.mutate({
+        const result = await lambdaClient.organization.inviteByEmail.mutate({
           email: values.email,
           role: values.role,
           organizationId,
+          html: emailHtml,
+          token: inviteToken,
         });
-        
+
+        console.log('Invitation result:', result);
         message.success(`Invitation sent to ${values.email} successfully!`);
       }
-      
+
       form.resetFields();
       onClose();
     } catch (error: any) {
-      message.error(error?.message || 'Failed to add member to organization');
       console.error('Error adding organization member:', error);
+
+      // Provide more specific error messages
+      if (error?.message?.includes('already a member')) {
+        message.warning(error.message);
+      } else if (error?.message?.includes('not found')) {
+        message.error('Organization not found. Please try again.');
+      } else if (error?.message?.includes('permission')) {
+        message.error('You do not have permission to perform this action.');
+      } else {
+        message.error(error?.message || 'Failed to add member to organization. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -110,7 +146,7 @@ const AddOrganizationMemberModal = ({ open, onClose, organizationId }: AddOrgani
       title={
         <div className="flex items-center gap-2">
           <UserPlus className="w-5 h-5" />
-          Add Organization Member
+          Invite Member to Organization
         </div>
       }
       open={open}
@@ -118,53 +154,55 @@ const AddOrganizationMemberModal = ({ open, onClose, organizationId }: AddOrgani
       footer={null}
       width={500}
     >
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={handleSubmit}
-        className="mt-4"
-      >
-        <Form.Item
-          label="Invitation Method"
-          name="inviteMode"
-          initialValue="existing"
-        >
-          <Select 
-            size="large" 
-            onChange={(value) => setInviteMode(value)}
-          >
-            <Select.Option value="existing">Add Existing User</Select.Option>
-            <Select.Option value="email">Invite by Email</Select.Option>
+      <div className="mb-4 text-sm text-gray-600">
+        <p>Choose how you want to add members to your organization:</p>
+        <ul className="list-disc list-inside mt-2 space-y-1">
+          <li>
+            <strong>Invite External User by Email:</strong> Send an invitation email to someone
+            outside your organization
+          </li>
+          <li>
+            <strong>Add Existing Organization Member:</strong> View and manage current organization
+            members
+          </li>
+        </ul>
+      </div>
+
+      <Form form={form} layout="vertical" onFinish={handleSubmit} className="mt-4">
+        <Form.Item label="Invitation Method" name="inviteMode" initialValue="email">
+          <Select size="large" onChange={(value) => setInviteMode(value)}>
+            <Select.Option value="email">Invite External User by Email</Select.Option>
+            <Select.Option value="existing">
+              Add Existing Organization Member ({existingUsers.length} available)
+            </Select.Option>
           </Select>
         </Form.Item>
 
         {inviteMode === 'existing' ? (
           <Form.Item
-            label="Select User"
+            label="Select Organization Member"
             name="userId"
-            rules={[
-              { required: true, message: 'Please select a user' }
-            ]}
+            rules={[{ required: true, message: 'Please select a member' }]}
           >
-            <Select 
-              size="large" 
-              placeholder="Select a user to add"
+            <Select
+              size="large"
+              placeholder="Select a member to add"
               loading={loadingUsers}
               showSearch
-              optionFilterProp="children"
-              filterOption={(input, option) =>
-                String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-            >
-              {existingUsers.map(user => (
-                <Select.Option key={user.id} value={user.id}>
-                  <div className="flex flex-col">
-                    <span className="font-medium">{user.name}</span>
-                    <span className="text-sm text-gray-500">{user.email}</span>
+              optionFilterProp="label"
+              labelInValue
+              options={existingUsers.map((user) => ({
+                label: user.email,
+                value: user.id,
+                render: (
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-medium truncate">{user.name}</span>
+                    <span className="text-sm text-gray-400 truncate">{user.email}</span>
                   </div>
-                </Select.Option>
-              ))}
-            </Select>
+                ),
+              }))}
+              optionRender={(option) => option.data.render}
+            />
           </Form.Item>
         ) : (
           <Form.Item
@@ -172,12 +210,12 @@ const AddOrganizationMemberModal = ({ open, onClose, organizationId }: AddOrgani
             name="email"
             rules={[
               { required: true, message: 'Please enter an email address' },
-              { type: 'email', message: 'Please enter a valid email address' }
+              { type: 'email', message: 'Please enter a valid email address' },
             ]}
           >
-            <Input 
-              size="large" 
-              placeholder="Enter email address"
+            <Input
+              size="large"
+              placeholder="Enter email address to invite external user"
               type="email"
             />
           </Form.Item>
@@ -206,15 +244,13 @@ const AddOrganizationMemberModal = ({ open, onClose, organizationId }: AddOrgani
             icon={<UserPlus className="w-4 h-4" />}
             disabled={inviteMode === 'existing' && existingUsers.length === 0}
           >
-            {inviteMode === 'existing' ? 'Add Member' : 'Send Invitation'}
+            {inviteMode === 'existing' ? 'View Member Info' : 'Send Invitation'}
           </Button>
         </div>
       </Form>
-      
+
       {inviteMode === 'existing' && existingUsers.length === 0 && !loadingUsers && (
-        <div className="text-center text-gray-500 py-4">
-          No available users to add to this organization
-        </div>
+        <div className="text-center text-gray-500 py-4">No organization members found</div>
       )}
     </Modal>
   );

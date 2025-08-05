@@ -247,20 +247,33 @@ export const useTeamStore = create<TeamStore>()(
             throw new Error('No organization found');
           }
 
+          const currentTeam = get().currentTeam;
+          if (!currentTeam) {
+            throw new Error('No team selected');
+          }
+
+          // Generate a unique token if not provided
+          const inviteToken = token || nanoid();
+
+          // Generate email HTML with proper invite link and team info
           const emailHtml = renderEmail(
             OrganizationInvitation({
               organizationName: organizations[0].name,
+              teamName: currentTeam.name,
+              inviteUrl: `${window.location.origin}/teams/invite?token=${inviteToken}`,
             }),
           );
-          
-          // Try the new endpoint first for better user experience
-          const result = await lambdaClient.organization.inviteExistingUser.mutate({
+
+          // Send invitation using the inviteMember endpoint
+          const result = await lambdaClient.organization.inviteMember.mutate({
+            organizationId: organizations[0].id,
             teamId,
             email,
             role,
-            organizationId: organizations[0].id,
+            token: inviteToken,
+            html: emailHtml,
           });
-          
+
           await get().fetchMembers(teamId);
           return result;
         } catch (error: any) {

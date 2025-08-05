@@ -16,10 +16,31 @@ export const OrganizationInvitation = ({
       previewText={`You have been invited to join ${organizationName} on Klynno AI`}
       title={`You have been invited to join ${organizationName} on Klynno AI`}
     >
-      <p>You have been invited to join an organization.</p>
-      <p>Click the link below to create a new account:</p>
-      <a href={inviteUrl}>Create an account</a>
-      <p>After signing up with this email you will be automatically added to the team.</p>
+      <p>
+        You have been invited to join <strong>{organizationName}</strong> on Klynno AI.
+      </p>
+      <p>
+        If you already have an account, clicking the link below will add you to the organization. If
+        you don't have an account yet, you'll be prompted to create one.
+      </p>
+      <a
+        href={inviteUrl}
+        style={{
+          display: 'inline-block',
+          padding: '10px 20px',
+          margin: '20px 0',
+          backgroundColor: '#1677ff',
+          color: 'white',
+          textDecoration: 'none',
+          borderRadius: '6px',
+        }}
+      >
+        Accept Invitation
+      </a>
+      <p>
+        This invitation link will expire in 7 days. If you have any issues, please contact the
+        organization administrator.
+      </p>
     </BaseTemplate>
   );
 };
