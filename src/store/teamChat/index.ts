@@ -75,6 +75,9 @@ interface TeamChatState {
     originalUserMessage: string,
   ) => Promise<void>;
   clearError: () => void;
+  refreshTeamChats: () => Promise<void>;
+  refreshSidebar: () => Promise<void>;
+  setCurrentOrganizationId: (organizationId: string | null) => void;
 
   // Workspace actions
   toggleWorkspace: () => void;
@@ -185,6 +188,15 @@ export const useTeamChatStore = create<TeamChatState>()(
           if (!organizationId) {
             throw new Error('organizationId is required to create a team chat');
           }
+
+          // Get current user ID
+          const userState = useUserStore.getState();
+          const userId = userState.user?.id;
+
+          if (!userId) {
+            throw new Error('User must be logged in to create a team chat');
+          }
+
           console.log('🚀 Creating team chat for organization:', organizationId);
 
           let newChatId: string;
@@ -194,6 +206,17 @@ export const useTeamChatStore = create<TeamChatState>()(
             newChatId = await lambdaClient.teamChat.createTeamChat.mutate({
               organizationId,
               title,
+              metadata: {
+                ...(metadata || {}),
+                memberAccess: [
+                  {
+                    userId,
+                    role: 'owner',
+                    addedAt: new Date().toISOString(),
+                    addedBy: userId,
+                  },
+                ],
+              },
             });
 
             // For server mode, we need to reload the list to get the full object
@@ -221,7 +244,18 @@ export const useTeamChatStore = create<TeamChatState>()(
               organizationId,
               title,
               description: `Team chat for organization ${organizationId}`,
-              metadata: { ...(metadata || {}), organizationId },
+              metadata: {
+                ...(metadata || {}),
+                memberAccess: [
+                  {
+                    userId,
+                    role: 'owner',
+                    addedAt: new Date().toISOString(),
+                    addedBy: userId,
+                  },
+                ],
+                isPublic: false,
+              },
             });
 
             newChatId = newChat.id;
@@ -271,11 +305,34 @@ export const useTeamChatStore = create<TeamChatState>()(
         }
       },
 
-      // Load all team chats for an organization
+      // Load all team chats for an organization that the user has access to
       loadTeamChats: async (organizationId: string) => {
         try {
           if (!organizationId) {
             console.error('❌ No organization ID provided');
+            return;
+          }
+
+          // Get current user ID
+          const userState = useUserStore.getState();
+          const userId = userState.user?.id;
+
+          console.log('🔍 loadTeamChats debug:', {
+            organizationId,
+            userId,
+            userState: userState.user,
+            isSignedIn: userState.isSignedIn,
+            isLoaded: userState.isLoaded,
+          });
+
+          if (!userId) {
+            console.warn('⚠️ No user ID available, setting empty chats');
+            // Instead of returning, set empty chats and clear loading state
+            set({
+              teamChatsByOrg: { ...get().teamChatsByOrg, [organizationId]: [] },
+              isLoading: false,
+              error: null,
+            });
             return;
           }
 
@@ -294,7 +351,14 @@ export const useTeamChatStore = create<TeamChatState>()(
             chats = await service.getChatsByOrganization(organizationId);
           }
 
-          // console.log('✅ Loaded team chats:', chats.length);
+          // Sort chats by last activity
+          chats.sort((a, b) => {
+            const aTime = a.updatedAt?.getTime() || 0;
+            const bTime = b.updatedAt?.getTime() || 0;
+            return bTime - aTime;
+          });
+
+          console.log(`✅ Loaded ${chats.length} accessible team chats for user ${userId}`);
 
           // Update chats for this organization and set it as current
           set((state) => ({
@@ -315,21 +379,74 @@ export const useTeamChatStore = create<TeamChatState>()(
       },
 
       // Set active team chat
-      setActiveTeamChat: (id: string | null, topicId?: string) => {
+      setActiveTeamChat: async (id: string | null, topicId?: string) => {
         console.log('🎯 Setting active team chat:', id, topicId);
+
         // If id is null, clear both activeTeamChatId and activeTopicId
         if (id === null) {
           set({
             activeTeamChatId: null,
             activeTopicId: null,
+            error: null,
           });
           return;
         }
-        // Otherwise set the new active chat and topic
-        set({
-          activeTeamChatId: id,
-          activeTopicId: topicId || null,
-        });
+
+        // Get current state
+        const state = get();
+        const currentOrgChats = state.teamChatsByOrg[state.currentOrganizationId || ''] || [];
+
+        // First check if we have the chat in local state
+        const existingChat = currentOrgChats.find((c) => c.id === id);
+
+        // If chat exists in local state, just set it as active
+        if (existingChat) {
+          console.log('🎯 Chat found in local state, setting as active');
+          set({
+            activeTeamChatId: id,
+            activeTopicId: topicId || null,
+            error: null,
+          });
+          return;
+        }
+
+        // If we don't have the chat in local state, try to fetch it
+        try {
+          if (isServerMode) {
+            const chat = await lambdaClient.teamChat.getTeamChatById.query({ id });
+
+            if (!chat) {
+              throw new Error('Chat not found');
+            }
+
+            // Update chat list and set as active
+            set((state) => ({
+              activeTeamChatId: id,
+              activeTopicId: topicId || null,
+              error: null,
+              teamChatsByOrg: {
+                ...state.teamChatsByOrg,
+                [chat.organizationId]: [...currentOrgChats, chat],
+              },
+            }));
+
+            console.log('🎯 Chat fetched and set as active');
+          } else {
+            // In non-server mode, just set as active
+            set({
+              activeTeamChatId: id,
+              activeTopicId: topicId || null,
+              error: null,
+            });
+          }
+        } catch (error) {
+          console.error('❌ Error setting active chat:', error);
+          set({
+            activeTeamChatId: null,
+            activeTopicId: null,
+            error: error instanceof Error ? error.message : 'Failed to access chat',
+          });
+        }
       },
 
       // Switch to a specific team chat topic (for URL routing)
@@ -682,6 +799,85 @@ export const useTeamChatStore = create<TeamChatState>()(
       // Clear error
       clearError: () => {
         set({ error: null });
+      },
+
+      // Refresh team chats for current organization
+      refreshTeamChats: async () => {
+        const { currentOrganizationId } = get();
+        if (currentOrganizationId) {
+          await get().loadTeamChats(currentOrganizationId);
+        } else {
+          console.warn('⚠️ No current organization ID set, cannot refresh team chats');
+        }
+      },
+
+      // Set current organization ID (for synchronization with organization store)
+      setCurrentOrganizationId: (organizationId: string | null) => {
+        set({ currentOrganizationId: organizationId });
+      },
+
+      // Refresh sidebar only - updates chat list without affecting active chat
+      refreshSidebar: async () => {
+        const { currentOrganizationId, activeTeamChatId, teamChatsByOrg } = get();
+        if (!currentOrganizationId) return;
+
+        try {
+          console.log('🔄 Refreshing sidebar for organization:', currentOrganizationId);
+
+          let chats: TeamChatItem[];
+          if (isServerMode) {
+            try {
+              chats = await lambdaClient.teamChat.getTeamChatsByOrganization.query({
+                organizationId: currentOrganizationId,
+              });
+            } catch (error) {
+              // If server is down, use local state
+              if (error instanceof Error && error.message.includes('Failed to fetch')) {
+                console.warn('⚠️ Server connection error, using local state for sidebar');
+                chats = teamChatsByOrg[currentOrganizationId] || [];
+              } else {
+                throw error;
+              }
+            }
+          } else {
+            const service = await getTeamChatService();
+            chats = await service.getChatsByOrganization(currentOrganizationId);
+          }
+
+          // Sort chats by last activity
+          chats.sort((a, b) => {
+            const aTime = a.updatedAt?.getTime() || 0;
+            const bTime = b.updatedAt?.getTime() || 0;
+            return bTime - aTime;
+          });
+
+          // Update only the chat list, preserve active chat
+          set((state) => ({
+            teamChatsByOrg: {
+              ...state.teamChatsByOrg,
+              [currentOrganizationId]: chats,
+            },
+          }));
+
+          // Check if active chat still exists in the updated list
+          const activeChatStillExists = chats.some((chat) => chat.id === activeTeamChatId);
+          if (activeTeamChatId && !activeChatStillExists) {
+            console.log('⚠️ Active chat no longer accessible, clearing it');
+            set({
+              activeTeamChatId: null,
+              activeTopicId: null,
+              error: 'You no longer have access to this chat',
+            });
+          }
+
+          console.log(`✅ Sidebar refreshed: ${chats.length} chats loaded`);
+        } catch (error) {
+          console.error('❌ Failed to refresh sidebar:', error);
+          // For server connection errors, keep using local state
+          if (error instanceof Error && error.message.includes('Failed to fetch')) {
+            set({ error: 'Server connection error. Using local data.' });
+          }
+        }
       },
 
       // Workspace actions

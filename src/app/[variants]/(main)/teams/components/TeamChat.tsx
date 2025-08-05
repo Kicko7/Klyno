@@ -3,6 +3,7 @@
 import { ModelTag } from '@lobehub/icons';
 import { ActionIcon } from '@lobehub/ui';
 import { ChatHeader } from '@lobehub/ui/chat';
+import { Alert, Button } from 'antd';
 import { useResponsive } from 'antd-style';
 import { UserPlus } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -41,9 +42,11 @@ const TeamChat = memo(() => {
     activeTeamChatId,
     isLoading,
     createTeamChat,
-    loadTeamChats,
     setActiveTeamChat,
     currentOrganizationId,
+    error,
+    refreshTeamChats,
+    refreshSidebar,
   } = useTeamChatStore();
 
   // Get chats for current organization
@@ -55,31 +58,30 @@ const TeamChat = memo(() => {
     agentSelectors.currentAgentModelProvider(s),
   ]);
 
-  // Load team chats when organization changes
+  // Note: Team chats are now loaded by the sidebar when organization changes
+  // This prevents duplicate loading and infinite loops
+
+  // Validate chat access and sync with URL
   useEffect(() => {
-    if (currentOrganization?.id) {
-      console.log('🔍 Loading team chats for organization:', currentOrganization.id);
-      loadTeamChats(currentOrganization.id);
-      // Clear active chat and URL when organization changes
+    if (!chatId || !currentOrganization?.id || isLoading) return;
+
+    // Find the chat in current organization's chats
+    const chat = teamChats.find((c) => c.id === chatId);
+
+    // If we have chats loaded and can't find this chat, it might be invalid
+    if (teamChats.length > 0 && !chat) {
+      console.warn('⚠️ Chat not found in current organization:', chatId);
       setActiveTeamChat(null);
       router.push('/teams');
+      return;
     }
-  }, [currentOrganization?.id, loadTeamChats, setActiveTeamChat, router]);
 
-  // Validate chat access and set active chat
-  useEffect(() => {
-    if (chatId) {
-      // Find the chat in current organization's chats
-      const chat = teamChats.find((c) => c.id === chatId);
-      if (chat && chat.organizationId === currentOrganization?.id) {
-        setActiveTeamChat(chatId);
-      } else {
-        // If chat doesn't belong to current organization, clear URL
-        console.log('⚠️ Chat not found in current organization');
-        router.push('/teams');
-      }
+    // If we found the chat and it's not already active, set it
+    if (chat && activeTeamChatId !== chatId) {
+      console.log('🔍 Setting active chat from URL:', chatId);
+      setActiveTeamChat(chatId);
     }
-  }, [chatId, teamChats, currentOrganization?.id, setActiveTeamChat, router]);
+  }, [chatId, currentOrganization?.id, isLoading, activeTeamChatId, teamChats, router]);
 
   // Only create first team chat if welcome page is shown and no chats exist
   useEffect(() => {
@@ -125,6 +127,28 @@ const TeamChat = memo(() => {
     }
   }, [currentOrganization?.id, createTeamChat, organizations]);
 
+  // Periodic refresh to catch changes made by other users
+  useEffect(() => {
+    if (!currentOrganization?.id) return;
+
+    const interval = setInterval(async () => {
+      try {
+        // Only refresh if we're not currently loading and have chats
+        const { isLoading, teamChatsByOrg } = useTeamChatStore.getState();
+        const currentChats = teamChatsByOrg[currentOrganization.id] || [];
+
+        if (!isLoading && currentChats.length > 0) {
+          console.log('🔄 Periodic refresh of sidebar...');
+          await refreshSidebar();
+        }
+      } catch (error) {
+        console.error('Failed to refresh sidebar:', error);
+      }
+    }, 120000); // Refresh every 2 minutes
+
+    return () => clearInterval(interval);
+  }, [currentOrganization?.id]); // Removed refreshSidebar from dependencies
+
   // Debug logging
   useEffect(() => {
     console.log('🔍 TeamChat Debug:', {
@@ -165,6 +189,28 @@ const TeamChat = memo(() => {
       <Flexbox flex={1} horizontal>
         {/* Team Chat Content */}
         <Flexbox flex={1}>
+          {error && (
+            <div className="p-4">
+              <Alert
+                type="error"
+                message={error}
+                showIcon
+                closable
+                onClose={() => useTeamChatStore.setState({ error: null })}
+                action={
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      useTeamChatStore.setState({ error: null });
+                      router.push('/teams');
+                    }}
+                  >
+                    Go to Teams
+                  </Button>
+                }
+              />
+            </div>
+          )}
           {isLoading ? (
             <div className="flex-1 flex items-center justify-center">
               <SkeletonList mobile={mobile} />

@@ -1,12 +1,5 @@
 /* eslint-disable sort-keys-fix/sort-keys-fix  */
-import {
-  boolean,
-  jsonb,
-  pgTable,
-  text,
-  timestamp,
-  varchar,
-} from 'drizzle-orm/pg-core';
+import { boolean, jsonb, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core';
 import { createInsertSchema } from 'drizzle-zod';
 
 import { idGenerator } from '@/database/utils/idGenerator';
@@ -20,31 +13,41 @@ export const teamChats = pgTable('team_chats', {
     .primaryKey()
     .$defaultFn(() => idGenerator('team_chats'))
     .notNull(),
-  
+
   title: text('title').default('Team Chat'),
   description: text('description'),
-  
+
   // Organization/Team identification
   organizationId: text('organization_id').notNull(),
   teamId: text('team_id'),
-  
+
   // Owner of the chat
   userId: text('user_id')
     .references(() => users.id, { onDelete: 'cascade' })
     .notNull(),
-    
+
   // Chat configuration
   isActive: boolean('is_active').default(true),
-  
+
   // Additional metadata
-  metadata: jsonb('metadata').$type<{
-    avatar?: string;
-    backgroundColor?: string;
-    tags?: string[];
-    teamMembers?: string[];
-    [key: string]: any;
-  }>().default({}),
-  
+  metadata: jsonb('metadata')
+    .$type<{
+      avatar?: string;
+      backgroundColor?: string;
+      tags?: string[];
+      isPublic?: boolean;
+      memberAccess: {
+        userId: string;
+        role: 'owner' | 'admin' | 'member';
+        addedAt: string;
+        addedBy: string;
+      }[];
+      [key: string]: any;
+    }>()
+    .default({
+      memberAccess: [],
+    }),
+
   ...timestamps,
 });
 
@@ -54,21 +57,43 @@ export const teamChatMessages = pgTable('team_chat_messages', {
     .primaryKey()
     .$defaultFn(() => idGenerator('team_chat_messages'))
     .notNull(),
-    
+
   teamChatId: text('team_chat_id')
     .references(() => teamChats.id, { onDelete: 'cascade' })
     .notNull(),
-    
+
   userId: text('user_id')
     .references(() => users.id, { onDelete: 'cascade' })
     .notNull(),
-    
+
   content: text('content').notNull(),
   messageType: varchar('message_type', { length: 50 }).default('user'), // 'user', 'assistant', 'system'
-  
+
   // Message metadata - store complete usage information like regular chat
-  metadata: jsonb('metadata').default({}),
-  
+  metadata: jsonb('metadata')
+    .$type<{
+      // User identification data
+      userInfo?: {
+        id: string;
+        username?: string;
+        email?: string;
+        fullName?: string;
+        firstName?: string;
+        lastName?: string;
+        avatar?: string;
+      };
+      // AI context information
+      isMultiUserChat?: boolean;
+      totalUsersInChat?: number;
+      // Existing fields
+      totalTokens?: number;
+      tokens?: number;
+      model?: string;
+      provider?: string;
+      [key: string]: any;
+    }>()
+    .default({}),
+
   ...timestamps,
 });
 

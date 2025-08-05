@@ -1,7 +1,6 @@
 'use client';
 
-import { useQueryState } from 'nuqs';
-import { parseAsString } from 'nuqs/server';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { memo, useEffect } from 'react';
 import { createStoreUpdater } from 'zustand-utils';
 
@@ -10,40 +9,50 @@ import { useTeamChatStore } from '@/store/teamChat';
 const TeamChatSessionHydration = memo(() => {
   const useStoreUpdater = createStoreUpdater(useTeamChatStore);
 
-  // Two-way bindings for team chat ID and topic ID
-  const [teamChat, setTeamChat] = useQueryState(
-    'teamChat',
-    parseAsString.withDefault('').withOptions({ history: 'replace', throttleMs: 50 }),
-  );
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [topic, setTopic] = useQueryState(
-    'topic',
-    parseAsString.withDefault('').withOptions({ history: 'replace', throttleMs: 50 }),
-  );
+  // Get current URL parameters
+  const currentChatId = searchParams.get('chatId') || '';
+  const currentTopic = searchParams.get('topic') || '';
 
-  useStoreUpdater('activeTeamChatId', teamChat || null);
-  useStoreUpdater('activeTopicId', topic || null);
-
+  // Sync URL params to store
   useEffect(() => {
-    const updateTeamChat = (state: { activeTeamChatId: string | null }) => {
-      setTeamChat(state.activeTeamChatId || '');
+    if (currentChatId) {
+      useTeamChatStore.setState({ activeTeamChatId: currentChatId });
+    }
+    if (currentTopic) {
+      useTeamChatStore.setState({ activeTopicId: currentTopic });
+    }
+  }, [currentChatId, currentTopic]);
+
+  // Sync store to URL
+  useEffect(() => {
+    const updateURL = (state: {
+      activeTeamChatId: string | null;
+      activeTopicId: string | null;
+    }) => {
+      // Only update URL if values have changed
+      if (state.activeTeamChatId !== currentChatId || state.activeTopicId !== currentTopic) {
+        const query = new URLSearchParams();
+        query.set('view', 'chat');
+        if (state.activeTeamChatId) {
+          query.set('chatId', state.activeTeamChatId);
+        }
+        if (state.activeTopicId) {
+          query.set('topic', state.activeTopicId);
+        }
+        router.replace(`/teams?${query.toString()}`);
+      }
     };
 
-    const updateTopic = (state: { activeTopicId: string | null }) => {
-      setTopic(state.activeTopicId || '');
-    };
-
-    // Subscribe to changes in activeTeamChatId
-    const unsubscribeTeamChat = useTeamChatStore.subscribe(updateTeamChat);
-
-    // Subscribe to changes in activeTopicId
-    const unsubscribeTopic = useTeamChatStore.subscribe(updateTopic);
+    // Subscribe to store changes
+    const unsubscribe = useTeamChatStore.subscribe(updateURL);
 
     return () => {
-      unsubscribeTeamChat();
-      unsubscribeTopic();
+      unsubscribe();
     };
-  }, [setTeamChat, setTopic]);
+  }, [router, currentChatId, currentTopic]);
 
   return null;
 });

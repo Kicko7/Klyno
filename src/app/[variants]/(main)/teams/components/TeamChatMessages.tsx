@@ -10,16 +10,16 @@ import { Flexbox } from 'react-layout-kit';
 import { DEFAULT_USER_AVATAR } from '@/const/meta';
 import { TeamChatMessageItem } from '@/database/schemas/teamChat';
 import ChatItem from '@/features/ChatItem';
+import Usage from '@/features/Conversation/Extras/Usage';
 import { useSessionStore } from '@/store/session';
-import { sessionMetaSelectors } from '@/store/session/slices/session/selectors';
-import { sessionSelectors } from '@/store/session/slices/session/selectors/list';
+import { sessionMetaSelectors } from '@/store/session/selectors';
+import { sessionSelectors } from '@/store/session/slices/session/selectors';
 import { useTeamChatStore } from '@/store/teamChat';
 import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
 
 import TeamAPIKeyForm from './TeamAPIKeyForm';
 import TeamChatWelcome from './TeamChatWelcome';
-import Usage from '@/features/Conversation/Extras/Usage';
 
 interface TeamChatMessagesProps {
   messages: TeamChatMessageItem[];
@@ -28,6 +28,7 @@ interface TeamChatMessagesProps {
 
 const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLoading }) => {
   const userAvatar = useUserStore(userProfileSelectors.userAvatar);
+  const currentUser = useUserStore(userProfileSelectors.userProfile);
   const [agentMeta, currentSession] = useSessionStore(
     (s) => [sessionMetaSelectors.currentAgentMeta(s), sessionSelectors.currentSession(s)],
     isEqual,
@@ -83,11 +84,15 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
           }
         }
 
+        // Get user information from message metadata or fallback to current user
+        const userInfo = message.metadata?.userInfo;
+        const isCurrentUser = currentUser && userInfo && userInfo.id === currentUser.id;
+
         const avatar = isAssistant
           ? currentSession?.meta || agentMeta // Use current session meta or fallback to agent meta
           : {
-              avatar: userAvatar || DEFAULT_USER_AVATAR,
-              title: 'You',
+              avatar: userInfo?.avatar || userAvatar || DEFAULT_USER_AVATAR,
+              title: userInfo?.fullName || userInfo?.username || userInfo?.email || 'Unknown User',
             };
 
         // If this is an API key error, show the configuration form
@@ -123,7 +128,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
             editing={false}
             loading={!message.content && isAssistant} // Show loading for empty assistant messages
             message={actualMessage || ''}
-            placement={isAssistant ? 'left' : 'right'}
+            placement={isAssistant ? 'left' : isCurrentUser ? 'right' : 'left'}
             primary={!isAssistant}
             time={new Date(message.createdAt).getTime()}
             messageExtra={
@@ -133,6 +138,21 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
                   model={(message.metadata as any)?.model || 'assistant'}
                   provider={(message.metadata as any)?.provider || 'openai'}
                 />
+              ) : !isAssistant && userInfo ? (
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: theme.colorTextSecondary,
+                    marginTop: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  {userInfo.email && <span>{userInfo.email}</span>}
+                  {userInfo.email && userInfo.username && <span>•</span>}
+                  {userInfo.username && <span>@{userInfo.username}</span>}
+                </div>
               ) : undefined
             }
             variant={'bubble'}

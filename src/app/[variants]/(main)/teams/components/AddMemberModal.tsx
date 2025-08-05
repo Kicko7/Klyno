@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Modal, Input, Button, Form, Select, message } from 'antd';
-import { UserPlus, Mail } from 'lucide-react';
-import { organizationService } from '@/services/organization';
-import { nanoid } from 'nanoid';
+import { App, Button, Form, Modal, Select, Table } from 'antd';
+import { Trash2, UserPlus, Users } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Flexbox } from 'react-layout-kit';
+
 import { lambdaClient } from '@/libs/trpc/client';
+import { useTeamChatStore } from '@/store/teamChat';
 
 interface AddMemberModalProps {
   open: boolean;
@@ -20,86 +21,143 @@ interface WorkspaceUser {
 }
 
 const AddMemberModal = ({ open, onClose, teamId }: AddMemberModalProps) => {
+  return (
+    <App>
+      <AddMemberModalContent open={open} onClose={onClose} teamId={teamId} />
+    </App>
+  );
+};
+
+const AddMemberModalContent: React.FC<AddMemberModalProps> = ({ open, onClose, teamId }) => {
+  const { message } = App.useApp();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
+  const [currentMembers, setCurrentMembers] = useState<any[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const { refreshSidebar } = useTeamChatStore();
 
-  useEffect(() => {
-    const fetchWorkspaceUsers = async () => {
-      if (!teamId || !open) return;
-      
-      // Get team data to find organizationId
-      const team = await lambdaClient.organization.getTeamById.query({ id: teamId });
-      if (!team?.organizationId) return;
-      
-      setLoadingUsers(true);
-      try {
-        // Fetch users in the organization who are not already in this team
-        const orgMembers = await lambdaClient.organization.getOrganizationMembers.query({
-          organizationId: team.organizationId
-        });
-        
-        // Get current team members to exclude them from the selection
-        const teamMembers = teamId ? await lambdaClient.organization.getTeamMembers.query({
-          teamId
-        }) : [];
-        
-        const teamMemberIds = teamMembers.map((member: any) => member.userId);
-        
-        // Filter out users who are already team members
-        const availableUsers = orgMembers
-          .filter((member: any) => !teamMemberIds.includes(member.userId))
-          .map((member: any) => ({
+  const fetchWorkspaceUsers = useCallback(async () => {
+    if (!teamId || !open) return;
+
+    // Get team chat data
+    const chat = await lambdaClient.teamChat.getTeamChatById.query({ id: teamId });
+    if (!chat?.organizationId) return;
+
+    setLoadingUsers(true);
+    try {
+      // Fetch all organization members
+      const orgMembers = await lambdaClient.organization.getOrganizationMembers.query({
+        organizationId: chat.organizationId,
+      });
+
+      // Map organization members to a lookup
+      const orgMembersMap = new Map(
+        orgMembers.map((member: any) => [
+          member.userId,
+          {
             id: member.userId,
             name: member.name || member.email || 'Unknown User',
-            email: member.email || ''
-          }));
-        
-        setWorkspaceUsers(availableUsers);
-      } catch (error) {
-        console.error('Error fetching workspace users:', error);
-        // Fallback to mock data for now
-        setWorkspaceUsers([
-          { id: '1', name: 'User One', email: 'user1@example.com' },
-          { id: '2', name: 'User Two', email: 'user2@example.com' }
-        ]);
-      } finally {
-        setLoadingUsers(false);
-      }
-    };
+            email: member.email || '',
+          },
+        ]),
+      );
 
-    fetchWorkspaceUsers();
+      // Get current members
+      const members = (chat.metadata?.memberAccess || []).map((member) => ({
+        ...member,
+        ...orgMembersMap.get(member.userId),
+        key: member.userId, // Add unique key for Table component
+      }));
+      setCurrentMembers(members);
+
+      // Filter out users who are already in the team chat
+      const currentMemberIds = new Set(members.map((m) => m.userId));
+      const availableUsers = orgMembers
+        .filter((member: any) => !currentMemberIds.has(member.userId))
+        .map((member: any) => ({
+          id: member.userId,
+          name: member.name || member.email || 'Unknown User',
+          email: member.email || '',
+        }));
+
+      setWorkspaceUsers(availableUsers);
+    } catch (error) {
+      console.error('Error fetching organization users:', error);
+      const { message: messageApi } = App.useApp();
+      messageApi.error('Failed to fetch organization members');
+      setWorkspaceUsers([]);
+    } finally {
+      setLoadingUsers(false);
+    }
   }, [teamId, open]);
 
-  const handleSubmit = async (values: { userId: string; role: 'admin' | 'member' }) => {
+  useEffect(() => {
+    fetchWorkspaceUsers();
+  }, [teamId, open, fetchWorkspaceUsers]);
+
+  const handleRemoveMember = async (userId: string) => {
     try {
       setLoading(true);
-      
-      if (!teamId) {
-        throw new Error('Team ID is required');
-      }
-      
-      // Get team data to find organizationId
-      const team = await lambdaClient.organization.getTeamById.query({ id: teamId });
-      if (!team?.organizationId) {
-        throw new Error('Organization ID not found for this team');
-      }
-      
-      // Use the new endpoint to directly add existing user to team
-      await lambdaClient.organization.inviteByUserId.mutate({
-        userId: values.userId,
-        role: values.role,
-        organizationId: team.organizationId,
-        teamId,
+      await lambdaClient.teamChat.removeChatMember.mutate({
+        chatId: teamId!,
+        userId,
       });
-      
-      const selectedUser = workspaceUsers.find(user => user.id === values.userId);
-      message.success(`${selectedUser?.name || 'User'} has been added to the team successfully!`);
+
+      // Refresh team chats to update the sidebar
+      const chat = await lambdaClient.teamChat.getTeamChatById.query({ id: teamId! });
+      if (chat?.organizationId) {
+        await refreshSidebar();
+      }
+
+      message.success('Member removed successfully');
+
+      // Refresh the member list
+      await fetchWorkspaceUsers();
+    } catch (error: any) {
+      message.error(error?.message || 'Failed to remove member');
+      console.error('Error removing member:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (values: { userId: string }) => {
+    try {
+      setLoading(true);
+
+      if (!teamId) {
+        throw new Error('Team chat ID is required');
+      }
+
+      // Get team chat data
+      const chat = await lambdaClient.teamChat.getTeamChatById.query({ id: teamId });
+      if (!chat?.organizationId) {
+        throw new Error('Organization ID not found for this team chat');
+      }
+
+      // Add user to team chat
+      await lambdaClient.teamChat.addChatMember.mutate({
+        chatId: teamId,
+        userId: values.userId,
+        role: 'member',
+      });
+
+      const selectedUser = workspaceUsers.find((user) => user.id === values.userId);
+      message.success(
+        `${selectedUser?.name || 'User'} has been added to the team chat successfully!`,
+      );
+
+      // Refresh team chats to update the sidebar
+      await refreshSidebar();
+
+      // Also refresh the current member list
+      await fetchWorkspaceUsers();
+
       form.resetFields();
       onClose();
     } catch (error: any) {
-      message.error(error?.message || 'Failed to add user to team');
+      message.error(error?.message || 'Failed to add member to team chat');
       console.error('Error adding member:', error);
     } finally {
       setLoading(false);
@@ -111,7 +169,7 @@ const AddMemberModal = ({ open, onClose, teamId }: AddMemberModalProps) => {
       title={
         <div className="flex items-center gap-2">
           <UserPlus className="w-5 h-5" />
-          Add Team Member
+          Add Chat Member
         </div>
       }
       open={open}
@@ -119,73 +177,106 @@ const AddMemberModal = ({ open, onClose, teamId }: AddMemberModalProps) => {
       footer={null}
       width={500}
     >
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={handleSubmit}
-        className="mt-4"
-      >
-        <Form.Item
-          label="Select User from Workspace"
-          name="userId"
-          rules={[
-            { required: true, message: 'Please select a user' }
-          ]}
-        >
-          <Select 
-            size="large" 
-            placeholder="Select a user from your workspace"
+      <Flexbox gap={24} className="mt-4">
+        {/* Current Members Section */}
+        <div>
+          <h3 className="flex items-center gap-2 mb-3 text-base">
+            <Users className="w-4 h-4" />
+            Current Members
+          </h3>
+          <Table
+            columns={[
+              {
+                title: 'Member',
+                dataIndex: 'name',
+                key: 'name',
+                render: (text: string, record: any) => (
+                  <div>
+                    <div>{text}</div>
+                    {record.email && <div className="text-xs text-gray-400">{record.email}</div>}
+                  </div>
+                ),
+              },
+              {
+                title: 'Role',
+                dataIndex: 'role',
+                key: 'role',
+                width: 120,
+              },
+              {
+                title: 'Actions',
+                key: 'actions',
+                width: 100,
+                render: (_: any, record: any) => (
+                  <Button
+                    type="text"
+                    danger
+                    icon={<Trash2 className="w-4 h-4" />}
+                    onClick={() => handleRemoveMember(record.userId)}
+                    disabled={record.role === 'owner'}
+                  />
+                ),
+              },
+            ]}
+            dataSource={currentMembers}
+            size="small"
+            pagination={false}
             loading={loadingUsers}
-            showSearch
-            optionFilterProp="children"
-            filterOption={(input, option) =>
-              String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-            }
-          >
-            {workspaceUsers.map(user => (
-              <Select.Option key={user.id} value={user.id}>
-                <div className="flex flex-col">
-                  <span className="font-medium">{user.name}</span>
-                  {user.email && <span className="text-sm text-gray-500">{user.email}</span>}
-                </div>
-              </Select.Option>
-            ))}
-          </Select>
-        </Form.Item>
-
-        <Form.Item
-          label="Role"
-          name="role"
-          initialValue="member"
-          rules={[{ required: true, message: 'Please select a role' }]}
-        >
-          <Select size="large" placeholder="Select role">
-            <Select.Option value="member">Member</Select.Option>
-            <Select.Option value="admin">Admin</Select.Option>
-          </Select>
-        </Form.Item>
-
-        <div className="flex justify-end gap-3 mt-6">
-          <Button onClick={onClose} disabled={loading}>
-            Cancel
-          </Button>
-          <Button
-            type="primary"
-            htmlType="submit"
-            loading={loading}
-            icon={<UserPlus className="w-4 h-4" />}
-            disabled={workspaceUsers.length === 0}
-          >
-            Add to Team
-          </Button>
+          />
         </div>
-      </Form>
-      
-      {workspaceUsers.length === 0 && !loadingUsers && (
-        <div className="text-center text-gray-500 py-4">
-          No available users to add to this team
+
+        {/* Add Member Form */}
+        <div>
+          <h3 className="flex items-center gap-2 mb-3 text-base">
+            <UserPlus className="w-4 h-4" />
+            Add New Member
+          </h3>
+          <Form form={form} layout="vertical" onFinish={handleSubmit}>
+            <div className="flex gap-3">
+              <Form.Item
+                name="userId"
+                className="flex-1"
+                rules={[{ required: true, message: 'Please select a user' }]}
+              >
+                <Select
+                  placeholder="Select user"
+                  loading={loadingUsers}
+                  showSearch
+                  optionFilterProp="label"
+                  options={workspaceUsers.map((user) => ({
+                    label: (
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-medium truncate">{user.name}</span>
+                        {user.email && (
+                          <span className="text-sm text-gray-400 truncate">{user.email}</span>
+                        )}
+                      </div>
+                    ),
+                    value: user.id,
+                  }))}
+                />
+              </Form.Item>
+              <Form.Item>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={loading}
+                  icon={<UserPlus className="w-4 h-4" />}
+                  disabled={workspaceUsers.length === 0}
+                >
+                  Add
+                </Button>
+              </Form.Item>
+            </div>
+          </Form>
+
+          {workspaceUsers.length === 0 && !loadingUsers && (
+            <div className="text-center text-gray-500 py-4">
+              No available organization members to add to this chat
+            </div>
+          )}
         </div>
-      )}
+      </Flexbox>
     </Modal>
   );
 };

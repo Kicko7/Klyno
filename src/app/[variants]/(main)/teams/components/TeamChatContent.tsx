@@ -5,6 +5,8 @@ import { memo } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
 import { useTeamChatStore } from '@/store/teamChat';
+import { useUserStore } from '@/store/user';
+import { userProfileSelectors } from '@/store/user/selectors';
 
 import TeamChatLayout from './layout/TeamChatLayout';
 
@@ -18,6 +20,7 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
   ({ teamChatId, mobile, onNewChat }) => {
     const { teamChatsByOrg, loadMessages, setActiveTeamChat, currentOrganizationId } =
       useTeamChatStore();
+    const currentUser = useUserStore(userProfileSelectors.userProfile);
 
     // Get chats for current organization
     const teamChats = currentOrganizationId ? teamChatsByOrg[currentOrganizationId] || [] : [];
@@ -33,9 +36,6 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
     }, [teamChatId]);
 
     useEffect(() => {
-      // Ensure this chat remains active
-      setActiveTeamChat(teamChatId);
-
       // Load messages only once when the chat is activated
       if (teamChatId && !messagesLoaded) {
         console.log('📨 Loading messages for team chat:', teamChatId);
@@ -48,7 +48,7 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
             console.error('❌ Failed to load messages:', error);
           });
       }
-    }, [teamChatId, setActiveTeamChat, loadMessages, messagesLoaded]);
+    }, [teamChatId, loadMessages, messagesLoaded]);
 
     if (!currentChat) {
       return (

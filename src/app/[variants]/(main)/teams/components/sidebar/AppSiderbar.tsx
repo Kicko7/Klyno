@@ -10,6 +10,7 @@ import {
   ImageIcon,
   MessageCircle,
   Plus,
+  RefreshCw,
   Settings,
   Sparkles,
   Users,
@@ -42,8 +43,10 @@ import {
   SidebarMenuSubItem,
   SidebarRail,
 } from '@/components/ui/sidebar';
+import { useTeamChatRoute } from '@/hooks/useTeamChatRoute';
 import { useOrganizationStore } from '@/store/organization/store';
 import { useTeamChatStore } from '@/store/teamChat';
+import { useUserStore } from '@/store/user';
 
 import { ChatItemDropdown } from './ChatItemDropdown';
 import CompanySelector from './CompanySelector';
@@ -77,6 +80,10 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
   const router = useRouter();
   const { organizations, selectedOrganizationId } = useOrganizationStore();
   const currentOrganization = organizations.find((org) => org.id === selectedOrganizationId);
+  const userState = useUserStore();
+
+  // Use the team chat routing hook
+  const { switchToTeamChat } = useTeamChatRoute();
 
   // Use the new team chat store
   const {
@@ -84,25 +91,81 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
     activeTeamChatId,
     createTeamChat,
     setActiveTeamChat,
-    loadTeamChats,
     isLoading,
     currentOrganizationId,
+    refreshTeamChats,
+    refreshSidebar,
+    setCurrentOrganizationId,
   } = useTeamChatStore();
 
   // Get chats for current organization
   const teamChats = currentOrganization?.id ? teamChatsByOrg[currentOrganization.id] || [] : [];
 
-  // Load team chats when organization changes
+  // Debug logging
+  console.log('🔍 Sidebar debug:', {
+    currentOrganizationId: currentOrganization?.id,
+    teamChatStoreCurrentOrgId: currentOrganizationId,
+    teamChatsByOrgKeys: Object.keys(teamChatsByOrg),
+    teamChatsCount: teamChats.length,
+    isLoading,
+    userState: {
+      userId: userState.user?.id,
+      isSignedIn: userState.isSignedIn,
+      isLoaded: userState.isLoaded,
+    },
+  });
+
+  // Handle organization switching - load chats and clear active chat
   React.useEffect(() => {
-    if (currentOrganization?.id) {
-      console.log('🔍 Loading team chats for sidebar:', currentOrganization.id);
-      // Clear active chat and load new chats
+    if (currentOrganization?.id && userState.isSignedIn && userState.user?.id) {
+      console.log('🔍 Organization changed in sidebar:', currentOrganization.id);
+
+      // Synchronize organization ID in team chat store
+      setCurrentOrganizationId(currentOrganization.id);
+
+      // Clear active chat when organization changes
       setActiveTeamChat(null);
-      loadTeamChats(currentOrganization.id);
+
+      // Load team chats for the new organization
+      refreshTeamChats();
+
       // Reset URL to teams page
       router.push('/teams');
     }
-  }, [currentOrganization?.id, loadTeamChats, setActiveTeamChat, router]);
+  }, [
+    currentOrganization?.id,
+    setActiveTeamChat,
+    setCurrentOrganizationId,
+    router,
+    refreshTeamChats,
+    userState.isSignedIn,
+    userState.user?.id,
+  ]);
+
+  // Initial load when component mounts and organization is already selected
+  React.useEffect(() => {
+    if (
+      currentOrganization?.id &&
+      !currentOrganizationId &&
+      userState.isSignedIn &&
+      userState.user?.id
+    ) {
+      console.log('🔍 Initial organization load in sidebar:', currentOrganization.id);
+
+      // Synchronize organization ID in team chat store
+      setCurrentOrganizationId(currentOrganization.id);
+
+      // Load team chats for the current organization
+      refreshTeamChats();
+    }
+  }, [
+    currentOrganization?.id,
+    currentOrganizationId,
+    setCurrentOrganizationId,
+    refreshTeamChats,
+    userState.isSignedIn,
+    userState.user?.id,
+  ]);
 
   const [openSections, setOpenSections] = React.useState({
     recent: true,
@@ -122,7 +185,15 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
   };
 
   const handleNewPrivateChat = useCallback(async () => {
-    if (isCreatingChat || !currentOrganization?.id) return;
+    if (
+      isCreatingChat ||
+      !currentOrganization?.id ||
+      !userState.isSignedIn ||
+      !userState.user?.id
+    ) {
+      console.warn('⚠️ Cannot create chat: user not authenticated or no organization');
+      return;
+    }
 
     try {
       setIsCreatingChat(true);
@@ -150,27 +221,75 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
     } finally {
       setIsCreatingChat(false);
     }
-  }, [createTeamChat, currentOrganization?.id, router, isCreatingChat, setActiveTeamChat]);
+  }, [
+    createTeamChat,
+    currentOrganization?.id,
+    router,
+    isCreatingChat,
+    setActiveTeamChat,
+    userState.isSignedIn,
+    userState.user?.id,
+  ]);
 
   const handleChatClick = useCallback(
-    (chatId: string) => {
+    async (chatId: string) => {
       // If it's already the active chat, no need to navigate
       if (activeTeamChatId === chatId) {
         return;
       }
 
-      // Set active chat in store
-      setActiveTeamChat(chatId);
+      // Check if user is authenticated
+      if (!userState.isSignedIn || !userState.user?.id) {
+        console.warn('⚠️ Cannot access chat: user not authenticated');
+        return;
+      }
 
-      // Navigate with chat ID in URL
-      const query = new URLSearchParams({
-        view: 'chat',
-        chatId: chatId,
-      }).toString();
+      // Check if we have a current organization
+      if (!currentOrganization?.id) {
+        console.warn('⚠️ No organization selected');
+        return;
+      }
 
-      router.push(`/teams?${query}`);
+      try {
+        // Find the chat in current organization's chats
+        const chat = teamChats.find((c) => c.id === chatId);
+        if (!chat) {
+          console.warn('⚠️ Chat not found in current organization');
+          return;
+        }
+
+        // Try to set active chat in store
+        try {
+          await setActiveTeamChat(chatId);
+        } catch (error) {
+          // If server is down, use local state
+          if (error instanceof Error && error.message.includes('Failed to fetch')) {
+            console.warn('⚠️ Server connection error, using local state');
+            useTeamChatStore.setState({
+              activeTeamChatId: chatId,
+              error: 'Server connection error. Using local data.',
+            });
+          } else {
+            throw error;
+          }
+        }
+
+        // Use the routing hook to ensure consistent URL parameters
+        await switchToTeamChat(currentOrganization.id, chatId);
+        console.log('✅ Successfully switched to chat:', chatId);
+      } catch (error) {
+        console.error('❌ Error switching to chat:', error);
+      }
     },
-    [setActiveTeamChat, router, activeTeamChatId],
+    [
+      setActiveTeamChat,
+      router,
+      activeTeamChatId,
+      userState.isSignedIn,
+      userState.user?.id,
+      currentOrganization?.id,
+      teamChats,
+    ],
   );
 
   return (
@@ -181,10 +300,14 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
           <Button
             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white justify-start gap-2 mr-0 disabled:opacity-50"
             onClick={handleNewPrivateChat}
-            disabled={isCreatingChat}
+            disabled={isCreatingChat || !userState.isSignedIn || !userState.user?.id}
           >
             <Plus className="w-4 h-4" />
-            {isCreatingChat ? 'Creating...' : 'New private chat'}
+            {isCreatingChat
+              ? 'Creating...'
+              : !userState.isSignedIn || !userState.user?.id
+                ? 'Sign in to create chat'
+                : 'New private chat'}
           </Button>
         </div>
       </SidebarHeader>
@@ -201,6 +324,25 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
                   <ChevronRight className="w-3 h-3" />
                 )}
                 Chats
+                <div className="ml-auto flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-slate-400 hover:text-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      console.log('🔄 Manual refresh triggered');
+                      if (userState.isSignedIn && userState.user?.id) {
+                        refreshSidebar();
+                      } else {
+                        console.warn('⚠️ Cannot refresh sidebar: user not authenticated');
+                      }
+                    }}
+                    disabled={isLoading}
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
               </SidebarGroupLabel>
             </CollapsibleTrigger>
             <CollapsibleContent>
@@ -230,8 +372,33 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
                   })}
                   {teamChats.length === 0 && (
                     <SidebarMenuItem>
-                      <SidebarMenuButton className="text-slate-400 cursor-default">
-                        <span>No chats yet</span>
+                      <SidebarMenuButton
+                        className="text-slate-400 hover:text-white cursor-pointer"
+                        onClick={() => {
+                          console.log('🔍 Manual load team chats triggered');
+                          console.log('🔍 User state:', {
+                            isSignedIn: userState.isSignedIn,
+                            userId: userState.user?.id,
+                            isLoaded: userState.isLoaded,
+                          });
+                          if (
+                            currentOrganization?.id &&
+                            userState.isSignedIn &&
+                            userState.user?.id
+                          ) {
+                            refreshTeamChats();
+                          } else {
+                            console.warn(
+                              '⚠️ Cannot load team chats: user not authenticated or no organization',
+                            );
+                          }
+                        }}
+                      >
+                        <span>
+                          {!userState.isSignedIn || !userState.user?.id
+                            ? 'Please sign in to view chats'
+                            : 'No chats yet'}
+                        </span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   )}

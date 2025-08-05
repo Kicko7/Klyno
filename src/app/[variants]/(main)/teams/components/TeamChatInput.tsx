@@ -1,5 +1,5 @@
 import { DraggablePanel } from '@lobehub/ui';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
 import Footer from '@/app/[variants]/(main)/chat/(workspace)/@conversation/features/ChatInput/Desktop/Footer';
@@ -18,6 +18,8 @@ import { fileChatSelectors, useFileStore } from '@/store/file';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
 import { useTeamChatStore } from '@/store/teamChat';
+import { useUserStore } from '@/store/user';
+import { userProfileSelectors } from '@/store/user/selectors';
 import { MessageRoleType } from '@/types/message';
 import { ChatMessage, CreateMessageParams } from '@/types/message';
 import { clientEncodeAsync } from '@/utils/tokenizer/client';
@@ -66,11 +68,20 @@ const gatherChatHistory = async (
   // Take the last MAX_HISTORY_MESSAGES messages
   const recentHistory = chatHistory.slice(-MAX_HISTORY_MESSAGES);
 
-  // Add history messages
+  // Add history messages with user context for multi-user chat
   recentHistory.forEach((msg) => {
+    const userInfo = msg.metadata?.userInfo;
+    let content = msg.content;
+
+    // Add user context for non-assistant messages in multi-user chat
+    if (msg.messageType === 'user' && userInfo && msg.metadata?.isMultiUserChat) {
+      const userName = userInfo.fullName || userInfo.username || userInfo.email || 'Unknown User';
+      content = `[${userName}]: ${msg.content}`;
+    }
+
     result.push({
       role: msg.messageType as MessageRoleType,
-      content: msg.content,
+      content: content,
       sessionId: teamChatId,
     });
   });
@@ -82,12 +93,18 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
   // Get team chat store
   const teamChatStore = useTeamChatStore();
   const agentState = getAgentStoreState();
+  const currentUser = useUserStore(userProfileSelectors.userProfile);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [inputHeight, updatePreference] = useGlobalStore((s) => [
     systemStatusSelectors.inputHeight(s),
     s.updateSystemStatus,
   ]);
+
+  // Handle input changes
+  const handleInputChange = useCallback((value: string) => {
+    setInputMessage(value);
+  }, []);
 
   // Get team chat store methods and routing
   const {
@@ -132,9 +149,25 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
       }
 
       console.log('Sending user message:', messageToSend);
+
+      // Prepare user metadata for the message
+      const userMetadata = currentUser
+        ? {
+            userInfo: {
+              id: currentUser.id,
+              username: currentUser.username,
+              email: currentUser.email,
+              fullName: currentUser.fullName,
+              firstName: currentUser.firstName,
+              avatar: currentUser.avatar,
+            },
+            isMultiUserChat: true,
+          }
+        : {};
+
       // 1. Add user message to UI immediately (non-blocking)
-      // Send user message without token count - it will be included in the API's totalTokens
-      sendTeamMessage(teamChatId, messageToSend, 'user');
+      // Send user message with user information
+      sendTeamMessage(teamChatId, messageToSend, 'user', undefined, false, userMetadata);
       console.log('User message sent successfully');
 
       // 2. Create a temporary assistant message for AI response with empty content initially
@@ -353,6 +386,7 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
     teamChatStore,
     chatService,
     agentState,
+    currentUser,
   ]);
 
   return (
@@ -382,7 +416,7 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
         />
         <InputArea
           loading={loading}
-          onChange={(value) => setInputMessage(value)}
+          onChange={handleInputChange}
           onSend={handleSend}
           value={inputMessage}
         />

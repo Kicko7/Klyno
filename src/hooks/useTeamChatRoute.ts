@@ -22,7 +22,8 @@ export const useTeamChatRoute = () => {
         query.topic = topicId;
       }
 
-      queryRoute.push(basePath, { query });
+      // Use replace with replace: true to ensure old query params are not merged
+      queryRoute.replace(basePath, { query, replace: true });
     },
     [queryRoute],
   );
