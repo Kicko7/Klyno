@@ -1,7 +1,7 @@
 'use client';
 
 import { createStyles } from 'antd-style';
-import { Suspense } from 'react';
+import { Suspense, useMemo } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
 import { SkeletonList } from '@/features/Conversation';
@@ -37,11 +37,35 @@ const useStyles = createStyles(({ css, token }) => ({
 interface TeamChatLayoutProps {
   teamChatId: string;
   mobile?: boolean;
+  onLoadMore?: () => Promise<void>;
+  hasMore?: boolean;
+  isLoading?: boolean;
+  isTransitioning?: boolean;
 }
 
-const TeamChatLayout = ({ teamChatId, mobile }: TeamChatLayoutProps) => {
-  const { messages, isLoadingMessages } = useTeamChatStore();
+const TeamChatLayout = ({
+  teamChatId,
+  mobile,
+  onLoadMore,
+  hasMore,
+  isLoading,
+  isTransitioning,
+}: TeamChatLayoutProps) => {
+  // Get messages from store with stable reference
+  const messages = useTeamChatStore((state) => {
+    const chatMessages = state.messages[teamChatId];
+    return chatMessages || null;
+  });
+
+  // Memoize messages to prevent infinite re-renders
+  const memoizedMessages = useMemo(() => {
+    return messages || [];
+  }, [messages]);
+
   const { styles } = useStyles();
+
+  // Combine loading states
+  const isLoadingState = isLoading || isTransitioning;
 
   return (
     <>
@@ -49,7 +73,7 @@ const TeamChatLayout = ({ teamChatId, mobile }: TeamChatLayoutProps) => {
       <div className={styles.container}>
         <div className={styles.messagesContainer}>
           <Suspense fallback={<SkeletonList mobile={mobile} />}>
-            <TeamChatList messages={messages[teamChatId] || []} isLoading={isLoadingMessages} />
+            <TeamChatList messages={memoizedMessages} isLoading={isLoadingState} />
           </Suspense>
         </div>
 

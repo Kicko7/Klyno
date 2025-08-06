@@ -107,11 +107,63 @@ export const teamChatRouter = router({
       z.object({
         teamChatId: z.string(),
         limit: z.number().optional().default(50),
+        offset: z.number().optional(),
+        lastMessageId: z.string().optional(),
       }),
     )
     .query(async ({ input, ctx }) => {
-      const messages = await ctx.teamChatService.getMessages(input.teamChatId, input.limit);
+      // Update presence when fetching messages
+      await ctx.teamChatService.updatePresence(input.teamChatId);
+      const messages = await ctx.teamChatService.getMessages(
+        input.teamChatId,
+        input.limit,
+        input.offset,
+        input.lastMessageId,
+      );
       return messages;
+    }),
+
+  // Check for new messages without fetching all messages
+  checkNewMessages: teamChatProcedure
+    .input(
+      z.object({
+        teamChatId: z.string(),
+        lastMessageId: z.string().optional(),
+        lastMessageTimestamp: z.string().optional(),
+      }),
+    )
+    .query(async ({ input, ctx }) => {
+      return ctx.teamChatService.hasNewMessages(
+        input.teamChatId,
+        input.lastMessageId,
+        input.lastMessageTimestamp,
+      );
+    }),
+
+  // Get active users in a chat
+  getActiveUsers: teamChatProcedure
+    .input(z.object({ teamChatId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      return ctx.teamChatService.getActiveUsers(input.teamChatId);
+    }),
+
+  // Update user presence
+  updatePresence: teamChatProcedure
+    .input(
+      z.object({
+        teamChatId: z.string(),
+        lastSeenMessageId: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      return ctx.teamChatService.updatePresence(input.teamChatId, input.lastSeenMessageId);
+    }),
+
+  // Mark user as inactive
+  markInactive: teamChatProcedure
+    .input(z.object({ teamChatId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      return ctx.teamChatService.markInactive(input.teamChatId);
     }),
 
   // Get a single team chat by ID

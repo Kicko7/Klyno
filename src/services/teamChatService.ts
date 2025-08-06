@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 
 import {
   NewTeamChat,
@@ -127,13 +127,56 @@ export class TeamChatService {
     return result[0];
   };
 
-  // Get messages for a team chat
-  getMessages = async (teamChatId: string, limit = 50): Promise<TeamChatMessageItem[]> => {
+  // Get messages for a team chat with pagination
+  getMessages = async (
+    teamChatId: string,
+    limit = 50,
+    offset?: number,
+    lastMessageId?: string,
+  ): Promise<TeamChatMessageItem[]> => {
+    const conditions = [eq(teamChatMessages.teamChatId, teamChatId)];
+
+    // If lastMessageId is provided, get messages after that ID
+    if (lastMessageId) {
+      const lastMessage = await this.db.query.teamChatMessages.findFirst({
+        where: eq(teamChatMessages.id, lastMessageId),
+      });
+
+      if (lastMessage) {
+        conditions.push(sql`${teamChatMessages.createdAt} > ${lastMessage.createdAt}`);
+      }
+    }
+
     return this.db.query.teamChatMessages.findMany({
-      where: eq(teamChatMessages.teamChatId, teamChatId),
-      orderBy: [teamChatMessages.createdAt], // Order by ascending (oldest first)
+      where: and(...conditions),
+      orderBy: [desc(teamChatMessages.createdAt)], // Order by descending (newest first)
       limit,
+      offset,
     });
+  };
+
+  // Check if there are new messages without fetching all messages
+  hasNewMessages = async (
+    teamChatId: string,
+    lastMessageId?: string,
+    lastMessageTimestamp?: string,
+  ): Promise<boolean> => {
+    if (!lastMessageId || !lastMessageTimestamp) return true;
+
+    // Get the latest message timestamp
+    const latestMessage = await this.db.query.teamChatMessages.findFirst({
+      where: eq(teamChatMessages.teamChatId, teamChatId),
+      orderBy: [desc(teamChatMessages.createdAt)],
+    });
+
+    if (!latestMessage) return false;
+
+    // Compare timestamps
+    const lastTimestamp = new Date(lastMessageTimestamp);
+    const latestTimestamp = latestMessage.createdAt;
+
+    // Return true if there are newer messages
+    return latestTimestamp > lastTimestamp || latestMessage.id !== lastMessageId;
   };
 
   // Get a single team chat by ID
@@ -350,11 +393,119 @@ export class TeamChatService {
 
   // Get the number of active users in a chat
   private getActiveUsersInChat = async (teamChatId: string): Promise<number> => {
-    const uniqueUsers = await this.db
-      .selectDistinct({ userId: teamChatMessages.userId })
-      .from(teamChatMessages)
-      .where(eq(teamChatMessages.teamChatId, teamChatId));
+    // Get the chat with presence data
+    const chat = await this.db.query.teamChats.findFirst({
+      where: eq(teamChats.id, teamChatId),
+    });
 
-    return uniqueUsers.length;
+    if (!chat) {
+      return 0;
+    }
+
+    // Count active users from presence data
+    const presence = chat.metadata?.presence || {};
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+    return Object.values(presence).filter(
+      (data) => data.isActive && new Date(data.lastActiveAt) > fiveMinutesAgo,
+    ).length;
+  };
+
+  // Update user presence in a chat with optimized performance
+  updatePresence = async (teamChatId: string, lastSeenMessageId?: string) => {
+    const now = new Date();
+    const timestamp = now.toISOString();
+
+    // Update presence directly without fetching first
+    return this.db
+      .update(teamChats)
+      .set({
+        metadata: sql`jsonb_set(
+          COALESCE(metadata, '{"presence": {}, "memberAccess": []}'::jsonb),
+          '{presence}'::text[],
+          jsonb_set(
+            COALESCE(metadata->'presence', '{}'::jsonb),
+            ${sql.raw(`'{${this.userId}}'`)},
+            ${JSON.stringify({
+              isActive: true,
+              lastActiveAt: timestamp,
+              lastSeenMessageId: lastSeenMessageId || null,
+            })}::jsonb
+          )
+        )`,
+        updatedAt: now,
+      })
+      .where(eq(teamChats.id, teamChatId))
+      .returning();
+  };
+
+  // Mark user as inactive in a chat with optimized performance
+  markInactive = async (teamChatId: string) => {
+    const now = new Date();
+    const timestamp = now.toISOString();
+
+    // Update presence directly without fetching first
+    return this.db
+      .update(teamChats)
+      .set({
+        metadata: sql`jsonb_set(
+          COALESCE(metadata, '{"presence": {}, "memberAccess": []}'::jsonb),
+          '{presence}'::text[],
+          jsonb_set(
+            COALESCE(metadata->'presence', '{}'::jsonb),
+            ${sql.raw(`'{${this.userId}}'`)},
+            ${JSON.stringify({
+              isActive: false,
+              lastActiveAt: timestamp,
+            })}::jsonb
+          )
+        )`,
+        updatedAt: now,
+      })
+      .where(eq(teamChats.id, teamChatId))
+      .returning();
+  };
+
+  // Get active users in a chat
+  getActiveUsers = async (teamChatId: string) => {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+    // Get the chat with presence data
+    const chat = await this.db.query.teamChats.findFirst({
+      where: eq(teamChats.id, teamChatId),
+    });
+
+    if (!chat) {
+      return [];
+    }
+
+    // Get user details for active users
+    const presence = chat.metadata?.presence || {};
+    const activeUserIds = Object.entries(presence)
+      .filter(([_, data]) => data.isActive && new Date(data.lastActiveAt) > fiveMinutesAgo)
+      .map(([userId]) => userId);
+
+    if (activeUserIds.length === 0) {
+      return [];
+    }
+
+    // Get user details
+    const userRecords = await this.db.query.users.findMany({
+      where: eq(users.id, activeUserIds[0]), // Using first ID as we'll filter in memory
+    });
+
+    // Map users to presence data
+    return activeUserIds.map((userId) => {
+      const userRecord = userRecords.find((u) => u.id === userId);
+      return {
+        userId,
+        id: userId,
+        teamChatId,
+        isActive: true,
+        lastActiveAt: new Date(presence[userId].lastActiveAt),
+        lastSeenMessageId: presence[userId].lastSeenMessageId,
+        user: userRecord ? [userRecord] : [],
+      };
+    });
   };
 }

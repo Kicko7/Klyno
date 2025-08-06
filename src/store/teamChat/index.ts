@@ -27,6 +27,36 @@ interface TeamChatState {
   isLoadingMessages: boolean;
   error: string | null;
   currentOrganizationId: string | null; // Track current organization
+  messageSubscriptions: Record<
+    string,
+    {
+      subscribers: Set<string>;
+      lastUpdate: number;
+    }
+  >; // Track message subscriptions (legacy - now handled by WebSocket)
+  activeChatStates: Record<
+    string,
+    {
+      isActive: boolean;
+      isLoading: boolean;
+      lastViewedAt: number;
+      hasMoreMessages: boolean;
+      lastMessageId?: string;
+      pageSize: number;
+      currentPage: number;
+      presence?: Record<string, any>;
+      typingUsers?: Record<string, number | undefined>;
+      readReceipts?: Record<string, any>;
+    }
+  >; // Track chat activity and pagination states
+  messageCache: Record<
+    string,
+    {
+      messages: TeamChatMessageItem[];
+      timestamp: string;
+      expiresAt: string;
+    }
+  >; // Cache messages with expiration
 
   // Session-like state
   isSessionsFirstFetchFinished: boolean;
@@ -54,7 +84,14 @@ interface TeamChatState {
   ) => Promise<{ teamChatId: string; topicId: string }>;
   loadTeamChats: (organizationId: string) => Promise<void>;
   setActiveTeamChat: (id: string | null, topicId?: string) => void;
+  loadActiveChat: (id: string) => Promise<void>;
   switchToTeamChatTopic: (teamChatId: string, topicId: string) => void;
+
+  // Redis/WebSocket Integration
+  updateMessages: (teamChatId: string, messages: any[]) => void;
+  updatePresence: (teamChatId: string, presence: Record<string, any>) => void;
+  updateTypingStatus: (teamChatId: string, userId: string, isTyping: boolean) => void;
+  updateReadReceipts: (teamChatId: string, receipts: Record<string, any>) => void;
   updateTeamChat: (
     id: string,
     data: { title?: string; description?: string; metadata?: any },
@@ -83,6 +120,10 @@ interface TeamChatState {
   toggleWorkspace: () => void;
   setWorkspaceWidth: (width: number) => void;
   setWorkspaceVisible: (visible: boolean) => void;
+
+  // Message subscription actions (legacy - now handled by WebSocket)
+  subscribeToChat: (chatId: string, userId: string) => void;
+  unsubscribeFromChat: (chatId: string, userId: string) => void;
 }
 
 const getTeamChatService = async () => {
@@ -151,7 +192,14 @@ const getTeamChatService = async () => {
   }
 };
 
-export const useTeamChatStore = create<TeamChatState>()(
+type TeamChatStore = TeamChatState & {
+  subscribeToChat: (chatId: string, userId: string) => void;
+  unsubscribeFromChat: (chatId: string, userId: string) => void;
+  startMessagePolling: (chatId: string) => void;
+  stopMessagePolling: (chatId: string) => void;
+};
+
+export const useTeamChatStore = create<TeamChatStore>()(
   devtools(
     (set, get) => ({
       // Initial state
@@ -163,6 +211,91 @@ export const useTeamChatStore = create<TeamChatState>()(
       isLoadingMessages: false,
       error: null,
       currentOrganizationId: null,
+      activeChatStates: {},
+      messageCache: {},
+      messageSubscriptions: {},
+
+      // Message subscription management (legacy - now handled by WebSocket)
+      subscribeToChat: (chatId: string, userId: string) => {
+        console.log('⚠️ subscribeToChat is deprecated - use WebSocket instead');
+      },
+
+      unsubscribeFromChat: (chatId: string, userId: string) => {
+        console.log('⚠️ unsubscribeFromChat is deprecated - use WebSocket instead');
+      },
+
+      // Legacy polling methods - now handled by WebSocket
+      startMessagePolling: async (chatId: string) => {
+        console.log('⚠️ startMessagePolling is deprecated - use WebSocket instead');
+      },
+
+      stopMessagePolling: (chatId: string) => {
+        console.log('⚠️ stopMessagePolling is deprecated - use WebSocket instead');
+      },
+
+      // Redis/WebSocket Integration
+      updateMessages: (teamChatId: string, messages: any[]) => {
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const newMessages = messages.filter(
+            (msg) => !existingMessages.some((existing) => existing.id === msg.id),
+          );
+
+          if (newMessages.length === 0) return state;
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: [...existingMessages, ...newMessages],
+            },
+          };
+        });
+      },
+
+      updatePresence: (teamChatId: string, presence: Record<string, any>) => {
+        set((state) => ({
+          activeChatStates: {
+            ...state.activeChatStates,
+            [teamChatId]: {
+              ...state.activeChatStates[teamChatId],
+              presence: {
+                ...state.activeChatStates[teamChatId]?.presence,
+                ...presence,
+              },
+            },
+          },
+        }));
+      },
+
+      updateTypingStatus: (teamChatId: string, userId: string, isTyping: boolean) => {
+        set((state) => ({
+          activeChatStates: {
+            ...state.activeChatStates,
+            [teamChatId]: {
+              ...state.activeChatStates[teamChatId],
+              typingUsers: {
+                ...state.activeChatStates[teamChatId]?.typingUsers,
+                [userId]: isTyping ? Date.now() : undefined,
+              },
+            },
+          },
+        }));
+      },
+
+      updateReadReceipts: (teamChatId: string, receipts: Record<string, any>) => {
+        set((state) => ({
+          activeChatStates: {
+            ...state.activeChatStates,
+            [teamChatId]: {
+              ...state.activeChatStates[teamChatId],
+              readReceipts: {
+                ...state.activeChatStates[teamChatId]?.readReceipts,
+                ...receipts,
+              },
+            },
+          },
+        }));
+      },
 
       // Session-like state
       isSessionsFirstFetchFinished: false,
@@ -378,7 +511,7 @@ export const useTeamChatStore = create<TeamChatState>()(
         }
       },
 
-      // Set active team chat
+      // Set active team chat with improved loading
       setActiveTeamChat: async (id: string | null, topicId?: string) => {
         console.log('🎯 Setting active team chat:', id, topicId);
 
@@ -399,19 +532,23 @@ export const useTeamChatStore = create<TeamChatState>()(
         // First check if we have the chat in local state
         const existingChat = currentOrgChats.find((c) => c.id === id);
 
-        // If chat exists in local state, just set it as active
-        if (existingChat) {
-          console.log('🎯 Chat found in local state, setting as active');
-          set({
-            activeTeamChatId: id,
-            activeTopicId: topicId || null,
-            error: null,
-          });
-          return;
-        }
+        // Set loading state
+        set({ isLoadingMessages: true });
 
-        // If we don't have the chat in local state, try to fetch it
         try {
+          // If chat exists in local state, load its messages
+          if (existingChat) {
+            console.log('🎯 Chat found in local state, loading messages');
+            set({
+              activeTeamChatId: id,
+              activeTopicId: topicId || null,
+              error: null,
+            });
+            await get().loadMessages(id);
+            return;
+          }
+
+          // If we don't have the chat in local state, try to fetch it
           if (isServerMode) {
             const chat = await lambdaClient.teamChat.getTeamChatById.query({ id });
 
@@ -430,14 +567,17 @@ export const useTeamChatStore = create<TeamChatState>()(
               },
             }));
 
-            console.log('🎯 Chat fetched and set as active');
+            // Load messages for the new chat
+            await get().loadMessages(id);
+            console.log('🎯 Chat fetched and messages loaded');
           } else {
-            // In non-server mode, just set as active
+            // In non-server mode, set active and load messages
             set({
               activeTeamChatId: id,
               activeTopicId: topicId || null,
               error: null,
             });
+            await get().loadMessages(id);
           }
         } catch (error) {
           console.error('❌ Error setting active chat:', error);
@@ -446,6 +586,8 @@ export const useTeamChatStore = create<TeamChatState>()(
             activeTopicId: null,
             error: error instanceof Error ? error.message : 'Failed to access chat',
           });
+        } finally {
+          set({ isLoadingMessages: false });
         }
       },
 
@@ -545,12 +687,28 @@ export const useTeamChatStore = create<TeamChatState>()(
         }
       },
 
-      // Load messages for a team chat
+      // Load messages for a team chat with optimized loading and presence tracking
       loadMessages: async (teamChatId: string) => {
         try {
           set({ isLoadingMessages: true, error: null });
           console.log('📥 Loading messages for team chat:', teamChatId);
 
+          // First check if we have messages in cache
+          const state = get();
+          const cachedMessages = state.messages[teamChatId];
+
+          // If we have cached messages, show them immediately while loading new ones
+          if (cachedMessages?.length) {
+            console.log('📝 Using cached messages while loading new ones');
+            set((state) => ({
+              messages: {
+                ...state.messages,
+                [teamChatId]: cachedMessages,
+              },
+            }));
+          }
+
+          // Load new messages
           let messages: TeamChatMessageItem[] = [];
           if (isServerMode) {
             console.log('🚄 Using tRPC client to load messages');
@@ -560,6 +718,7 @@ export const useTeamChatStore = create<TeamChatState>()(
             messages = await service.getMessages(teamChatId);
           }
 
+          // Update messages
           set((state) => ({
             messages: {
               ...state.messages,
@@ -568,7 +727,19 @@ export const useTeamChatStore = create<TeamChatState>()(
             isLoadingMessages: false,
           }));
 
-          // console.log('✅ Loaded messages:', messages.length);
+          // Update presence after loading messages
+          if (messages.length > 0) {
+            try {
+              await lambdaClient.teamChat.updatePresence.mutate({
+                teamChatId,
+                lastSeenMessageId: messages[messages.length - 1].id,
+              });
+            } catch (presenceError) {
+              console.error('Failed to update presence:', presenceError);
+            }
+          }
+
+          console.log('✅ Loaded messages:', messages.length);
         } catch (error) {
           console.error('❌ Failed to load messages:', error);
           set({

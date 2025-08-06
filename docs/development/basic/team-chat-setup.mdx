@@ -1,0 +1,149 @@
+# Team Chat Development Setup
+
+This guide explains how to set up the team chat functionality with real-time messaging and Redis integration for development.
+
+## Prerequisites
+
+1. Node.js and npm/pnpm/bun installed
+2. Basic understanding of WebSocket and Redis
+
+## Development Setup
+
+### 1. Start the Development Server with WebSocket Support
+
+The team chat functionality requires both the Next.js development server and the custom WebSocket server. You have two options:
+
+#### Option A: Run Both Servers Simultaneously (Recommended)
+
+```bash
+npm run dev:full
+```
+
+This will start both servers:
+
+- Next.js development server on port 3000
+- WebSocket server on port 3001
+
+#### Option B: Run Servers Separately
+
+**Terminal 1 - Next.js server:**
+
+```bash
+npm run dev
+```
+
+**Terminal 2 - WebSocket server:**
+
+```bash
+npm run dev:server
+```
+
+The WebSocket server will start on port 3001 with WebSocket and Redis support enabled.
+
+### 2. Redis Configuration
+
+The team chat uses Redis for real-time messaging and presence tracking. You have several options:
+
+#### Option A: Disable Redis (Simplest for Development)
+
+Add to your `.env.local` file:
+
+```env
+REDIS_MODE=disabled
+```
+
+This will use a mock Redis client that doesn't require any external Redis setup.
+
+#### Option B: Use Local Redis
+
+1. Install Redis locally (using Docker or native installation)
+2. Add to your `.env.local` file:
+
+```env
+REDIS_MODE=local
+REDIS_URL=redis://localhost:6379
+```
+
+#### Option C: Use Upstash Redis (Production-like)
+
+1. Create an account at [Upstash](https://upstash.com/)
+2. Create a Redis database
+3. Add to your `.env.local` file:
+
+```env
+REDIS_MODE=remote
+UPSTASH_REDIS_REST_URL=https://your-url.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your-token
+```
+
+### 3. Environment Variables
+
+Create a `.env.local` file in the root directory with the following variables:
+
+```env
+# Redis Configuration
+REDIS_MODE=disabled
+
+# App Configuration
+NEXT_PUBLIC_APP_URL=http://localhost:3001
+
+# Database Configuration (if using server mode)
+DATABASE_URL=your-database-url
+KEY_VAULTS_SECRET=your-secret-key
+```
+
+## Testing Team Chat Functionality
+
+1. Start the development servers: `npm run dev:full`
+2. Open the application in multiple browser tabs/windows
+3. Navigate to the teams section
+4. Create a new team chat
+5. Send messages and verify they appear in real-time across all tabs
+
+## Troubleshooting
+
+### WebSocket Connection Issues
+
+- Ensure you're using `npm run dev:full` to run both servers simultaneously
+- Or run `npm run dev` and `npm run dev:server` in separate terminals
+- Check that `NEXT_PUBLIC_APP_URL` is set to `http://localhost:3001`
+- Verify the WebSocket server is running by checking the console logs
+- Check browser console for connection timeout errors
+
+### Redis Connection Issues
+
+- If using local Redis, ensure Redis is running on the specified port
+- If using Upstash, verify your credentials are correct
+- Use `REDIS_MODE=disabled` for development without Redis
+
+### Message Persistence Issues
+
+- Check that the database is properly configured
+- Verify the tRPC router is working correctly
+- Check browser console for any error messages
+
+## Architecture Overview
+
+The team chat system consists of several components:
+
+1. **WebSocket Server** (`src/server/websocket/server.ts`): Handles real-time communication
+2. **Redis Service** (`src/services/redisService.ts`): Manages presence, typing indicators, and message streams
+3. **Team Chat Store** (`src/store/teamChat/index.ts`): Manages client-side state
+4. **Team Chat Service** (`src/services/teamChatService.ts`): Handles database operations
+5. **tRPC Router** (`src/server/routers/lambda/teamChat.ts`): Provides API endpoints
+
+## Real-time Features
+
+The team chat supports the following real-time features:
+
+- **Message Broadcasting**: Messages sent by one user appear instantly for all team members
+- **Presence Tracking**: Shows who is currently active in the chat
+- **Typing Indicators**: Shows when someone is typing
+- **Read Receipts**: Tracks which messages have been read by each user
+
+## Development Notes
+
+- The WebSocket server automatically handles message persistence to the database
+- Redis is used for temporary real-time data (presence, typing indicators)
+- Database is used for permanent message storage
+- The system gracefully falls back to mock Redis when Redis is not available

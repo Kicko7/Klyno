@@ -1,0 +1,69 @@
+# Redis Configuration
+
+Redis is used for real-time features like presence tracking, typing indicators, and message streaming. You can choose between local Redis (for development) or Upstash Redis (for production).
+
+## Required Variables
+
+### `UPSTASH_REDIS_REST_URL`
+
+- Type: `string`
+- Required: Yes (in remote mode)
+- Example: `https://your-url.upstash.io`
+
+The REST URL for your Upstash Redis instance. You can find this in your Upstash dashboard.
+
+### `UPSTASH_REDIS_REST_TOKEN`
+
+- Type: `string`
+- Required: Yes (in remote mode)
+- Example: `AYzaCZoANzY2ZTItYjM4...`
+
+The REST authentication token for your Upstash Redis instance. You can find this in your Upstash dashboard.
+
+## Optional Variables
+
+### `REDIS_MODE`
+
+- Type: `string`
+- Required: No
+- Default: `remote`
+- Options: `local` | `remote`
+
+The Redis connection mode:
+
+- `local`: Use local Redis (for development)
+- `remote`: Use Upstash Redis (for production)
+
+### `REDIS_URL`
+
+- Type: `string`
+- Required: Only in local mode
+- Default: `redis://localhost:6379`
+- Example: `redis://username:password@localhost:6379`
+
+The connection URL for your local Redis instance. Only used when `REDIS_MODE` is set to `local`.
+
+## Example Configuration
+
+### Production (Upstash Redis)
+
+```env
+UPSTASH_REDIS_REST_URL=https://your-url.upstash.io
+UPSTASH_REDIS_REST_TOKEN=AYzaCZoANzY2ZTItYjM4...
+REDIS_MODE=remote
+```
+
+### Development (Local Redis)
+
+```env
+REDIS_MODE=local
+REDIS_URL=redis://localhost:6379
+```
+
+## Setting Up Upstash Redis
+
+1. Create an account at [Upstash](https://upstash.com/)
+2. Create a new Redis database
+3. Go to the database details page
+4. Copy the REST URL and REST Token
+5. Add them to your environment variables
