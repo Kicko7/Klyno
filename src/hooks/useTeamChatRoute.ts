@@ -10,20 +10,24 @@ export const useTeamChatRoute = () => {
   const navigateToTeamChat = useCallback(
     (teamId: string, chatId?: string, topicId?: string) => {
       const basePath = `/teams`;
-      const query: Record<string, string> = {
-        view: 'chat',
-      };
+      const query = new URLSearchParams();
 
-      if (chatId) {
-        query.chatId = chatId;
+      // Always add params in a consistent order
+      query.set('view', 'chat');
+      if (chatId) query.set('chatId', chatId);
+      if (topicId) query.set('topic', topicId);
+
+      const url = `${basePath}?${query.toString()}`;
+      const currentUrl = window.location.pathname + window.location.search;
+
+      // Only update URL if it's different
+      if (url !== currentUrl) {
+        queryRoute.replace(basePath, {
+          query: Object.fromEntries(query.entries()),
+          replace: true,
+          scroll: false, // Prevent scroll jump
+        });
       }
-
-      if (topicId) {
-        query.topic = topicId;
-      }
-
-      // Use replace with replace: true to ensure old query params are not merged
-      queryRoute.replace(basePath, { query, replace: true });
     },
     [queryRoute],
   );

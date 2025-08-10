@@ -11,6 +11,7 @@ import { ActionKeys } from '@/features/ChatInput/ActionBar/config';
 import Head from '@/features/ChatInput/Desktop/Header';
 import InputArea from '@/features/ChatInput/Desktop/InputArea';
 import { useTeamChatRoute } from '@/hooks/useTeamChatRoute';
+import { useTeamChatWebSocket } from '@/hooks/useTeamChatWebSocket';
 import { chatService } from '@/services/chat';
 import { getAgentStoreState, useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
@@ -101,17 +102,37 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
     s.updateSystemStatus,
   ]);
 
-  // Handle input changes
-  const handleInputChange = useCallback((value: string) => {
-    setInputMessage(value);
-  }, []);
-
   // Get team chat store methods and routing
   const {
     sendMessage: sendTeamMessage,
     createNewTeamChatWithTopic,
     activeTopicId,
   } = useTeamChatStore();
+
+  // Use WebSocket for real-time messaging
+  const {
+    sendMessage: sendWebSocketMessage,
+    startTyping,
+    stopTyping,
+  } = useTeamChatWebSocket({
+    teamChatId,
+    enabled: true,
+  });
+
+  // Handle input changes with typing indicators
+  const handleInputChange = useCallback(
+    (value: string) => {
+      setInputMessage(value);
+
+      // Send typing indicators via WebSocket
+      if (value.length > 0) {
+        startTyping();
+      } else {
+        stopTyping();
+      }
+    },
+    [startTyping, stopTyping],
+  );
   const { createNewTeamChat, switchToTeamChat } = useTeamChatRoute();
 
   // Get agent configuration for AI
@@ -168,7 +189,11 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
       // 1. Add user message to UI immediately (non-blocking)
       // Send user message with user information
       sendTeamMessage(teamChatId, messageToSend, 'user', undefined, false, userMetadata);
-      console.log('User message sent successfully');
+
+      // Send message via WebSocket for real-time updates to all team members
+      // This will handle both real-time broadcasting and database persistence
+      sendWebSocketMessage(messageToSend, 'user', userMetadata);
+      console.log('User message sent successfully via WebSocket');
 
       // 2. Create a temporary assistant message for AI response with empty content initially
       const assistantMessageId = nanoid();

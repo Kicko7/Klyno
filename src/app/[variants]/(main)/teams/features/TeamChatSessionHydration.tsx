@@ -16,43 +16,22 @@ const TeamChatSessionHydration = memo(() => {
   const currentChatId = searchParams.get('chatId') || '';
   const currentTopic = searchParams.get('topic') || '';
 
-  // Sync URL params to store
+  // Only sync URL params to store on initial load or direct URL navigation
   useEffect(() => {
-    if (currentChatId) {
-      useTeamChatStore.setState({ activeTeamChatId: currentChatId });
-    }
-    if (currentTopic) {
-      useTeamChatStore.setState({ activeTopicId: currentTopic });
-    }
-  }, [currentChatId, currentTopic]);
+    const urlHasParams = currentChatId || currentTopic;
+    const storeState = useTeamChatStore.getState();
+    const storeIsEmpty = !storeState.activeTeamChatId && !storeState.activeTopicId;
 
-  // Sync store to URL
-  useEffect(() => {
-    const updateURL = (state: {
-      activeTeamChatId: string | null;
-      activeTopicId: string | null;
-    }) => {
-      // Only update URL if values have changed
-      if (state.activeTeamChatId !== currentChatId || state.activeTopicId !== currentTopic) {
-        const query = new URLSearchParams();
-        query.set('view', 'chat');
-        if (state.activeTeamChatId) {
-          query.set('chatId', state.activeTeamChatId);
-        }
-        if (state.activeTopicId) {
-          query.set('topic', state.activeTopicId);
-        }
-        router.replace(`/teams?${query.toString()}`);
+    // Only sync from URL if we have URL params and store is empty
+    if (urlHasParams && storeIsEmpty) {
+      if (currentChatId) {
+        useTeamChatStore.setState({ activeTeamChatId: currentChatId });
       }
-    };
-
-    // Subscribe to store changes
-    const unsubscribe = useTeamChatStore.subscribe(updateURL);
-
-    return () => {
-      unsubscribe();
-    };
-  }, [router, currentChatId, currentTopic]);
+      if (currentTopic) {
+        useTeamChatStore.setState({ activeTopicId: currentTopic });
+      }
+    }
+  }, []); // Only run on mount
 
   return null;
 });

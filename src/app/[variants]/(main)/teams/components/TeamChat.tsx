@@ -1,14 +1,14 @@
 'use client';
 
 import { ModelTag } from '@lobehub/icons';
-import { ActionIcon } from '@lobehub/ui';
+import { ActionIcon, Avatar, Tag, Tooltip } from '@lobehub/ui';
 import { ChatHeader } from '@lobehub/ui/chat';
 import { Alert, Button } from 'antd';
 import { useResponsive } from 'antd-style';
 import { UserPlus } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
 import HeaderAction from '@/app/[variants]/(main)/chat/(workspace)/_layout/Desktop/ChatHeader/HeaderAction';
@@ -58,8 +58,13 @@ const TeamChat = memo(() => {
     agentSelectors.currentAgentModelProvider(s),
   ]);
 
-  // Note: Team chats are now loaded by the sidebar when organization changes
-  // This prevents duplicate loading and infinite loops
+  // Load team chats when organization changes
+  useEffect(() => {
+    if (currentOrganization?.id && currentOrganization.id !== currentOrganizationId) {
+      console.log('🔄 Organization changed, loading team chats:', currentOrganization.id);
+      refreshTeamChats();
+    }
+  }, [currentOrganization?.id, currentOrganizationId, refreshTeamChats]);
 
   // Validate chat access and sync with URL
   useEffect(() => {
@@ -127,27 +132,18 @@ const TeamChat = memo(() => {
     }
   }, [currentOrganization?.id, createTeamChat, organizations]);
 
-  // Periodic refresh to catch changes made by other users
-  useEffect(() => {
-    if (!currentOrganization?.id) return;
+  // Get active users from store (updated via WebSocket) - Fixed to return stable reference
+  const activeUsers = useTeamChatStore((state) => {
+    const chatState = state.activeChatStates[activeTeamChatId || ''];
+    return chatState?.presence || null;
+  });
 
-    const interval = setInterval(async () => {
-      try {
-        // Only refresh if we're not currently loading and have chats
-        const { isLoading, teamChatsByOrg } = useTeamChatStore.getState();
-        const currentChats = teamChatsByOrg[currentOrganization.id] || [];
+  // Memoize active users to prevent infinite re-renders
+  const memoizedActiveUsers = useMemo(() => {
+    return activeUsers || {};
+  }, [activeUsers]);
 
-        if (!isLoading && currentChats.length > 0) {
-          console.log('🔄 Periodic refresh of sidebar...');
-          await refreshSidebar();
-        }
-      } catch (error) {
-        console.error('Failed to refresh sidebar:', error);
-      }
-    }, 120000); // Refresh every 2 minutes
-
-    return () => clearInterval(interval);
-  }, [currentOrganization?.id]); // Removed refreshSidebar from dependencies
+  // Presence is now handled by WebSocket in useTeamChatWebSocket hook
 
   // Debug logging
   useEffect(() => {
@@ -166,9 +162,52 @@ const TeamChat = memo(() => {
         left={
           <Flexbox align={'center'} gap={12} horizontal>
             <TeamMain />
+            {activeTeamChatId && (
+              <Flexbox gap={8} horizontal>
+                <div
+                  style={{
+                    fontSize: '16px',
+                    fontWeight: 500,
+                    color: isLoading ? '#666' : '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  {teamChats.find((chat) => chat.id === activeTeamChatId)?.title ||
+                    'Loading chat...'}
+                  {isLoading && <span className="animate-pulse">•••</span>}
+                </div>
+              </Flexbox>
+            )}
             <ModelSwitchPanel>
               <ModelTag model={model} />
             </ModelSwitchPanel>
+            {Object.keys(memoizedActiveUsers).length > 0 && !isLoading && (
+              <Flexbox gap={8} horizontal style={{ marginLeft: 12 }}>
+                {Object.entries(memoizedActiveUsers)
+                  .slice(0, 3)
+                  .map(([userId, userData]) => (
+                    <Tooltip
+                      key={userId}
+                      title={`${userData.username || 'User'} (Active)`}
+                      placement="bottom"
+                    >
+                      <Avatar
+                        avatar={userData.avatar}
+                        size={24}
+                        style={{
+                          border: '2px solid #4CAF50',
+                          boxShadow: '0 0 0 2px rgba(76, 175, 80, 0.2)',
+                        }}
+                      />
+                    </Tooltip>
+                  ))}
+                {Object.keys(memoizedActiveUsers).length > 3 && (
+                  <Tag>+{Object.keys(memoizedActiveUsers).length - 3} active</Tag>
+                )}
+              </Flexbox>
+            )}
           </Flexbox>
         }
         right={
@@ -211,16 +250,27 @@ const TeamChat = memo(() => {
               />
             </div>
           )}
-          {isLoading ? (
-            <div className="flex-1 flex items-center justify-center">
+          {isLoading || !activeTeamChatId ? (
+            <div className="flex-1 flex flex-col items-center justify-center">
               <SkeletonList mobile={mobile} />
+              {activeTeamChatId && <div className="mt-4 text-slate-400">Loading chat...</div>}
             </div>
           ) : activeTeamChatId ? (
-            <TeamChatContent
-              teamChatId={activeTeamChatId}
-              mobile={mobile || false}
-              onNewChat={handleNewChat}
-            />
+            <Suspense
+              fallback={
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <SkeletonList mobile={mobile} />
+                  <div className="mt-4 text-slate-400">Loading messages...</div>
+                </div>
+              }
+            >
+              <TeamChatContent
+                key={activeTeamChatId} // Force remount on chat switch
+                teamChatId={activeTeamChatId}
+                mobile={mobile || false}
+                onNewChat={handleNewChat}
+              />
+            </Suspense>
           ) : (
             <div className="flex-1 flex items-center justify-center text-slate-400">
               <div className="text-center">

@@ -1,5 +1,5 @@
 /* eslint-disable sort-keys-fix/sort-keys-fix  */
-import { boolean, jsonb, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { boolean, index, jsonb, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core';
 import { createInsertSchema } from 'drizzle-zod';
 
 import { idGenerator } from '@/database/utils/idGenerator';
@@ -42,6 +42,14 @@ export const teamChats = pgTable('team_chats', {
         addedAt: string;
         addedBy: string;
       }[];
+      presence?: {
+        [userId: string]: {
+          isActive: boolean;
+          lastActiveAt: string;
+          lastSeenMessageId?: string;
+          device?: string;
+        };
+      };
       [key: string]: any;
     }>()
     .default({
