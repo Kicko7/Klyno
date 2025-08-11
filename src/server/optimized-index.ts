@@ -3,6 +3,11 @@ import next from 'next';
 import { parse } from 'url';
 
 import { OptimizedWebSocketServer } from './websocket/optimized-server';
+import { startBackgroundSyncWorker } from '@/services/sessionManagerFactory';
+import { logSessionConfig, validateSessionConfig } from '@/config/sessionConfig';
+import { getOptimizedRedisService } from '@/services/optimized-redis-service-factory';
+import { OptimizedSyncService } from '@/services/optimized-sync-service';
+import { monitoringService } from '@/services/monitoringService';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
@@ -22,6 +27,13 @@ app.prepare().then(async () => {
       res.end('Internal Server Error');
     }
   });
+
+  // Validate and log session configuration
+  if (!validateSessionConfig()) {
+    console.error('Invalid session configuration. Please check your environment variables.');
+    process.exit(1);
+  }
+  logSessionConfig();
 
   // Initialize optimized WebSocket server with Redis
   const wsServer = new OptimizedWebSocketServer(server);
@@ -49,6 +61,17 @@ app.prepare().then(async () => {
 
   try {
     await wsServer.initialize();
+    
+    // Get service instances for monitoring
+    const redisService = await getOptimizedRedisService();
+    const syncService = new OptimizedSyncService();
+    
+    // Register instances with monitoring service
+    monitoringService.setInstances(wsServer, redisService, syncService);
+    
+    // Start background sync worker for Redis sessions
+    startBackgroundSyncWorker();
+    console.log('✅ Background sync worker started');
   } catch (error) {
     console.error('Failed to initialize WebSocket server:', error);
     process.exit(1);
@@ -60,6 +83,10 @@ app.prepare().then(async () => {
         dev ? 'development' : process.env.NODE_ENV
       }`,
     );
+    console.log(`📊 Redis session management enabled`);
+    console.log(`⏰ Sessions expire after 20 minutes of inactivity`);
+    console.log(`💾 Max 1000 messages per session before rolling window`);
+    console.log(`🔄 Background sync runs every 5 minutes`);
   });
 
   // Graceful shutdown handling

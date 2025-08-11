@@ -1,8 +1,11 @@
 import { Server as HttpServer } from 'http';
 import { Server } from 'socket.io';
+import { nanoid } from 'nanoid';
 
 import { RedisService } from '@/services/redisService';
 import { getRedisService } from '@/services/redisServiceFactory';
+import { getSessionManager } from '@/services/sessionManagerFactory';
+import { SessionManager, MessageData } from '@/services/sessionManager';
 import { MessageStreamData } from '@/types/redis';
 import {
   ClientToServerEvents,
@@ -14,6 +17,7 @@ import {
 export class WebSocketServer {
   private io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
   private redisService!: RedisService;
+  private sessionManager!: SessionManager;
 
   constructor(httpServer: HttpServer) {
     this.io = new Server(httpServer, {
@@ -29,9 +33,10 @@ export class WebSocketServer {
 
   public async initialize() {
     this.redisService = await getRedisService();
+    this.sessionManager = await getSessionManager();
     this.setupMiddleware();
     this.setupEventHandlers();
-    console.log('✅ WebSocket server initialized with Redis');
+    console.log('✅ WebSocket server initialized with Redis and SessionManager');
     console.log('🔌 WebSocket server listening on port:', process.env.PORT || '3001');
     console.log('🌐 CORS origin:', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
   }
@@ -60,6 +65,25 @@ export class WebSocketServer {
           await socket.join(roomId);
           socket.data.activeRooms.add(roomId);
 
+          // Check if session exists in Redis or load from DB
+          let session = await this.sessionManager.getSession(roomId);
+          if (!session) {
+            console.log(`📥 Loading session from DB for room: ${roomId}`);
+            session = await this.sessionManager.loadSessionFromDb(roomId);
+            if (!session) {
+              // Create new session if none exists
+              session = await this.sessionManager.createSession(roomId, [socket.data.userId]);
+            }
+          }
+
+          // Send session data to the joining user
+          socket.emit('session:loaded', {
+            sessionId: session.sessionId,
+            messages: session.messages,
+            participants: session.participants,
+            status: session.status,
+          });
+
           // Send current presence list
           const presence = await this.redisService.getPresence(roomId);
           socket.emit('presence:list', presence);
@@ -81,6 +105,8 @@ export class WebSocketServer {
             lastActiveAt: new Date().toISOString(),
             isActive: true,
           });
+
+          console.log(`✅ User ${socket.data.userId} joined room ${roomId} with session ${session.sessionId}`);
         } catch (error) {
           console.error('Error joining room:', error);
           socket.emit('room:error', 'Failed to join room');
@@ -116,8 +142,32 @@ export class WebSocketServer {
         async (message: { teamId: string; content: string; type?: string; metadata?: any }) => {
           try {
             const timestamp = new Date().toISOString();
-            const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const messageId = `msg_${Date.now()}_${nanoid(10)}`;
 
+            // Create message data for session
+            const messageData: MessageData = {
+              id: messageId,
+              content: message.content,
+              userId: socket.data.userId,
+              timestamp: Date.now(),
+              type: (message.type as 'user' | 'assistant' | 'system') || 'user',
+              metadata: message.metadata || {},
+              syncedToDb: false,
+            };
+
+            // Add message to session in Redis
+            await this.sessionManager.appendMessage(message.teamId, messageData);
+
+            // Check if we need background sync (approaching 1000 message limit)
+            if (await this.sessionManager.needsBackgroundSync(message.teamId)) {
+              console.log(`🔄 Triggering background sync for ${message.teamId}`);
+              // Don't await - let it run in background
+              this.sessionManager.performBackgroundSync(message.teamId).catch(error => {
+                console.error('Background sync failed:', error);
+              });
+            }
+
+            // Create stream message for broadcasting
             const streamMessage: MessageStreamData = {
               id: messageId,
               content: message.content,
@@ -131,29 +181,17 @@ export class WebSocketServer {
             // Add message to Redis stream for real-time delivery
             await this.redisService.addToMessageStream(message.teamId, streamMessage);
 
-            // Persist message to database
-            try {
-              // Import the tRPC client to call the addMessage mutation
-              const { lambdaClient } = await import('@/libs/trpc/client/lambda');
-              await lambdaClient.teamChat.addMessage.mutate({
-                teamChatId: message.teamId,
-                content: message.content,
-                messageType: (message.type as 'user' | 'assistant' | 'system') || 'user',
-                metadata: {
-                  ...(message.metadata || {}),
-                  socketMessageId: messageId,
-                  sentViaWebSocket: true,
-                },
-              });
-              console.log('✅ Message persisted to database:', messageId);
-            } catch (dbError) {
-              console.error('❌ Failed to persist message to database:', dbError);
-              // Continue with real-time delivery even if DB persistence fails
-            }
-
             // Broadcast to all users in the room
             this.io.to(message.teamId).emit('message:new', streamMessage);
-            console.log('📡 Message broadcasted to room:', message.teamId);
+            
+            // Get session stats for monitoring
+            const stats = await this.sessionManager.getSessionStats(message.teamId);
+            if (stats) {
+              console.log(`📊 Session ${message.teamId}: ${stats.messageCount} messages, ${stats.unsyncedCount} unsynced`);
+            }
+
+            // Note: Database persistence will happen during sync (either background sync or session expiry)
+            console.log(`📡 Message ${messageId} added to session and broadcasted`);
           } catch (error) {
             console.error('Error sending message:', error);
             socket.emit('room:error', 'Failed to send message');

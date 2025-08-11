@@ -3,6 +3,8 @@ import next from 'next';
 import { parse } from 'url';
 
 import { WebSocketServer } from './websocket/server';
+import { startBackgroundSyncWorker } from '@/services/sessionManagerFactory';
+import { logSessionConfig, validateSessionConfig } from '@/config/sessionConfig';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
@@ -23,9 +25,20 @@ app.prepare().then(async () => {
     }
   });
 
+  // Validate and log session configuration
+  if (!validateSessionConfig()) {
+    console.error('Invalid session configuration. Please check your environment variables.');
+    process.exit(1);
+  }
+  logSessionConfig();
+
   // Initialize WebSocket server with Redis
   const wsServer = new WebSocketServer(server);
   await wsServer.initialize();
+
+  // Start background sync worker for Redis sessions
+  startBackgroundSyncWorker();
+  console.log('✅ Background sync worker started');
 
   server.listen(port, () => {
     console.log(
@@ -33,5 +46,8 @@ app.prepare().then(async () => {
         dev ? 'development' : process.env.NODE_ENV
       }`,
     );
+    console.log(`📊 Redis session management enabled`);
+    console.log(`⏰ Sessions expire after 20 minutes of inactivity`);
+    console.log(`💾 Max 1000 messages per session before rolling window`);
   });
 });

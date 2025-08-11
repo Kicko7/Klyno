@@ -162,6 +162,18 @@ export const useOptimizedTeamChatWebSocket = ({
       updateMessages(teamChatId, [message]);
     });
 
+    // Session history handler - receives cached messages when joining a room
+    socket.on('messages:history', (messages: any[]) => {
+      console.log(`📨 Received ${messages.length} cached messages from session`);
+      if (messages && messages.length > 0) {
+        // Sort messages by timestamp to ensure correct order
+        const sortedMessages = messages.sort((a, b) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+        updateMessages(teamChatId, sortedMessages);
+      }
+    });
+
     // Heartbeat handler
     socket.on('heartbeat', () => {
       // Respond to heartbeat to keep connection alive

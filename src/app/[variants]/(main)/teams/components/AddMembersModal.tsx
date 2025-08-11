@@ -169,7 +169,7 @@ const AddMembersModal = memo<AddMembersModalProps>(
                     You (Creator)
                   </Tag>
                   {/* Added Members */}
-                  {existingMembers.map((memberId) => {
+                  {existingMembers.map((memberId: string) => {
                     const member = getMemberInfo(memberId);
                     return member ? (
                       <Tag key={memberId} color="green">

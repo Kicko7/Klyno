@@ -567,4 +567,144 @@ export class OptimizedRedisService extends EventEmitter {
 
     console.log('✅ Redis service shutdown complete');
   }
+
+  // ============ Team Chat Session Management ============
+
+  /**
+   * Set a chat session in Redis
+   */
+  async setSession(session: any): Promise<void> {
+    const key = `chat:${session.teamChatId}:session`;
+    const messagesKey = `chat:${session.teamChatId}:messages`;
+    
+    await this.executeWithRetry(async () => {
+      const pipeline = this.redis.pipeline();
+      
+      // Store session metadata
+      pipeline.set(key, JSON.stringify({
+        ...session,
+        messages: undefined, // Don't store messages in metadata
+      }));
+      pipeline.expire(key, 1200); // 20 minutes
+      
+      // Store messages separately in a list for efficiency
+      if (session.messages && session.messages.length > 0) {
+        pipeline.del(messagesKey); // Clear existing messages
+        for (const message of session.messages) {
+          pipeline.rpush(messagesKey, JSON.stringify(message));
+        }
+        pipeline.expire(messagesKey, 1200);
+      }
+      
+      await pipeline.exec();
+    });
+  }
+
+  /**
+   * Get a chat session from Redis
+   */
+  async getSession(teamChatId: string): Promise<any | null> {
+    const key = `chat:${teamChatId}:session`;
+    const messagesKey = `chat:${teamChatId}:messages`;
+    
+    return await this.executeWithRetry(async () => {
+      const sessionData = await this.redis.get(key);
+      if (!sessionData) return null;
+      
+      const session = JSON.parse(sessionData as string);
+      
+      // Get messages
+      const messages = await this.redis.lrange(messagesKey, 0, -1);
+      session.messages = messages.map((msg: string) => JSON.parse(msg));
+      
+      return session;
+    });
+  }
+
+  /**
+   * Append a message to the session
+   */
+  async appendMessage(teamChatId: string, message: any): Promise<void> {
+    const messagesKey = `chat:${teamChatId}:messages`;
+    
+    await this.executeWithRetry(async () => {
+      await this.redis.rpush(messagesKey, JSON.stringify(message));
+      await this.redis.expire(messagesKey, 1200); // Reset expiry
+    });
+  }
+
+  /**
+   * Get all active sessions
+   */
+  async getAllActiveSessions(): Promise<any[]> {
+    return await this.executeWithRetry(async () => {
+      const pattern = 'chat:*:session';
+      const keys = await this.scanKeys(pattern);
+      const sessions = [];
+      
+      for (const key of keys) {
+        const teamChatId = key.split(':')[1];
+        const session = await this.getSession(teamChatId);
+        if (session) {
+          sessions.push(session);
+        }
+      }
+      
+      return sessions;
+    });
+  }
+
+  /**
+   * Delete a session
+   */
+  async deleteSession(teamChatId: string): Promise<void> {
+    const key = `chat:${teamChatId}:session`;
+    const messagesKey = `chat:${teamChatId}:messages`;
+    const metaKey = `chat:${teamChatId}:meta`;
+    
+    await this.executeWithRetry(async () => {
+      await this.redis.del(key, messagesKey, metaKey);
+    });
+  }
+
+  /**
+   * Refresh session expiry
+   */
+  async refreshExpiry(teamChatId: string, ttl: number): Promise<void> {
+    const key = `chat:${teamChatId}:session`;
+    const messagesKey = `chat:${teamChatId}:messages`;
+    
+    await this.executeWithRetry(async () => {
+      const pipeline = this.redis.pipeline();
+      pipeline.expire(key, ttl);
+      pipeline.expire(messagesKey, ttl);
+      await pipeline.exec();
+    });
+  }
+
+  /**
+   * Get message count for a session
+   */
+  async getMessageCount(teamChatId: string): Promise<number> {
+    const messagesKey = `chat:${teamChatId}:messages`;
+    
+    return await this.executeWithRetry(async () => {
+      return await this.redis.llen(messagesKey);
+    });
+  }
+
+  /**
+   * Trim messages to maintain the limit
+   */
+  async trimMessages(teamChatId: string, maxMessages: number): Promise<void> {
+    const messagesKey = `chat:${teamChatId}:messages`;
+    
+    await this.executeWithRetry(async () => {
+      const count = await this.redis.llen(messagesKey);
+      if (count > maxMessages) {
+        // Keep only the latest messages
+        await this.redis.ltrim(messagesKey, -maxMessages, -1);
+      }
+    });
+  }
 }

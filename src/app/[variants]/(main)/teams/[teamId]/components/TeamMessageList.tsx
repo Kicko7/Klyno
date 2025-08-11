@@ -1,10 +1,10 @@
 'use client';
 
-import { Avatar, List, Typography, Spin } from 'antd';
-import { RobotOutlined, UserOutlined } from '@ant-design/icons';
-import { memo } from 'react';
+import { Avatar, List, Spin, Typography } from 'antd';
 import { useTheme } from 'antd-style';
+import { memo } from 'react';
 import { Flexbox } from 'react-layout-kit';
+
 import { TeamMessage } from '@/store/team/store';
 
 const { Text } = Typography;
@@ -17,7 +17,7 @@ interface TeamMessageListProps {
 
 const TeamMessageList = memo<TeamMessageListProps>(({ messages, loading, isAIMode }) => {
   const theme = useTheme();
-  
+
   if (loading) {
     return (
       <Flexbox align="center" justify="center" style={{ height: '100%' }}>
@@ -25,26 +25,26 @@ const TeamMessageList = memo<TeamMessageListProps>(({ messages, loading, isAIMod
       </Flexbox>
     );
   }
-  
+
   if (messages.length === 0) {
     return (
       <Flexbox align="center" justify="center" style={{ height: '100%' }}>
         <Text type="secondary">
-          {isAIMode 
-            ? 'No messages yet. Start a conversation with the AI assistant!' 
+          {isAIMode
+            ? 'No messages yet. Start a conversation with the AI assistant!'
             : 'No messages yet. Start the conversation!'}
         </Text>
       </Flexbox>
     );
   }
-  
+
   return (
     <List
       dataSource={[...messages].reverse()}
       renderItem={(msg) => {
         const isAIMessage = msg.metadata?.isAIChat || msg.content.startsWith('AI Assistant:');
         const isAIResponse = msg.metadata?.isAIChat || msg.content.startsWith('AI Assistant:');
-        
+
         return (
           <></>
           // <List.Item
@@ -63,9 +63,9 @@ const TeamMessageList = memo<TeamMessageListProps>(({ messages, loading, isAIMod
           //       isAIMessage ? (
           //         <Avatar
           //           icon={<RobotOutlined />}
-          //           style={{ 
+          //           style={{
           //             backgroundColor: theme.colorPrimary,
-          //             color: theme.colorBgContainer 
+          //             color: theme.colorBgContainer
           //           }}
           //         />
           //       ) : (
@@ -78,8 +78,8 @@ const TeamMessageList = memo<TeamMessageListProps>(({ messages, loading, isAIMod
           //     title={
           //       <Flexbox gap={8} horizontal align="baseline">
           //         <Text strong>
-          //           {isAIMessage 
-          //             ? 'AI Assistant' 
+          //           {isAIMessage
+          //             ? 'AI Assistant'
           //             : msg.sender.fullName || msg.sender.username || msg.sender.email}
           //         </Text>
           //         <Text type="secondary" style={{ fontSize: 12 }}>
@@ -104,8 +104,8 @@ const TeamMessageList = memo<TeamMessageListProps>(({ messages, loading, isAIMod
           //         </Text>
           //       ) : (
           //         <Text style={{ whiteSpace: 'pre-wrap' }}>
-          //           {isAIMessage && msg.content.startsWith('AI Assistant: ') 
-          //             ? msg.content.substring(14) 
+          //           {isAIMessage && msg.content.startsWith('AI Assistant: ')
+          //             ? msg.content.substring(14)
           //             : msg.content}
           //         </Text>
           //       )

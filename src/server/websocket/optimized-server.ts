@@ -5,6 +5,8 @@ import { Server, Socket } from 'socket.io';
 
 import { OptimizedRedisService } from '@/services/optimized-redis-service';
 import { getOptimizedRedisService } from '@/services/optimized-redis-service-factory';
+import { getSessionManager } from '@/services/sessionManagerFactory';
+import { SessionManager } from '@/services/sessionManager';
 import { MessageStreamData } from '@/types/redis';
 import {
   ClientToServerEvents,
@@ -42,6 +44,7 @@ interface ConnectionMetrics {
 export class OptimizedWebSocketServer extends EventEmitter {
   private io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
   private redisService!: OptimizedRedisService;
+  private sessionManager!: SessionManager;
   private rateLimiters: Map<string, RateLimiterMemory> = new Map();
   private connectionMetrics: Map<string, ConnectionMetrics> = new Map();
   private heartbeatIntervals: Map<string, NodeJS.Timeout> = new Map();
@@ -86,6 +89,7 @@ export class OptimizedWebSocketServer extends EventEmitter {
   public async initialize() {
     try {
       this.redisService = await getOptimizedRedisService();
+      this.sessionManager = getSessionManager();
       this.setupMiddleware();
       this.setupEventHandlers();
       this.setupErrorHandling();
@@ -95,6 +99,7 @@ export class OptimizedWebSocketServer extends EventEmitter {
       console.log('🌐 CORS origin:', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
       console.log('⚡ Rate limiting enabled');
       console.log('📊 Connection metrics tracking enabled');
+      console.log('📝 Session management enabled with 20-minute expiry');
     } catch (error) {
       console.error('❌ Failed to initialize WebSocket server:', error);
       throw error;
@@ -266,6 +271,14 @@ export class OptimizedWebSocketServer extends EventEmitter {
         metrics.lastActivity = new Date();
       }
 
+      // Load session data from session manager
+      const sessionMessages = await this.sessionManager.getMessages(roomId);
+      if (sessionMessages && sessionMessages.length > 0) {
+        // Send cached messages to the joining user
+        socket.emit('messages:history', sessionMessages);
+        console.log(`📨 Sent ${sessionMessages.length} cached messages to user ${socket.data.userId}`);
+      }
+
       // Send current presence list
       const presence = await this.redisService.getPresence(roomId);
       socket.emit('presence:list', presence);
@@ -366,6 +379,16 @@ export class OptimizedWebSocketServer extends EventEmitter {
 
       // Add message to Redis stream for real-time delivery
       await this.redisService.addToMessageStream(message.teamId, streamMessage);
+
+      // Add message to session manager cache
+      await this.sessionManager.addMessage(message.teamId, {
+        id: messageId,
+        content: message.content,
+        role: (message.type as 'user' | 'assistant' | 'system') || 'user',
+        timestamp,
+        metadata: message.metadata || {},
+        userId: socket.data.userId,
+      });
 
       // Persist message to database with retry logic
       await this.persistMessageToDatabase(message, messageId);
