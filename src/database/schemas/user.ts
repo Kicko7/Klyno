@@ -25,6 +25,9 @@ export const users = pgTable('users', {
   // Required by nextauth, all null allowed
   emailVerifiedAt: timestamptz('email_verified_at'),
 
+  // Stripe customer ID for payment processing
+  stripeCustomerId: text('stripe_customer_id'),
+
   preference: jsonb('preference').$defaultFn(() => DEFAULT_PREFERENCE),
 
   ...timestamps,

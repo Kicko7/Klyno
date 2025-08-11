@@ -1,0 +1,292 @@
+---
+title: Stripe Credit Purchase System
+description: >
+  Learn how to set up and use the Stripe integration for one-time credit purchases in LobeChat, including webhook configuration and testing.
+
+
+tags:
+  - Stripe
+  - Credits
+  - Payment
+  - Webhooks
+  - One-time Purchase
+---
+
+# Stripe Credit Purchase System
+
+LobeChat now supports one-time credit purchases through Stripe Checkout, allowing users to buy prepaid credit packs without subscriptions.
+
+## Overview
+
+This system provides:
+
+- **One-time credit purchases** (no recurring billing)
+- **Secure webhook processing** with signature verification
+- **Idempotent operations** to prevent duplicate processing
+- **Automatic credit balance updates** upon successful payment
+- **Refund support** for charge reversals
+
+## Setup Instructions
+
+### 1. Environment Variables
+
+Add these to your `.env` file:
+
+```bash
+# Stripe Configuration
+STRIPE_SECRET_KEY=sk_live_xxxxxxxxxxxxxxxxxxxxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxxxxxxxx
+APP_URL=https://yourdomain.com
+```
+
+### 2. Stripe Dashboard Configuration
+
+#### Create Products and Prices
+
+1. Go to your [Stripe Dashboard](https://dashboard.stripe.com/products)
+2. Create a new product for each credit pack
+3. Add a **one-time price** (not recurring)
+4. Set the price amount (e.g., $9.99 for 1000 credits)
+5. **Important**: Add metadata to the price or product:
+   - Key: `credits_amount`
+   - Value: The number of credits (e.g., `1000`)
+
+#### Configure Webhooks
+
+1. Go to [Webhooks](https://dashboard.stripe.com/webhooks) in your Stripe Dashboard
+2. Click "Add endpoint"
+3. Set the endpoint URL: `https://yourdomain.com/api/webhook/stripe`
+4. Select these events:
+   - `checkout.session.completed`
+   - `charge.refunded`
+5. Copy the webhook signing secret to your environment variables
+
+### 3. Database Migration
+
+Run the database migration to create the required tables:
+
+```bash
+npm run db:migrate
+```
+
+This will create:
+
+- `user_credits` table for tracking user balances
+- `credit_transactions` table for purchase history
+- Add `stripe_customer_id` to the existing `users` table
+
+## Usage
+
+### Frontend Integration
+
+Use the tRPC mutation to create checkout sessions:
+
+```typescript
+import { lambdaClient } from '@/libs/trpc/client';
+
+const createCheckout = async (priceId: string) => {
+  try {
+    const result = await lambdaClient.stripe.createCheckoutSession.mutate({
+      priceId,
+    });
+
+    if (result.success && result.url) {
+      // Redirect to Stripe Checkout
+      window.location.href = result.url;
+    }
+  } catch (error) {
+    console.error('Checkout error:', error);
+  }
+};
+```
+
+### Credit Balance Checking
+
+```typescript
+import { CreditManager } from '@/server/services/credits/creditManager';
+
+const creditManager = new CreditManager();
+const balance = await creditManager.getUserBalance(userId);
+```
+
+## Webhook Processing
+
+### Supported Events
+
+#### `checkout.session.completed`
+
+- Triggers when a payment is successful
+- Automatically adds credits to user balance
+- Records transaction in database
+- Includes idempotency check using `stripe_event_id`
+
+#### `charge.refunded`
+
+- Triggers when a charge is refunded
+- Automatically removes credits from user balance
+- Records refund transaction
+- Supports both full and partial refunds
+
+### Idempotency
+
+The system prevents duplicate processing by:
+
+- Checking `stripe_event_id` before processing
+- Using database transactions for atomic operations
+- Unique constraint on `stripe_event_id` field
+
+## Security Features
+
+### Webhook Signature Verification
+
+- All webhooks are verified using Stripe's signature
+- Prevents webhook spoofing and replay attacks
+- Uses `STRIPE_WEBHOOK_SECRET` for verification
+
+### Server-Side Validation
+
+- Price validation (only one-time prices allowed)
+- User authentication required for checkout creation
+- Database transactions for data consistency
+
+## Testing
+
+### Using Stripe CLI
+
+1. Install [Stripe CLI](https://stripe.com/docs/stripe-cli)
+2. Forward webhooks to your local environment:
+
+```bash
+stripe listen --forward-to http://localhost:3000/api/webhook/stripe
+```
+
+3. Use test card numbers for payments:
+   - Success: `4242 4242 4242 4242`
+   - Decline: `4000 0000 0000 0002`
+
+### Test Products
+
+Create test products with these metadata examples:
+
+```json
+{
+  "credits_amount": "1000",
+  "description": "1000 AI Chat Credits"
+}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+#### Webhook Not Receiving Events
+
+- Verify webhook endpoint URL is correct
+- Check webhook secret is properly set
+- Ensure endpoint is accessible from internet
+
+#### Credits Not Added After Payment
+
+- Check webhook logs for errors
+- Verify `credits_amount` metadata is set on price/product
+- Check database connection and permissions
+
+#### Duplicate Credit Additions
+
+- Verify idempotency is working (check `stripe_event_id`)
+- Check for webhook retries from Stripe
+- Review webhook processing logs
+
+### Debug Mode
+
+Enable debug logging by setting:
+
+```bash
+DEBUG=stripe:*
+```
+
+## API Reference
+
+### tRPC Endpoints
+
+#### `stripe.createCheckoutSession`
+
+- **Input**: `{ priceId: string }`
+- **Output**: `{ success: boolean, sessionId: string, url: string }`
+- **Auth**: Required
+
+### Webhook Endpoint
+
+#### `POST /api/webhook/stripe`
+
+- **Headers**: `stripe-signature` required
+- **Body**: Raw webhook payload
+- **Response**: `{ received: boolean }`
+
+## Database Schema
+
+### `user_credits`
+
+```sql
+CREATE TABLE user_credits (
+  id text PRIMARY KEY,
+  user_id text NOT NULL REFERENCES users(id),
+  balance integer NOT NULL DEFAULT 0,
+  last_updated timestamp NOT NULL DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  accessed_at timestamp with time zone DEFAULT now()
+);
+```
+
+### `credit_transactions`
+
+```sql
+CREATE TABLE credit_transactions (
+  id text PRIMARY KEY,
+  user_id text NOT NULL REFERENCES users(id),
+  type text NOT NULL CHECK (type IN ('purchase', 'refund', 'usage')),
+  amount integer NOT NULL,
+  currency text NOT NULL DEFAULT 'usd',
+  stripe_event_id text UNIQUE,
+  stripe_payment_intent_id text,
+  stripe_charge_id text,
+  price_id text,
+  product_id text,
+  metadata jsonb,
+  transaction_date timestamp NOT NULL DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  accessed_at timestamp with time zone DEFAULT now()
+);
+```
+
+## Best Practices
+
+### Product Configuration
+
+- Use descriptive product names and descriptions
+- Set appropriate credit amounts for different price points
+- Test webhook processing with small amounts first
+
+### Error Handling
+
+- Implement proper error logging for webhook failures
+- Set up monitoring for failed webhook deliveries
+- Have fallback mechanisms for critical operations
+
+### Security
+
+- Never expose webhook secrets in client-side code
+- Use HTTPS for all webhook endpoints
+- Regularly rotate webhook secrets
+- Monitor webhook access logs
+
+## Support
+
+For issues related to:
+
+- **Stripe integration**: Check Stripe Dashboard logs
+- **Webhook processing**: Review server logs and webhook delivery history
+- **Database issues**: Verify migration status and table structure
+- **General setup**: Ensure all environment variables are correctly set

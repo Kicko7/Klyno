@@ -1,0 +1,143 @@
+---
+title: LobeChat Stripe Integration Environment Variables
+description: >
+  Learn how to configure Stripe integration for subscription management in LobeChat, including environment variables and setup instructions.
+
+
+tags:
+  - Stripe
+  - Subscription
+  - Payment
+  - Environment Variables
+---
+
+# Stripe Integration
+
+LobeChat provides Stripe integration for subscription management and payment processing. This allows you to offer paid plans with automatic billing and subscription management.
+
+## Environment Variables
+
+### Required Variables
+
+#### `STRIPE_SECRET_KEY`
+
+- **Type**: Required
+- **Description**: Your Stripe secret key for server-side operations
+- **Default**: `-`
+- **Example**: `sk_live_xxxxxxxxxxxxxxxxxxxxxx`
+
+#### `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+
+- **Type**: Required
+- **Description**: Your Stripe publishable key for client-side operations
+- **Default**: `-`
+- **Example**: `pk_live_xxxxxxxxxxx`
+
+### Optional Variables
+
+#### `STRIPE_API_VERSION`
+
+- **Type**: Optional
+- **Description**: Stripe API version to use
+- **Default**: `2024-12-18.acacia`
+- **Example**: `2024-12-18.acacia`
+
+## Setup Instructions
+
+### 1. Create Stripe Account
+
+1. Go to [Stripe](https://stripe.com) and create an account
+2. Complete your business profile and verification
+3. Get your API keys from the Stripe Dashboard
+
+### 2. Configure Products and Prices
+
+1. In your Stripe Dashboard, go to **Products**
+2. Create products for each subscription tier (e.g., Starter, Pro, Enterprise)
+3. For each product, create two prices:
+   - Monthly price (recurring monthly)
+   - Yearly price (recurring yearly)
+4. Add metadata to each product:
+   - `features`: JSON array of feature strings
+   - `popular`: Set to "true" for the most popular plan
+   - `icon`: Icon identifier (e.g., "star", "crown", "users", "zap")
+   - `color`: Color identifier (e.g., "success", "warning", "error", "primary")
+
+### 3. Example Product Metadata
+
+```json
+{
+  "color": "success",
+  "features": "[\"5,000,000 credits/month\", \"Models: GPT-4o mini, DeepSeek R1, Gemini 1.5 Flash\", \"1 GB file storage\", \"5,000 vector entries (50MB)\"]",
+  "icon": "star",
+  "popular": "false"
+}
+```
+
+### 4. Set Environment Variables
+
+Add these to your `.env` file:
+
+```bash
+# Stripe Configuration
+STRIPE_SECRET_KEY=sk_live_xxxxxxxxxxxxxxxxxxxxxx
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_xxxxxxxxxxx
+STRIPE_API_VERSION=2024-12-18.acacia
+```
+
+### 5. Deploy and Test
+
+1. Deploy your application with the environment variables
+2. Visit the pricing page to see your Stripe plans
+3. Test the integration by creating test subscriptions
+
+## Features
+
+- **Dynamic Pricing**: Plans are automatically loaded from Stripe
+- **Fallback Support**: Falls back to hardcoded plans if Stripe is unavailable
+- **Real-time Data**: Always shows current pricing and features
+- **Flexible Metadata**: Supports custom icons, colors, and feature lists
+- **Error Handling**: Gracefully handles Stripe API errors
+
+## Troubleshooting
+
+### Common Issues
+
+1. **"STRIPE_SECRET_KEY is required"**
+   - Ensure `STRIPE_SECRET_KEY` is set in your environment variables
+   - Check that the key is valid and active
+
+2. **"Failed to fetch plans"**
+   - Verify your Stripe API key has the correct permissions
+   - Check that you have active products with prices
+   - Ensure your Stripe account is not in test mode (unless intended)
+
+3. **Plans not showing**
+   - Verify products are marked as "Active" in Stripe
+   - Ensure prices are also marked as "Active"
+   - Check that products have both monthly and yearly prices
+
+### Testing
+
+- Use Stripe test keys for development
+- Create test products and prices
+- Use Stripe's test card numbers for payment testing
+
+## Security Notes
+
+- Never expose your `STRIPE_SECRET_KEY` in client-side code
+- Use `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` only for client-side operations
+- Implement proper webhook verification for production use
+- Follow Stripe's security best practices
+
+## Support
+
+For Stripe-specific issues, refer to:
+
+- [Stripe Documentation](https://stripe.com/docs)
+- [Stripe Support](https://support.stripe.com)
+
+For LobeChat integration issues, check:
+
+- [GitHub Issues](https://github.com/lobehub/lobe-chat/issues)
+- [Discord Community](https://discord.gg/lobehub)

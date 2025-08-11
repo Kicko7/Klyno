@@ -20,6 +20,8 @@ import { pluginRouter } from './plugin';
 import { ragEvalRouter } from './ragEval';
 import { sessionRouter } from './session';
 import { sessionGroupRouter } from './sessionGroup';
+import { stripeRouter } from './stripe';
+import { subscriptionRouter } from './subscription';
 import { teamChatRouter } from './teamChat';
 import { threadRouter } from './thread';
 import { topicRouter } from './topic';
@@ -44,6 +46,8 @@ export const lambdaRouter = router({
   ragEval: ragEvalRouter,
   session: sessionRouter,
   sessionGroup: sessionGroupRouter,
+  stripe: stripeRouter,
+  subscription: subscriptionRouter,
   teamChat: teamChatRouter,
   thread: threadRouter,
   topic: topicRouter,
