@@ -24,6 +24,7 @@ const useStyles = createStyles(({ css, token }) => ({
     overflow-y: auto;
     position: relative;
     min-height: 0; /* Critical for flexbox scrolling */
+    scroll-behavior: smooth; /* Smooth scroll on programmatic scrolls */
   `,
   inputContainer: css`
     flex-shrink: 0;

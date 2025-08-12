@@ -172,7 +172,7 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
       console.log('Sending user message:', messageToSend);
 
       // Prepare user metadata for the message
-      const userMetadata = currentUser
+      const userMetadataBase = currentUser
         ? {
             userInfo: {
               id: currentUser.id,
@@ -186,9 +186,13 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
           }
         : {};
 
-      // 1. Add user message to UI immediately (non-blocking)
+      // Create a client-side temporary id to reconcile with server message
+      const tempClientId = `tmp_${Date.now()}_${nanoid()}`;
+      const userMetadata = { ...userMetadataBase, clientTempId: tempClientId };
+
+      // 1. Add user message to UI immediately (non-blocking) with temp id
       // Send user message with user information
-      sendTeamMessage(teamChatId, messageToSend, 'user', undefined, false, userMetadata);
+      sendTeamMessage(teamChatId, messageToSend, 'user', tempClientId, false, userMetadata);
 
       // Send message via WebSocket for real-time updates to all team members
       // This will handle both real-time broadcasting and database persistence

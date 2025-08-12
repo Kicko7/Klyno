@@ -200,15 +200,10 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
     });
 
     // Get messages from store (updated via WebSocket) - Fixed to return stable reference
-    const messages = useTeamChatStore((state) => {
-      const chatMessages = state.messages[teamChatId];
-      return chatMessages || null;
-    });
+    const messages = useTeamChatStore((state) => state.messages[teamChatId] || null);
 
     // Memoize messages to prevent infinite re-renders
-    const memoizedMessages = useMemo(() => {
-      return messages || [];
-    }, [messages]);
+    const memoizedMessages = useMemo(() => messages || [], [messages]);
 
     // Set up chat activity tracking
     useEffect(() => {

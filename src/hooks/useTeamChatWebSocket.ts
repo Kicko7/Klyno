@@ -17,7 +17,8 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
   const {
     subscribeToChat,
     unsubscribeFromChat,
-    updateMessages,
+    upsertMessages,
+    removeMessage,
     updatePresence,
     updateTypingStatus,
     updateReadReceipts,
@@ -28,24 +29,20 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
       return;
     }
 
-    console.log(
-      '🔌 Attempting WebSocket connection to:',
-      process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001',
-    );
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+    console.log('🔌 Attempting WebSocket connection to:', socketUrl);
 
     // Initialize socket connection
-    const socket = io(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001', {
+    const socket = io(socketUrl, {
       auth: {
         userId: currentUser.id,
       },
       transports: ['websocket', 'polling'],
+      path: '/socket.io',
       reconnection: true,
-      reconnectionAttempts: 5,
+      // prefer a single reconnectionAttempts value
       reconnectionDelay: 1000,
       timeout: 20000, // Connection timeout
-      pingTimeout: 10000, // Time to wait for ping response
-      pingInterval: 15000, // How often to ping
-      upgradeTimeout: 30000, // Time for transport upgrade
       autoConnect: true, // Automatically connect on creation
       reconnectionAttempts: 10, // Increase max reconnection attempts
       reconnectionDelayMax: 10000, // Maximum delay between reconnection attempts
@@ -58,6 +55,34 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
 
     // Subscribe to chat updates
     subscribeToChat(teamChatId, currentUser.id);
+
+    // Handle initial session load (hydration from Redis/DB)
+    socket.on(
+      'session:loaded',
+      (data: { sessionId: string; messages: any[]; participants: string[]; status: string }) => {
+        try {
+          const converted = (data.messages || [])
+            .map((m: any) => ({
+              id: m.id,
+              content: m.content,
+              messageType: (m.type as 'user' | 'assistant' | 'system') ?? 'user',
+              teamChatId,
+              userId: m.userId,
+              metadata: m.metadata || {},
+              createdAt: new Date(
+                typeof m.timestamp === 'number' ? m.timestamp : Date.parse(m.timestamp),
+              ),
+              updatedAt: new Date(
+                typeof m.timestamp === 'number' ? m.timestamp : Date.parse(m.timestamp),
+              ),
+            }))
+            .sort((a: any, b: any) => a.createdAt.getTime() - b.createdAt.getTime());
+          if (converted.length) upsertMessages(teamChatId, converted);
+        } catch (e) {
+          console.error('Failed to process session:loaded payload', e);
+        }
+      },
+    );
 
     // Handle presence updates
     socket.on('presence:list', (presence: Record<string, PresenceData>) => {
@@ -107,29 +132,41 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
         createdAt: new Date(message.timestamp),
         updatedAt: new Date(message.timestamp),
       };
-      updateMessages(teamChatId, [teamChatMessage]);
+      // Reconcile with any temp message by clientTempId
+      const clientTempId = (message.metadata as any)?.clientTempId;
+      if (clientTempId) {
+        const state = useTeamChatStore.getState();
+        const existing = state.messages[teamChatId] || [];
+        const tempIndex = existing.findIndex((m: any) => m.id === clientTempId);
+        if (tempIndex >= 0) {
+          // Replace the temp message with server message id
+          const replaced = [...existing];
+          replaced[tempIndex] = {
+            ...replaced[tempIndex],
+            ...teamChatMessage,
+            id: message.id,
+          } as any;
+          upsertMessages(teamChatId, replaced as any);
+          return;
+        }
+      }
+      upsertMessages(teamChatId, [teamChatMessage]);
     });
 
     // Handle message updates
     socket.on('message:update', (data: { id: string; content: string }) => {
       console.log('✏️ Message updated:', data);
       // Update the message in the store
-      const { messages } = useTeamChatStore.getState();
-      const chatMessages = messages[teamChatId] || [];
-      const updatedMessages = chatMessages.map((msg) =>
-        msg.id === data.id ? { ...msg, content: data.content, updatedAt: new Date() } : msg,
-      );
-      updateMessages(teamChatId, updatedMessages);
+      upsertMessages(teamChatId, [
+        { id: data.id, content: data.content, updatedAt: new Date() } as any,
+      ]);
     });
 
     // Handle message deletions
     socket.on('message:delete', (messageId: string) => {
       console.log('🗑️ Message deleted:', messageId);
       // Remove the message from the store
-      const { messages } = useTeamChatStore.getState();
-      const chatMessages = messages[teamChatId] || [];
-      const filteredMessages = chatMessages.filter((msg) => msg.id !== messageId);
-      updateMessages(teamChatId, filteredMessages);
+      removeMessage(teamChatId, messageId);
     });
 
     // Handle room errors
@@ -149,9 +186,13 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
     socket.on('connect_error', (error) => {
       console.error('❌ WebSocket connection error:', error);
       console.error('Connection details:', {
-        url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001',
+        url: socketUrl,
+        path: (socket.io as any)?.opts?.path,
+        transports: (socket.io as any)?.opts?.transports,
         userId: currentUser.id,
         teamChatId,
+        message: (error as any)?.message,
+        name: (error as any)?.name,
       });
 
       // Check if this is a timeout error and provide helpful guidance
@@ -171,11 +212,17 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
       socket.emit('room:join', teamChatId);
     });
 
+    // Periodic heartbeat to keep presence active while user is viewing the chat
+    const heartbeat = setInterval(() => {
+      if (socket.connected) socket.emit('presence:heartbeat', teamChatId);
+    }, 30000);
+
     socket.on('reconnect_error', (error) => {
       console.error('❌ WebSocket reconnection error:', error);
     });
 
     return () => {
+      clearInterval(heartbeat);
       // Leave the room
       socket.emit('room:leave', teamChatId);
 

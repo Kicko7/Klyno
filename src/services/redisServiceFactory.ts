@@ -71,7 +71,7 @@ const createLocalAdapter = (client: any): Partial<any> => {
   };
 };
 
-export const getRedisService = async () => {
+export const getRedisService = async (): Promise<RedisService> => {
   if (redisService) return redisService;
 
   // Lazy load Redis modules only when needed
@@ -84,12 +84,20 @@ export const getRedisService = async () => {
       RedisClientType = (redisModule as any).RedisClientType;
     } catch (error) {
       console.warn('⚠️ Redis modules not available (likely client-side):', error);
-      // Return mock service for client-side
-      return {
-        trackCredits: async () => console.log('Mock: trackCredits called'),
-        getUnsyncedCredits: async () => [],
-        markCreditsSynced: async () => console.log('Mock: markCreditsSynced called'),
+      // Provide a no-op RedisService adapter that satisfies the interface shape
+      const noopAdapter: any = {
+        hset: async () => 1,
+        hget: async () => null,
+        hgetall: async () => ({}),
+        expire: async () => 1,
+        del: async () => 0,
+        rpush: async () => 0,
+        lrange: async () => [],
+        xadd: async () => '',
+        xrange: async () => ({}),
+        scan: async () => ['0', []],
       };
+      return new RedisService(noopAdapter as any);
     }
   }
 

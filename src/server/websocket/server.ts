@@ -1,11 +1,11 @@
 import { Server as HttpServer } from 'http';
-import { Server } from 'socket.io';
 import { nanoid } from 'nanoid';
+import { Server } from 'socket.io';
 
 import { RedisService } from '@/services/redisService';
 import { getRedisService } from '@/services/redisServiceFactory';
+import { MessageData, SessionManager } from '@/services/sessionManager';
 import { getSessionManager } from '@/services/sessionManagerFactory';
-import { SessionManager, MessageData } from '@/services/sessionManager';
 import { MessageStreamData } from '@/types/redis';
 import {
   ClientToServerEvents,
@@ -22,10 +22,12 @@ export class WebSocketServer {
   constructor(httpServer: HttpServer) {
     this.io = new Server(httpServer, {
       cors: {
-        origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+        // Allow the frontend origin, not the socket server URL
+        origin: process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:3000',
         methods: ['GET', 'POST'],
         credentials: true,
       },
+      path: '/socket.io',
       transports: ['websocket', 'polling'],
       allowEIO3: true,
     });
@@ -38,7 +40,7 @@ export class WebSocketServer {
     this.setupEventHandlers();
     console.log('✅ WebSocket server initialized with Redis and SessionManager');
     console.log('🔌 WebSocket server listening on port:', process.env.PORT || '3001');
-    console.log('🌐 CORS origin:', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    console.log('🌐 CORS origin:', process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:3000');
   }
 
   private setupMiddleware() {
@@ -106,7 +108,9 @@ export class WebSocketServer {
             isActive: true,
           });
 
-          console.log(`✅ User ${socket.data.userId} joined room ${roomId} with session ${session.sessionId}`);
+          console.log(
+            `✅ User ${socket.data.userId} joined room ${roomId} with session ${session.sessionId}`,
+          );
         } catch (error) {
           console.error('Error joining room:', error);
           socket.emit('room:error', 'Failed to join room');
@@ -155,14 +159,26 @@ export class WebSocketServer {
               syncedToDb: false,
             };
 
-            // Add message to session in Redis
-            await this.sessionManager.appendMessage(message.teamId, messageData);
+            // Add message to session in Redis with retry and backoff
+            let retryCount = 0;
+            const maxRetries = 3;
+            // simple exponential backoff: 1s, 2s, 3s
+            while (true) {
+              try {
+                await this.sessionManager.appendMessage(message.teamId, messageData);
+                break;
+              } catch (err) {
+                retryCount += 1;
+                if (retryCount >= maxRetries) throw err;
+                await new Promise((resolve) => setTimeout(resolve, 1000 * retryCount));
+              }
+            }
 
             // Check if we need background sync (approaching 1000 message limit)
             if (await this.sessionManager.needsBackgroundSync(message.teamId)) {
               console.log(`🔄 Triggering background sync for ${message.teamId}`);
               // Don't await - let it run in background
-              this.sessionManager.performBackgroundSync(message.teamId).catch(error => {
+              this.sessionManager.performBackgroundSync(message.teamId).catch((error) => {
                 console.error('Background sync failed:', error);
               });
             }
@@ -174,27 +190,59 @@ export class WebSocketServer {
               userId: socket.data.userId,
               teamId: message.teamId,
               timestamp,
-              type: message.type || 'message',
+              type: 'message',
               metadata: message.metadata || {},
             };
 
-            // Add message to Redis stream for real-time delivery
-            await this.redisService.addToMessageStream(message.teamId, streamMessage);
+            // Add message to Redis stream for real-time delivery (non-blocking best-effort)
+            try {
+              await this.redisService.addToMessageStream(message.teamId, streamMessage);
+            } catch (streamErr) {
+              // Log but don't fail the send path; socket broadcast still proceeds
+              console.error('Failed to add to message stream:', streamErr);
+            }
 
             // Broadcast to all users in the room
             this.io.to(message.teamId).emit('message:new', streamMessage);
-            
+
             // Get session stats for monitoring
             const stats = await this.sessionManager.getSessionStats(message.teamId);
             if (stats) {
-              console.log(`📊 Session ${message.teamId}: ${stats.messageCount} messages, ${stats.unsyncedCount} unsynced`);
+              console.log(
+                `📊 Session ${message.teamId}: ${stats.messageCount} messages, ${stats.unsyncedCount} unsynced`,
+              );
+            }
+
+            // Refresh presence TTL for sender to keep them active
+            try {
+              await this.redisService.updatePresence(message.teamId, {
+                userId: socket.data.userId,
+                lastActiveAt: new Date().toISOString(),
+                isActive: true,
+              });
+              this.io.to(message.teamId).emit('presence:update', {
+                userId: socket.data.userId,
+                lastActiveAt: new Date().toISOString(),
+                isActive: true,
+              });
+            } catch (e) {
+              console.warn('Failed to refresh presence after message send:', e);
             }
 
             // Note: Database persistence will happen during sync (either background sync or session expiry)
             console.log(`📡 Message ${messageId} added to session and broadcasted`);
           } catch (error) {
             console.error('Error sending message:', error);
-            socket.emit('room:error', 'Failed to send message');
+            socket.emit('room:error', 'Failed to send message. Please try again.');
+            // also notify the room for potential UI feedback (optional)
+            try {
+              this.io.to(message.teamId).emit('message:error', {
+                teamId: message.teamId,
+                userId: socket.data.userId,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+              });
+            } catch {}
           }
         },
       );
@@ -206,8 +254,10 @@ export class WebSocketServer {
           // Note: You'll need to add an editMessage mutation to the tRPC router
           // await lambdaClient.teamChat.editMessage.mutate({ messageId, content });
 
-          // Broadcast edit to room
-          this.io.to(socket.data.activeRooms).emit('message:update', { id: messageId, content });
+          // Broadcast edit to all rooms the user is in
+          for (const roomId of socket.data.activeRooms) {
+            this.io.to(roomId).emit('message:update', { id: messageId, content });
+          }
         } catch (error) {
           console.error('Error editing message:', error);
         }
@@ -220,8 +270,10 @@ export class WebSocketServer {
           // Note: You'll need to add a deleteMessage mutation to the tRPC router
           // await lambdaClient.teamChat.deleteMessage.mutate({ messageId });
 
-          // Broadcast deletion to room
-          this.io.to(socket.data.activeRooms).emit('message:delete', messageId);
+          // Broadcast deletion to all rooms the user is in
+          for (const roomId of socket.data.activeRooms) {
+            this.io.to(roomId).emit('message:delete', messageId);
+          }
         } catch (error) {
           console.error('Error deleting message:', error);
         }
@@ -265,6 +317,24 @@ export class WebSocketServer {
           this.io.to(data.teamId).emit('receipt:update', { ...receipt, teamId: data.teamId });
         } catch (error) {
           console.error('Error updating read receipt:', error);
+        }
+      });
+
+      // Presence heartbeat to keep users active while viewing
+      socket.on('presence:heartbeat', async (teamId: string) => {
+        try {
+          await this.redisService.updatePresence(teamId, {
+            userId: socket.data.userId,
+            lastActiveAt: new Date().toISOString(),
+            isActive: true,
+          });
+          this.io.to(teamId).emit('presence:update', {
+            userId: socket.data.userId,
+            lastActiveAt: new Date().toISOString(),
+            isActive: true,
+          });
+        } catch (error) {
+          console.error('Error handling presence heartbeat:', error);
         }
       });
 

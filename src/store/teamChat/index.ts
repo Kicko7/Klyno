@@ -91,6 +91,8 @@ interface TeamChatState {
 
   // Redis/WebSocket Integration
   updateMessages: (teamChatId: string, messages: any[]) => void;
+  upsertMessages: (teamChatId: string, messages: any[]) => void;
+  removeMessage: (teamChatId: string, messageId: string) => void;
   updatePresence: (teamChatId: string, presence: Record<string, any>) => void;
   updateTypingStatus: (teamChatId: string, userId: string, isTyping: boolean) => void;
   updateReadReceipts: (teamChatId: string, receipts: Record<string, any>) => void;
@@ -244,18 +246,56 @@ export const useTeamChatStore = create<TeamChatStore>()(
 
       // Redis/WebSocket Integration
       updateMessages: (teamChatId: string, messages: any[]) => {
-        set((state) => {
-          const existingMessages = state.messages[teamChatId] || [];
-          const newMessages = messages.filter(
-            (msg) => !existingMessages.some((existing) => existing.id === msg.id),
-          );
+        // Backward-compatible: delegate to upsert to ensure replacement and sorting
+        get().upsertMessages(teamChatId, messages as any);
+      },
 
-          if (newMessages.length === 0) return state;
+      // Upsert messages: replace existing by id or append if new; keep list sorted ascending by createdAt
+      upsertMessages: (teamChatId: string, messagesToUpsert: any[]) => {
+        set((state) => {
+          const existing = state.messages[teamChatId] || [];
+          const byId = new Map(existing.map((m: any) => [m.id, m]));
+
+          for (const msg of messagesToUpsert) {
+            const prev = byId.get(msg.id);
+            if (prev) {
+              // preserve original createdAt if missing on payload
+              const createdAt = (msg as any).createdAt ?? prev.createdAt;
+              const updated = { ...prev, ...msg, createdAt };
+              byId.set(msg.id, updated);
+            } else {
+              byId.set(msg.id, msg);
+            }
+          }
+
+          // sort ascending by createdAt, fallback to id for stable order
+          const sorted = Array.from(byId.values()).sort((a: any, b: any) => {
+            const at =
+              a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
+            const bt =
+              b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
+            if (at !== bt) return at - bt;
+            return String(a.id).localeCompare(String(b.id));
+          });
 
           return {
             messages: {
               ...state.messages,
-              [teamChatId]: [...existingMessages, ...newMessages],
+              [teamChatId]: sorted,
+            },
+          };
+        });
+      },
+
+      // Remove a message by id
+      removeMessage: (teamChatId: string, messageId: string) => {
+        set((state) => {
+          const existing = state.messages[teamChatId] || [];
+          const filtered = existing.filter((m: any) => m.id !== messageId);
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: filtered,
             },
           };
         });
