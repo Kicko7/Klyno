@@ -17,11 +17,53 @@ import BottomActions from './BottomActions';
 import PinList from './PinList';
 import TopActions from './TopActions';
 
+// Credits display component for sidebar
+const CreditsDisplay = memo(() => {
+  const theme = useTheme();
+
+  return (
+    <div
+      style={{
+        margin: '8px 12px',
+        padding: '8px 12px',
+        background: theme.colorFillTertiary,
+        borderRadius: 8,
+        fontSize: 12,
+        color: theme.colorTextSecondary,
+        textAlign: 'center',
+        cursor: 'pointer',
+      }}
+      onClick={() => {
+        // Navigate to pricing page to show subscription info
+        window.location.href = '/pricing';
+      }}
+    >
+      <div style={{ marginBottom: 4 }}>Credits</div>
+      <div
+        style={{
+          fontWeight: 600,
+          color: theme.colorPrimary,
+          fontSize: 14,
+        }}
+      >
+        View
+      </div>
+    </div>
+  );
+});
+
+CreditsDisplay.displayName = 'CreditsDisplay';
+
 const Top = () => {
   const [isPinned] = useQueryState('pinned', parseAsBoolean);
   const sidebarKey = useActiveTabKey();
 
-  return <TopActions isPinned={isPinned} tab={sidebarKey} />;
+  return (
+    <>
+      <TopActions isPinned={isPinned} tab={sidebarKey} />
+      <CreditsDisplay />
+    </>
+  );
 };
 
 const Nav = memo(() => {

@@ -58,7 +58,7 @@ vi.mock('@/database', () => ({
 vi.mock('@/config/stripe', () => ({
   getStripeConfig: vi.fn().mockReturnValue({
     STRIPE_SECRET_KEY: 'sk_test_123',
-    STRIPE_API_VERSION: '2024-12-18.acacia',
+    STRIPE_API_VERSION: '2025-07-30.basil',
   }),
 }));
 

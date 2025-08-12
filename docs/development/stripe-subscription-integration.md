@@ -249,7 +249,7 @@ The migration file `0044_add_subscription_tables.ts` will:
 # Stripe Configuration
 STRIPE_SECRET_KEY=sk_live_xxxxxxxxxxxxxxxxxxxxxx
 STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxxxxxxxx
-STRIPE_API_VERSION=2024-12-18.acacia
+STRIPE_API_VERSION=2025-07-30.basil
 
 # Application Configuration
 APP_URL=https://yourdomain.com

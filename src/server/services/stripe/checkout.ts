@@ -200,6 +200,12 @@ export class StripeCheckoutService {
           userId,
           priceId,
         },
+        // Ensure the resulting subscription gets metadata with userId
+        subscription_data: {
+          metadata: {
+            userId,
+          },
+        },
       });
 
       return session;

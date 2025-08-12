@@ -95,7 +95,8 @@ const PricingPage = () => {
       setCheckoutLoading(plan.id);
       message.loading('Creating checkout session...', 0);
 
-      const result = await lambdaClient.stripe.createCheckoutSession.mutate({
+      // All products are recurring subscriptions → use subscription checkout
+      const result = await lambdaClient.stripe.createSubscriptionCheckoutSession.mutate({
         priceId,
       });
 
@@ -113,14 +114,10 @@ const PricingPage = () => {
 
       // Provide more helpful error messages
       if (error instanceof Error) {
-        if (error.message.includes('Only one-time prices are supported for credit purchases')) {
-          message.error('This plan requires a subscription. Please try again or contact support.');
-        } else if (
+        if (
           error.message.includes('Only recurring prices are supported for subscription purchases')
         ) {
-          message.error(
-            'This plan requires a one-time purchase. Please try again or contact support.',
-          );
+          message.error('This plan requires a subscription. Please try again or contact support.');
         } else {
           message.error(error.message);
         }

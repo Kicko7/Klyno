@@ -6,7 +6,7 @@ import { useUserStore } from '@/store/user';
 
 export interface UserSubscriptionInfo {
   subscription: UserSubscriptionItem | null;
-  usageQuota: UserUsageQuotaItem | null;
+  usageQuota: Partial<UserUsageQuotaItem> | null;
   currentCredits: number;
 }
 
@@ -31,18 +31,25 @@ export const useUserSubscription = () => {
       setIsLoading(true);
       setError(null);
 
+      console.log(`[useUserSubscription] Fetching subscription info for user: ${user.id}`);
+
       const result = await lambdaClient.subscription.getUserSubscriptionInfo.query({
         userId: user.id,
       });
 
       if (result.success) {
+        console.log(`[useUserSubscription] Successfully fetched subscription info:`, result.data);
         setSubscriptionInfo(result.data);
       } else {
+        console.error(`[useUserSubscription] Failed to fetch subscription info:`, result.error);
         setError(result.error || 'Failed to fetch subscription info');
         setSubscriptionInfo(null);
       }
     } catch (err) {
-      console.error('Error fetching subscription info:', err);
+      console.error(
+        `[useUserSubscription] Error fetching subscription info for user ${user.id}:`,
+        err,
+      );
       setError(err instanceof Error ? err.message : 'Failed to fetch subscription info');
       setSubscriptionInfo(null);
     } finally {

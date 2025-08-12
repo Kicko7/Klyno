@@ -49,7 +49,7 @@ vi.mock('stripe', () => {
 vi.mock('@/config/stripe', () => ({
   getStripeConfig: () => ({
     STRIPE_SECRET_KEY: 'test_key',
-    STRIPE_API_VERSION: '2024-12-18.acacia',
+    STRIPE_API_VERSION: '2025-07-30.basil',
   }),
 }));
 
@@ -62,7 +62,7 @@ describe('StripeService', () => {
   it('should throw error without secret key', () => {
     vi.mocked(require('@/config/stripe').getStripeConfig).mockReturnValue({
       STRIPE_SECRET_KEY: undefined,
-      STRIPE_API_VERSION: '2024-12-18.acacia',
+      STRIPE_API_VERSION: '2025-07-30.basil',
     });
 
     expect(() => new StripeService()).toThrow('STRIPE_SECRET_KEY is required for StripeService');

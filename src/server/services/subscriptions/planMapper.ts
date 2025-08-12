@@ -109,8 +109,10 @@ export class PlanMapper {
    */
   static validatePlan(plan: SubscriptionPlan): boolean {
     return (
-      plan.id &&
-      plan.name &&
+      typeof plan.id === 'string' &&
+      plan.id.length > 0 &&
+      typeof plan.name === 'string' &&
+      plan.name.length > 0 &&
       plan.monthlyCredits > 0 &&
       plan.fileStorageLimitGB > 0 &&
       plan.vectorStorageLimitMB > 0 &&

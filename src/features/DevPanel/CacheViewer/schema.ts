@@ -5,7 +5,8 @@ const unstableCacheFileSchema = z.object({
     body: z.string(),
     headers: z.object({}).transform(() => null),
     status: z.number(),
-    url: z.literal(''),
+    // Some Next unstable cache entries may include empty string or a URL-like value
+    url: z.union([z.literal(''), z.string()]).default(''),
   }),
   kind: z.union([z.literal('FETCH'), z.unknown()]),
   revalidate: z.number().optional(),
@@ -35,7 +36,7 @@ export const nextCacheFileSchema = z
     const { data, ...cacheEntry } = item;
     const body =
       data.url !== ''
-        ? atou(data.body, data.headers ? data.headers['content-type'] : '')
+        ? atou(data.body, data.headers ? (data.headers as any)['content-type'] : '')
         : data.body;
     return {
       ...cacheEntry,

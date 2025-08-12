@@ -37,16 +37,6 @@ export const getCacheFiles = async (): Promise<NextCacheFileData[]> => {
         // Try to clean the string if there are any BOM or special characters
         const cleanContent = contentStr.replace(/^\uFEFF/, '');
         jsonData = JSON.parse(cleanContent);
-
-        // If the response contains base64 encoded body, decode it
-        if (jsonData.data?.body && typeof jsonData.data.body === 'string') {
-          try {
-            const decodedBody = Buffer.from(jsonData.data.body, 'base64').toString();
-            jsonData.data.body = JSON.parse(decodedBody);
-          } catch (bodyError) {
-            console.log('Failed to parse base64 body, keeping as is:', bodyError);
-          }
-        }
       } catch (parseError) {
         console.error(`Error parsing JSON for file ${file}:`, parseError);
         // console.error('Content causing error:', contentStr);

@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import { db } from '@/database';
 import { creditTransactions } from '@/database/schemas/creditTransactions';
@@ -136,8 +136,10 @@ export class CreditManager {
       .select()
       .from(creditTransactions)
       .where(
-        eq(creditTransactions.stripePaymentIntentId, paymentIntentId) &&
+        and(
+          eq(creditTransactions.stripePaymentIntentId, paymentIntentId),
           eq(creditTransactions.type, 'purchase'),
+        ),
       )
       .limit(1);
 

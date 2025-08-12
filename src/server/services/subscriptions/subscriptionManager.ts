@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lte } from 'drizzle-orm';
+import { and, eq, gte, inArray, sql } from 'drizzle-orm';
 import Stripe from 'stripe';
 
 import { db } from '@/database';
@@ -10,9 +10,9 @@ import { userUsageQuotas } from '@/database/schemas/userUsageQuotas';
 
 import { PlanMapper } from './planMapper';
 
-// Helper function to map Stripe subscription status to supported status values
+// Helper function to map Stripe status to our internal status
 function mapStripeStatus(
-  status: Stripe.Subscription.Status,
+  stripeStatus: string,
 ):
   | 'active'
   | 'canceled'
@@ -21,23 +21,21 @@ function mapStripeStatus(
   | 'past_due'
   | 'trialing'
   | 'unpaid' {
-  switch (status) {
+  switch (stripeStatus) {
     case 'active':
     case 'trialing':
-      return status;
+      return stripeStatus;
     case 'canceled':
       return 'canceled';
     case 'incomplete':
+      return 'incomplete';
     case 'incomplete_expired':
-      return status;
+      return 'incomplete_expired';
     case 'past_due':
+      return 'past_due';
     case 'unpaid':
-      return status;
-    case 'paused':
-      // Treat paused subscriptions as active for now
-      return 'active';
+      return 'unpaid';
     default:
-      // Default to incomplete for unknown statuses
       return 'incomplete';
   }
 }
@@ -52,9 +50,37 @@ export interface SubscriptionPlan {
   interval: 'month' | 'year';
 }
 
+export interface UsageUpdate {
+  userId: string;
+  creditsUsed?: number;
+  fileStorageUsedMB?: number;
+  vectorStorageUsedMB?: number;
+}
+
+export interface UsageLimits {
+  credits: {
+    used: number;
+    limit: number;
+    remaining: number;
+  };
+  fileStorage: {
+    usedMB: number;
+    limitMB: number;
+    remainingMB: number;
+    usedGB: number;
+    limitGB: number;
+    remainingGB: number;
+  };
+  vectorStorage: {
+    usedMB: number;
+    limitMB: number;
+    remainingMB: number;
+  };
+}
+
 export class SubscriptionManager {
   /**
-   * Create or update a user subscription from Stripe webhook data
+   * Create or update a subscription with automatic credit allocation and usage quota setup
    */
   async upsertSubscription(
     userId: string,
@@ -82,6 +108,13 @@ export class SubscriptionManager {
         .from(userSubscriptions)
         .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId))
         .limit(1);
+
+      const isNewSubscription = existingSubscription.length === 0;
+      const isPlanChange =
+        !isNewSubscription &&
+        (existingSubscription[0].monthlyCredits !== plan.monthlyCredits ||
+          existingSubscription[0].fileStorageLimit !== plan.fileStorageLimitGB ||
+          existingSubscription[0].vectorStorageLimit !== plan.vectorStorageLimitMB);
 
       if (existingSubscription.length > 0) {
         // Update existing subscription
@@ -131,8 +164,38 @@ export class SubscriptionManager {
         .set({ stripeCustomerId: stripeCustomerId })
         .where(eq(users.id, userId));
 
-      // Create or update usage quota for the new billing period
-      await this.createOrUpdateUsageQuota(tx, userId, plan, currentPeriodStart, currentPeriodEnd);
+      // Handle usage quota setup
+      if (isNewSubscription || isPlanChange) {
+        if (isPlanChange) {
+          // Reset usage for plan change
+          await this.resetUsageForPlanChange(
+            tx,
+            userId,
+            plan,
+            currentPeriodStart,
+            currentPeriodEnd,
+          );
+        } else {
+          // Create new usage quota for new subscription
+          await this.createOrUpdateUsageQuota(
+            tx,
+            userId,
+            plan,
+            currentPeriodStart,
+            currentPeriodEnd,
+          );
+        }
+      }
+
+      // If subscription is active/trialing, allocate credits immediately
+      if ((status === 'active' || status === 'trialing') && (isNewSubscription || isPlanChange)) {
+        await this.allocateMonthlyCredits(userId, stripeSubscriptionId, {
+          subscriptionId: stripeSubscriptionId,
+          planId: plan.id,
+          planName: plan.name,
+          isPlanChange,
+        });
+      }
     });
   }
 
@@ -178,22 +241,106 @@ export class SubscriptionManager {
   }
 
   /**
+   * Reset usage for plan change - creates new quota and resets counters
+   */
+  private async resetUsageForPlanChange(
+    tx: any,
+    userId: string,
+    plan: SubscriptionPlan,
+    periodStart: Date,
+    periodEnd: Date,
+  ) {
+    // Archive current usage by setting period end to now
+    const currentUsage = await tx
+      .select()
+      .from(userUsageQuotas)
+      .where(and(eq(userUsageQuotas.userId, userId), gte(userUsageQuotas.periodEnd, new Date())))
+      .limit(1);
+
+    if (currentUsage.length > 0) {
+      await tx
+        .update(userUsageQuotas)
+        .set({ periodEnd: new Date() })
+        .where(eq(userUsageQuotas.id, currentUsage[0].id));
+    }
+
+    // Create new usage quota with new limits
+    await tx.insert(userUsageQuotas).values({
+      id: `quota_${userId}_${Date.now()}`,
+      userId,
+      periodStart,
+      periodEnd,
+      creditsLimit: plan.monthlyCredits,
+      fileStorageLimit: plan.fileStorageLimitGB * 1024, // Convert GB to MB
+      vectorStorageLimit: plan.vectorStorageLimitMB,
+    });
+  }
+
+  /**
    * Allocate monthly credits for an active subscription
    */
-  async allocateMonthlyCredits(userId: string, subscriptionId: string) {
+  async allocateMonthlyCredits(
+    userId: string,
+    subscriptionId: string,
+    metadata?: {
+      subscriptionId?: string;
+      planId?: string;
+      planName?: string;
+      isPlanChange?: boolean;
+      stripeEventId?: string;
+    },
+  ) {
     return db.transaction(async (tx) => {
-      const subscription = await tx
+      // Idempotency check when stripeEventId is provided
+      if (metadata?.stripeEventId) {
+        const existing = await tx
+          .select({ id: creditTransactions.id })
+          .from(creditTransactions)
+          .where(eq(creditTransactions.stripeEventId, metadata.stripeEventId))
+          .limit(1);
+        if (existing.length > 0) {
+          return { success: true, creditsAdded: 0 };
+        }
+      }
+      // First try to find subscription by the provided ID
+      let subscription = await tx
         .select()
         .from(userSubscriptions)
-        .where(eq(userSubscriptions.id, subscriptionId))
+        .where(eq(userSubscriptions.stripeSubscriptionId, subscriptionId))
         .limit(1);
 
-      if (subscription.length === 0 || subscription[0].status !== 'active') {
-        throw new Error('Subscription not found or not active');
+      // If not found by ID, try to find by user ID and active status
+      if (subscription.length === 0) {
+        subscription = await tx
+          .select()
+          .from(userSubscriptions)
+          .where(
+            and(
+              eq(userSubscriptions.userId, userId),
+              inArray(userSubscriptions.status, ['active', 'trialing']),
+            ),
+          )
+          .limit(1);
+      }
+
+      if (subscription.length === 0) {
+        throw new Error(`No active subscription found for user ${userId}`);
       }
 
       const sub = subscription[0];
+
+      // Check if subscription is active or trialing
+      if (sub.status !== 'active' && sub.status !== 'trialing') {
+        throw new Error(`Subscription ${sub.id} is not active (status: ${sub.status})`);
+      }
+
       const creditsToAdd = sub.monthlyCredits;
+
+      if (creditsToAdd <= 0) {
+        throw new Error(`Subscription ${sub.id} has no monthly credits configured`);
+      }
+
+      console.log(`Allocating ${creditsToAdd} credits for user ${userId}, subscription ${sub.id}`);
 
       // Add credits to user balance
       let userCreditsRecord = await tx
@@ -208,37 +355,163 @@ export class SubscriptionManager {
           userId,
           balance: creditsToAdd,
         });
+        console.log(`Created new credits record for user ${userId} with ${creditsToAdd} credits`);
       } else {
+        const newBalance = userCreditsRecord[0].balance + creditsToAdd;
         await tx
           .update(userCredits)
           .set({
-            balance: userCreditsRecord[0].balance + creditsToAdd,
+            balance: newBalance,
             lastUpdated: new Date(),
             updatedAt: new Date(),
           })
           .where(eq(userCredits.userId, userId));
+        console.log(
+          `Updated credits for user ${userId}: ${userCreditsRecord[0].balance} + ${creditsToAdd} = ${newBalance}`,
+        );
       }
 
       // Record the transaction
       await tx.insert(creditTransactions).values({
         id: `tx_${userId}_${Date.now()}`,
         userId,
-        type: 'subscription_allocation',
+        type: metadata?.isPlanChange ? 'subscription_renewal' : 'subscription_allocation',
         amount: creditsToAdd,
         currency: sub.currency,
-        stripeEventId: `monthly_alloc_${Date.now()}`,
+        stripeEventId: metadata?.stripeEventId || `monthly_alloc_${Date.now()}`,
         priceId: sub.stripePriceId,
         productId: sub.planId,
         metadata: {
-          subscriptionId: sub.id,
+          subscriptionId: metadata?.subscriptionId || sub.id,
+          planId: metadata?.planId || sub.planId,
+          planName: metadata?.planName || sub.planName,
           billingPeriod: {
             start: sub.currentPeriodStart,
             end: sub.currentPeriodEnd,
           },
+          isPlanChange: metadata?.isPlanChange || false,
         },
       });
 
+      console.log(`Credit transaction recorded for user ${userId}: ${creditsToAdd} credits`);
+
       return { success: true, creditsAdded: creditsToAdd };
+    });
+  }
+
+  /**
+   * Update user usage for the current billing period
+   */
+  async updateUsage(usageUpdate: UsageUpdate) {
+    return db.transaction(async (tx) => {
+      // Get current active subscription and usage quota
+      const subscription = await tx
+        .select()
+        .from(userSubscriptions)
+        .where(
+          and(
+            eq(userSubscriptions.userId, usageUpdate.userId),
+            eq(userSubscriptions.status, 'active'),
+          ),
+        )
+        .limit(1);
+
+      if (subscription.length === 0) {
+        // No active subscription, skip usage tracking
+        return { success: false, message: 'No active subscription found' };
+      }
+
+      const sub = subscription[0];
+      const now = new Date();
+
+      // Get current usage quota for the billing period
+      let usageQuota = await tx
+        .select()
+        .from(userUsageQuotas)
+        .where(
+          and(eq(userUsageQuotas.userId, usageUpdate.userId), gte(userUsageQuotas.periodEnd, now)),
+        )
+        .limit(1);
+
+      if (usageQuota.length === 0) {
+        // Create new usage quota for current billing period
+        const periodStart = sub.currentPeriodStart || now;
+        const periodEnd =
+          sub.currentPeriodEnd || new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days default
+
+        await tx.insert(userUsageQuotas).values({
+          id: `quota_${usageUpdate.userId}_${Date.now()}`,
+          userId: usageUpdate.userId,
+          periodStart,
+          periodEnd,
+          creditsLimit: sub.monthlyCredits,
+          fileStorageLimit: sub.fileStorageLimit * 1024, // Convert GB to MB
+          vectorStorageLimit: sub.vectorStorageLimit,
+        });
+
+        usageQuota = await tx
+          .select()
+          .from(userUsageQuotas)
+          .where(
+            and(
+              eq(userUsageQuotas.userId, usageUpdate.userId),
+              gte(userUsageQuotas.periodEnd, now),
+            ),
+          )
+          .limit(1);
+      }
+
+      if (usageQuota.length === 0) {
+        throw new Error('Failed to create or retrieve usage quota');
+      }
+
+      const quota = usageQuota[0];
+
+      // Update usage values
+      const updateData: any = {
+        lastUsageUpdate: now,
+        updatedAt: now,
+      };
+
+      if (usageUpdate.creditsUsed !== undefined) {
+        updateData.creditsUsed = quota.creditsUsed + usageUpdate.creditsUsed;
+      }
+
+      if (usageUpdate.fileStorageUsedMB !== undefined) {
+        updateData.fileStorageUsed = quota.fileStorageUsed + usageUpdate.fileStorageUsedMB;
+      }
+
+      if (usageUpdate.vectorStorageUsedMB !== undefined) {
+        updateData.vectorStorageUsed = quota.vectorStorageUsed + usageUpdate.vectorStorageUsedMB;
+      }
+
+      // Update usage quota
+      await tx.update(userUsageQuotas).set(updateData).where(eq(userUsageQuotas.id, quota.id));
+
+      // Add to usage history
+      const historyEntry = {
+        timestamp: now.toISOString(),
+        creditsUsed: updateData.creditsUsed || quota.creditsUsed,
+        fileStorageUsedMB: updateData.fileStorageUsed ?? quota.fileStorageUsed,
+        vectorStorageUsedMB: updateData.vectorStorageUsed ?? quota.vectorStorageUsed,
+      };
+
+      const currentHistory = Array.isArray(quota.usageHistory) ? [...quota.usageHistory] : [];
+      currentHistory.push(historyEntry);
+
+      // Keep only last 30 days of history
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const filteredHistory = currentHistory.filter((entry: any) => {
+        const ts = new Date(entry.timestamp);
+        return !isNaN(ts.getTime()) && ts > thirtyDaysAgo;
+      });
+
+      await tx
+        .update(userUsageQuotas)
+        .set({ usageHistory: filteredHistory })
+        .where(eq(userUsageQuotas.id, quota.id));
+
+      return { success: true, updatedQuota: { ...quota, ...updateData } };
     });
   }
 
@@ -281,6 +554,105 @@ export class SubscriptionManager {
   }
 
   /**
+   * Get comprehensive usage limits and current usage
+   */
+  async getUsageLimits(userId: string): Promise<UsageLimits | null> {
+    const subscriptionInfo = await this.getUserSubscriptionInfo(userId);
+    if (!subscriptionInfo) {
+      return null;
+    }
+
+    const { subscription, usageQuota, currentCredits } = subscriptionInfo;
+
+    return {
+      credits: {
+        used: usageQuota?.creditsUsed || 0,
+        limit: subscription.monthlyCredits,
+        remaining: subscription.monthlyCredits - (usageQuota?.creditsUsed || 0),
+      },
+      fileStorage: {
+        usedMB: usageQuota?.fileStorageUsed || 0,
+        limitMB: subscription.fileStorageLimit * 1024, // Convert GB to MB
+        remainingMB: subscription.fileStorageLimit * 1024 - (usageQuota?.fileStorageUsed || 0),
+        usedGB: (usageQuota?.fileStorageUsed || 0) / 1024,
+        limitGB: subscription.fileStorageLimit,
+        remainingGB: subscription.fileStorageLimit - (usageQuota?.fileStorageUsed || 0) / 1024,
+      },
+      vectorStorage: {
+        usedMB: usageQuota?.vectorStorageUsed || 0,
+        limitMB: subscription.vectorStorageLimit,
+        remainingMB: subscription.vectorStorageLimit - (usageQuota?.vectorStorageUsed || 0),
+      },
+    };
+  }
+
+  /**
+   * Check if user has exceeded their usage limits
+   */
+  async checkUsageLimits(userId: string) {
+    const usageLimits = await this.getUsageLimits(userId);
+    if (!usageLimits) {
+      return { exceeded: false, limits: null };
+    }
+
+    const exceeded = {
+      credits: usageLimits.credits.used >= usageLimits.credits.limit,
+      fileStorage: usageLimits.fileStorage.usedMB >= usageLimits.fileStorage.limitMB,
+      vectorStorage: usageLimits.vectorStorage.usedMB >= usageLimits.vectorStorage.limitMB,
+    };
+
+    return {
+      exceeded: exceeded.credits || exceeded.fileStorage || exceeded.vectorStorage,
+      limits: exceeded,
+      usageLimits,
+    };
+  }
+
+  /**
+   * Reset usage for a new billing period
+   */
+  async resetUsageForNewPeriod(userId: string, periodStart: Date, periodEnd: Date) {
+    return db.transaction(async (tx) => {
+      // Archive current usage
+      const currentUsage = await tx
+        .select()
+        .from(userUsageQuotas)
+        .where(and(eq(userUsageQuotas.userId, userId), gte(userUsageQuotas.periodEnd, new Date())))
+        .limit(1);
+
+      if (currentUsage.length > 0) {
+        // Move current usage to archive
+        await tx
+          .update(userUsageQuotas)
+          .set({ periodEnd: new Date() })
+          .where(eq(userUsageQuotas.id, currentUsage[0].id));
+      }
+
+      // Get subscription to get new limits
+      const subscription = await tx
+        .select()
+        .from(userSubscriptions)
+        .where(and(eq(userSubscriptions.userId, userId), eq(userSubscriptions.status, 'active')))
+        .limit(1);
+
+      if (subscription.length > 0) {
+        const sub = subscription[0];
+
+        // Create new usage quota
+        await tx.insert(userUsageQuotas).values({
+          id: `quota_${userId}_${Date.now()}`,
+          userId,
+          periodStart,
+          periodEnd,
+          creditsLimit: sub.monthlyCredits,
+          fileStorageLimit: sub.fileStorageLimit * 1024, // Convert GB to MB
+          vectorStorageLimit: sub.vectorStorageLimit,
+        });
+      }
+    });
+  }
+
+  /**
    * Cancel a subscription
    */
   async cancelSubscription(
@@ -297,40 +669,33 @@ export class SubscriptionManager {
           status: cancelAtPeriodEnd ? 'active' : 'canceled',
           updatedAt: new Date(),
         })
-        .where(and(eq(userSubscriptions.id, subscriptionId), eq(userSubscriptions.userId, userId)));
+        .where(eq(userSubscriptions.stripeSubscriptionId, subscriptionId));
     });
   }
 
   /**
-   * Completely remove a deleted subscription and clean up related data
+   * Remove a deleted subscription completely
    */
-  async removeDeletedSubscription(userId: string, stripeSubscriptionId: string) {
+  async removeDeletedSubscription(userId: string, subscriptionId: string) {
     return db.transaction(async (tx) => {
-      // Find the subscription by Stripe ID
-      const subscription = await tx
-        .select()
-        .from(userSubscriptions)
-        .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId))
-        .limit(1);
-
-      if (subscription.length === 0) {
-        console.log(`Subscription ${stripeSubscriptionId} not found in database`);
-        return { success: false, message: 'Subscription not found' };
-      }
-
-      const sub = subscription[0];
-
-      // Remove usage quotas for this subscription
-      await tx.delete(userUsageQuotas).where(eq(userUsageQuotas.userId, userId));
-
-      // Remove the subscription record
+      // Remove the subscription
       await tx
         .delete(userSubscriptions)
-        .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId));
+        .where(eq(userSubscriptions.stripeSubscriptionId, subscriptionId));
 
-      console.log(`Subscription ${stripeSubscriptionId} completely removed for user ${userId}`);
+      // Archive current usage quota
+      const currentUsage = await tx
+        .select()
+        .from(userUsageQuotas)
+        .where(and(eq(userUsageQuotas.userId, userId), gte(userUsageQuotas.periodEnd, new Date())))
+        .limit(1);
 
-      return { success: true, message: 'Subscription removed successfully' };
+      if (currentUsage.length > 0) {
+        await tx
+          .update(userUsageQuotas)
+          .set({ periodEnd: new Date() })
+          .where(eq(userUsageQuotas.id, currentUsage[0].id));
+      }
     });
   }
 
@@ -375,16 +740,8 @@ export class SubscriptionManager {
         }
       }
     } catch (error) {
-      if (error instanceof Stripe.errors.StripeError && error.code === 'resource_missing') {
-        // Subscription doesn't exist in Stripe anymore, remove it from our database
-        console.log(
-          `Subscription ${stripeSubscriptionId} not found in Stripe, removing from database`,
-        );
-        return await this.removeDeletedSubscription(userId, stripeSubscriptionId);
-      } else {
-        console.error(`Error syncing subscription ${stripeSubscriptionId}:`, error);
-        throw error;
-      }
+      console.error('Error syncing subscription with Stripe:', error);
+      throw error;
     }
   }
 
