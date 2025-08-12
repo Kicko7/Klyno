@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Card, Spin, Tooltip, message } from 'antd';
+import { Button, Card, Col, Progress, Row, Spin, Tooltip, Typography, message } from 'antd';
 import { useTheme } from 'antd-style';
 import {
   Bot,
@@ -24,40 +24,6 @@ import { useStripePlans } from '@/hooks/useStripePlans';
 import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { lambdaClient } from '@/libs/trpc/client';
 
-// Helper function to get icon component by name
-const getIconComponent = (iconName: string) => {
-  const iconMap: Record<string, React.ReactNode> = {
-    star: <Star size={24} />,
-    crown: <Crown size={24} />,
-    users: <Users size={24} />,
-    zap: <Zap size={24} />,
-    bot: <Bot size={24} />,
-    database: <Database size={24} />,
-    file: <FileText size={24} />,
-    globe: <Globe size={24} />,
-    headphones: <Headphones size={24} />,
-    message: <MessageSquare size={24} />,
-    palette: <Palette size={24} />,
-    shield: <Shield size={24} />,
-  };
-
-  return iconMap[iconName] || <Star size={24} />;
-};
-
-// Helper function to get color from theme
-const getPlanColor = (colorName: string, theme: any) => {
-  const colorMap: Record<string, string> = {
-    success: theme.colorSuccess,
-    warning: theme.colorWarning,
-    error: theme.colorError,
-    primary: theme.colorPrimary,
-    info: theme.colorInfo,
-    // Add more color mappings as needed
-  };
-
-  return colorMap[colorName] || theme.colorPrimary;
-};
-
 // Subscription data will be fetched from the hook
 
 const PricingPage = () => {
@@ -71,6 +37,8 @@ const PricingPage = () => {
     subscriptionInfo,
     isLoading: subscriptionLoading,
     hasActiveSubscription,
+    hasAnySubscription,
+    needsUpgrade,
     currentPlan,
     nextBillingDate,
   } = useUserSubscription();
@@ -136,7 +104,7 @@ const PricingPage = () => {
           return stripePlans.map((plan: any) => ({
             ...plan,
             icon: plan.icon || 'star',
-            color: getPlanColor(plan.color || 'primary', theme),
+            color: theme.colorPrimary,
           }));
         })()
       : [
@@ -191,33 +159,100 @@ const PricingPage = () => {
           },
         ];
 
-  // Usage statistics
+  // Usage statistics (used/limit + remaining) from quotas
+  // Try to get usage from multiple sources to ensure we have the right data
+  const creditsUsed =
+    (subscriptionInfo?.usageQuota?.creditsUsed ?? subscriptionInfo?.currentCredits)
+      ? (subscriptionInfo.subscription?.monthlyCredits ?? 0) -
+        (subscriptionInfo.currentCredits ?? 0)
+      : 0;
+
+  const creditsLimit =
+    subscriptionInfo?.usageQuota?.creditsLimit ??
+    subscriptionInfo?.subscription?.monthlyCredits ??
+    0;
+  const creditsRemaining = Math.max(creditsLimit - creditsUsed, 0);
+
+  const fileUsedMB = subscriptionInfo?.usageQuota?.fileStorageUsed ?? 0; // quotas store MB
+  const fileUsedGB = fileUsedMB / 1024;
+  const fileLimitMBRaw =
+    subscriptionInfo?.usageQuota?.fileStorageLimit ??
+    (subscriptionInfo?.subscription?.fileStorageLimit
+      ? subscriptionInfo.subscription.fileStorageLimit * 1024
+      : 0);
+  const fileLimitGB = fileLimitMBRaw / 1024;
+  const fileRemainingGB = Math.max(fileLimitGB - fileUsedGB, 0);
+
+  const vectorUsedMB = subscriptionInfo?.usageQuota?.vectorStorageUsed ?? 0;
+  const vectorLimitMB =
+    subscriptionInfo?.usageQuota?.vectorStorageLimit ??
+    subscriptionInfo?.subscription?.vectorStorageLimit ??
+    0;
+  const vectorRemainingMB = Math.max(vectorLimitMB - vectorUsedMB, 0);
+
+  // Debug logging to see what data we're getting
+  console.log('Subscription Info:', {
+    usageQuota: subscriptionInfo?.usageQuota,
+    subscription: subscriptionInfo?.subscription,
+    currentCredits: subscriptionInfo?.currentCredits,
+  });
+
+  console.log('Calculated Usage:', {
+    creditsUsed,
+    creditsLimit,
+    creditsRemaining,
+    fileUsedMB,
+    fileUsedGB,
+    fileLimitGB,
+    fileRemainingGB,
+    vectorUsedMB,
+    vectorLimitMB,
+    vectorRemainingMB,
+  });
+
+  // Additional debug for credit calculation
+  if (
+    subscriptionInfo?.currentCredits !== undefined &&
+    subscriptionInfo?.subscription?.monthlyCredits
+  ) {
+    const calculatedUsed =
+      subscriptionInfo.subscription.monthlyCredits - subscriptionInfo.currentCredits;
+    console.log('Credit Calculation Debug:', {
+      monthlyCredits: subscriptionInfo.subscription.monthlyCredits,
+      currentCredits: subscriptionInfo.currentCredits,
+      calculatedUsed,
+      usageQuotaCreditsUsed: subscriptionInfo?.usageQuota?.creditsUsed,
+    });
+  }
+
+  // Aggregate for UI
   const usageStats = [
     {
+      key: 'credits',
       title: 'Compute Credits',
-      current: subscriptionInfo?.usageQuota?.creditsUsed || 0,
-      limit:
-        subscriptionInfo?.usageQuota?.creditsLimit ||
-        subscriptionInfo?.subscription?.monthlyCredits ||
-        0,
+      current: creditsUsed,
+      limit: creditsLimit,
+      remaining: creditsRemaining,
       unit: 'credits',
       icon: <Zap size={20} />,
       color: theme.colorPrimary,
     },
     {
+      key: 'file',
       title: 'File Storage',
-      current: subscriptionInfo?.usageQuota?.fileStorageUsed
-        ? subscriptionInfo.usageQuota.fileStorageUsed / 1024
-        : 0,
-      limit: subscriptionInfo?.subscription?.fileStorageLimit || 1,
+      current: fileUsedGB,
+      limit: fileLimitGB,
+      remaining: fileRemainingGB,
       unit: 'GB',
       icon: <FileText size={20} />,
       color: theme.colorSuccess,
     },
     {
+      key: 'vector',
       title: 'Vector Storage',
-      current: subscriptionInfo?.usageQuota?.vectorStorageUsed || 0,
-      limit: subscriptionInfo?.subscription?.vectorStorageLimit || 50,
+      current: vectorUsedMB,
+      limit: vectorLimitMB,
+      remaining: vectorRemainingMB,
       unit: 'MB',
       icon: <Database size={20} />,
       color: theme.colorWarning,
@@ -248,6 +283,16 @@ const PricingPage = () => {
   }
 
   if (hasActiveSubscription) {
+    const statusMessages = {
+      active: 'Active subscription',
+      trialing: 'Trial subscription',
+      past_due: 'Payment past due',
+      canceled: 'Subscription canceled',
+      incomplete: 'Subscription incomplete',
+      incomplete_expired: 'Subscription setup expired',
+      unpaid: 'Payment required',
+    };
+
     return (
       <div
         style={{
@@ -356,84 +401,187 @@ const PricingPage = () => {
 
         {/* Usage Statistics */}
         <div style={{ marginBottom: theme.marginXL, maxWidth: 1200, margin: '0 auto' }}>
-          <h3
-            style={{
-              fontSize: theme.fontSizeHeading3,
-              fontWeight: theme.fontWeightStrong,
-              marginBottom: theme.marginLG,
-              color: theme.colorText,
-            }}
-          >
-            Usage This Month
-          </h3>
-          <Flexbox gap={theme.marginLG} style={{ flexWrap: 'wrap' }}>
-            {usageStats.map((stat, index) => (
-              <Card
-                key={index}
-                style={{
-                  flex: 1,
-                  minWidth: 300,
-                  border: `1px solid ${theme.colorBorder}`,
-                }}
-              >
-                <Flexbox gap={theme.marginMD}>
-                  <div
+          {/* Credits will be displayed inside the Compute Credits card below to avoid duplication */}
+          <div style={{ marginTop: theme.marginLG }}>
+            <Typography.Title level={4} style={{ marginBottom: theme.marginMD }}>
+              Current Usage
+            </Typography.Title>
+            <Row gutter={[theme.marginMD, theme.marginMD]}>
+              {usageStats.map((stat) => (
+                <Col xs={24} sm={12} lg={8} key={stat.key}>
+                  <Card
+                    size="small"
                     style={{
-                      padding: theme.paddingSM,
-                      backgroundColor: `${stat.color}10`,
-                      borderRadius: theme.borderRadius,
-                      color: stat.color,
+                      height: '100%',
+                      border: `1px solid ${theme.colorBorderSecondary}`,
+                      borderRadius: theme.borderRadiusLG,
                     }}
                   >
-                    {stat.icon}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <h4
-                      style={{
-                        fontSize: theme.fontSizeLG,
-                        fontWeight: theme.fontWeightStrong,
-                        margin: '0 0 8px 0',
-                        color: theme.colorText,
-                      }}
-                    >
-                      {stat.title}
-                    </h4>
-                    <div
-                      style={{
-                        fontSize: theme.fontSizeXL,
-                        fontWeight: theme.fontWeightStrong,
-                        color: theme.colorText,
-                      }}
-                    >
-                      {stat.current.toLocaleString()} / {stat.limit.toLocaleString()} {stat.unit}
-                    </div>
-                    <div
-                      style={{
-                        marginTop: theme.marginSM,
-                        width: '100%',
-                        height: 8,
-                        backgroundColor: theme.colorBgContainer,
-                        borderRadius: 4,
-                        overflow: 'hidden',
-                      }}
-                    >
+                    <div style={{ padding: theme.paddingXS }}>
                       <div
                         style={{
-                          width: `${Math.min(
-                            stat.limit > 0 ? (stat.current / stat.limit) * 100 : 0,
-                            100,
-                          )}%`,
-                          height: '100%',
-                          backgroundColor: stat.color,
-                          transition: 'width 0.3s ease',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: theme.marginXS,
                         }}
+                      >
+                        <Typography.Text
+                          style={{
+                            fontSize: theme.fontSizeSM,
+                            color: theme.colorTextSecondary,
+                            fontWeight: 500,
+                          }}
+                        >
+                          {stat.title}
+                        </Typography.Text>
+                        <Typography.Text
+                          style={{
+                            fontSize: theme.fontSizeSM,
+                            color: theme.colorTextSecondary,
+                          }}
+                        >
+                          {stat.current.toLocaleString()} / {stat.limit.toLocaleString()}{' '}
+                          {stat.unit}
+                        </Typography.Text>
+                      </div>
+
+                      <Progress
+                        percent={
+                          stat.limit > 0 ? Math.min((stat.current / stat.limit) * 100, 100) : 0
+                        }
+                        size="small"
+                        strokeColor={{
+                          '0%': theme.colorSuccess,
+                          '70%': theme.colorWarning,
+                          '100%': theme.colorError,
+                        }}
+                        showInfo={true}
+                        style={{
+                          marginBottom: theme.marginXS,
+                          height: 16,
+                          backgroundColor: theme.colorBgContainer,
+                          border: `1px solid ${theme.colorBorderSecondary}`,
+                          borderRadius: theme.borderRadius,
+                          boxShadow: `inset 0 1px 2px ${theme.colorBorderSecondary}20`,
+                        }}
+                        strokeWidth={16}
+                        trailColor={theme.colorBorderSecondary}
+                        success={{ percent: 0 }}
+                        format={(percent) => `${Math.round(percent || 0)}%`}
                       />
+
+                      {/* Show usage details below progress bar */}
+                      <div
+                        style={{
+                          fontSize: theme.fontSizeSM,
+                          color: theme.colorTextSecondary,
+                          marginBottom: theme.marginXS,
+                          textAlign: 'center',
+                        }}
+                      >
+                        Used: {stat.current.toLocaleString()} / Limit: {stat.limit.toLocaleString()}{' '}
+                        {stat.unit}
+                      </div>
+
+                      {/* Fallback progress bar for 0% to ensure visibility */}
+                      {stat.limit === 0 && (
+                        <div
+                          style={{
+                            height: 16,
+                            backgroundColor: theme.colorBgContainer,
+                            border: `1px solid ${theme.colorBorderSecondary}`,
+                            borderRadius: theme.borderRadius,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: theme.marginXS,
+                            color: theme.colorTextSecondary,
+                            fontSize: theme.fontSizeSM,
+                          }}
+                        >
+                          No limit set
+                        </div>
+                      )}
+
+                      {/* Debug info - remove in production */}
+                      {process.env.NODE_ENV === 'development' && (
+                        <div
+                          style={{
+                            fontSize: theme.fontSizeSM,
+                            color: theme.colorTextSecondary,
+                            marginBottom: theme.marginXS,
+                          }}
+                        >
+                          Debug: {stat.current} / {stat.limit} ={' '}
+                          {stat.limit > 0 ? Math.round((stat.current / stat.limit) * 100) : 0}%
+                        </div>
+                      )}
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: theme.marginXS,
+                        }}
+                      >
+                        <Typography.Text
+                          style={{
+                            fontSize: theme.fontSizeSM,
+                            color: theme.colorTextSecondary,
+                          }}
+                        >
+                          Remaining
+                        </Typography.Text>
+                        <Typography.Text
+                          style={{
+                            fontSize: theme.fontSizeSM,
+                            fontWeight: 600,
+                            color: stat.remaining > 0 ? theme.colorSuccess : theme.colorError,
+                          }}
+                        >
+                          {stat.remaining.toLocaleString()} {stat.unit}
+                        </Typography.Text>
+                      </div>
+
+                      {stat.key === 'credits' &&
+                        typeof subscriptionInfo?.currentCredits === 'number' && (
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              paddingTop: theme.paddingXS,
+                              borderTop: `1px solid ${theme.colorBorderSecondary}`,
+                              marginTop: theme.marginXS,
+                            }}
+                          >
+                            <Typography.Text
+                              style={{
+                                fontSize: theme.fontSizeSM,
+                                color: theme.colorTextSecondary,
+                              }}
+                            >
+                              Balance
+                            </Typography.Text>
+                            <Typography.Text
+                              style={{
+                                fontSize: theme.fontSizeSM,
+                                fontWeight: 600,
+                                color: theme.colorPrimary,
+                              }}
+                            >
+                              {subscriptionInfo.currentCredits.toLocaleString()} credits
+                            </Typography.Text>
+                          </div>
+                        )}
                     </div>
-                  </div>
-                </Flexbox>
-              </Card>
-            ))}
-          </Flexbox>
+                  </Card>
+                </Col>
+              ))}
+            </Row>
+          </div>
         </div>
 
         {/* Plan Features */}
@@ -476,6 +624,7 @@ const PricingPage = () => {
     );
   }
 
+  // Show pricing plans for users without active subscriptions or who need to upgrade
   return (
     <div
       style={{
@@ -524,32 +673,14 @@ const PricingPage = () => {
           Claim Your Free Trial Now
         </Button>
 
-        {/* Debug Info - Remove in production */}
-        {process.env.NODE_ENV === 'development' && (
-          <div style={{ marginTop: theme.marginLG, maxWidth: 600, margin: '0 auto' }}>
-            <Card
-              style={{
-                backgroundColor: theme.colorBgContainer,
-                border: `1px solid ${theme.colorBorder}`,
-              }}
-            >
-              <p style={{ fontSize: theme.fontSizeSM, margin: 0, color: theme.colorTextSecondary }}>
-                <strong>Debug:</strong> hasActiveSubscription: {hasActiveSubscription.toString()},
-                currentPlan: {currentPlan ?? 'null'}, nextBilling:{' '}
-                {nextBillingDate ? String(nextBillingDate) : 'null'}
-              </p>
-            </Card>
-          </div>
-        )}
-
-        {/* Subscription Status Banner */}
-        {hasActiveSubscription && (
+        {/* Upgrade Banner for Users with Inactive Subscriptions */}
+        {needsUpgrade && subscriptionInfo?.subscription && (
           <Card
             style={{
               marginTop: theme.marginLG,
               maxWidth: 600,
-              border: `2px solid ${theme.colorSuccess}`,
-              backgroundColor: `${theme.colorSuccess}05`,
+              border: `2px solid ${theme.colorWarning}`,
+              backgroundColor: `${theme.colorWarning}05`,
             }}
           >
             <Flexbox horizontal align="center" justify="space-between">
@@ -557,12 +688,12 @@ const PricingPage = () => {
                 <div
                   style={{
                     padding: theme.paddingSM,
-                    backgroundColor: theme.colorSuccessBg,
+                    backgroundColor: theme.colorWarningBg,
                     borderRadius: theme.borderRadius,
-                    color: theme.colorSuccess,
+                    color: theme.colorWarning,
                   }}
                 >
-                  <Crown size={24} />
+                  <Shield size={24} />
                 </div>
                 <div>
                   <h3
@@ -573,7 +704,7 @@ const PricingPage = () => {
                       color: theme.colorText,
                     }}
                   >
-                    {currentPlan} Plan Active
+                    Subscription Needs Attention
                   </h3>
                   <p
                     style={{
@@ -582,8 +713,9 @@ const PricingPage = () => {
                       margin: 0,
                     }}
                   >
-                    Next billing:{' '}
-                    {nextBillingDate ? new Date(nextBillingDate).toLocaleDateString() : 'N/A'}
+                    Your {subscriptionInfo.subscription.planName} plan is currently{' '}
+                    <strong>{subscriptionInfo.subscription.status}</strong>. Choose a plan below to
+                    reactivate your subscription.
                   </p>
                 </div>
               </Flexbox>
@@ -610,6 +742,25 @@ const PricingPage = () => {
               </Button>
             </Flexbox>
           </Card>
+        )}
+
+        {/* Debug Info - Remove in production */}
+        {process.env.NODE_ENV === 'development' && (
+          <div style={{ marginTop: theme.marginLG, maxWidth: 600, margin: '0 auto' }}>
+            <Card
+              style={{
+                backgroundColor: theme.colorBgContainer,
+                border: `1px solid ${theme.colorBorder}`,
+              }}
+            >
+              <p style={{ fontSize: theme.fontSizeSM, margin: 0, color: theme.colorTextSecondary }}>
+                <strong>Debug:</strong> hasActiveSubscription: {hasActiveSubscription.toString()},
+                hasAnySubscription: {hasAnySubscription.toString()}, needsUpgrade:{' '}
+                {needsUpgrade.toString()}, currentPlan: {currentPlan ?? 'null'}, nextBilling:{' '}
+                {nextBillingDate ? String(nextBillingDate) : 'null'}
+              </p>
+            </Card>
+          </div>
         )}
 
         {/* Stripe Status Message */}
@@ -682,89 +833,6 @@ const PricingPage = () => {
           </Button>
         </div>
       </Center>
-
-      {/* Current Usage Summary (if user has subscription) */}
-      {hasActiveSubscription && subscriptionInfo && (
-        <div style={{ marginBottom: theme.marginXL, maxWidth: 1200, margin: '0 auto' }}>
-          <h3
-            style={{
-              fontSize: theme.fontSizeHeading3,
-              fontWeight: theme.fontWeightStrong,
-              marginBottom: theme.marginLG,
-              color: theme.colorText,
-              textAlign: 'center',
-            }}
-          >
-            Current Usage Summary
-          </h3>
-          <Flexbox gap={theme.marginLG} style={{ flexWrap: 'wrap', justifyContent: 'center' }}>
-            {usageStats.map((stat, index) => (
-              <Card
-                key={index}
-                style={{
-                  flex: 1,
-                  minWidth: 250,
-                  maxWidth: 300,
-                  border: `1px solid ${theme.colorBorder}`,
-                }}
-              >
-                <Flexbox gap={theme.marginMD}>
-                  <div
-                    style={{
-                      padding: theme.paddingSM,
-                      backgroundColor: `${stat.color}10`,
-                      borderRadius: theme.borderRadius,
-                      color: stat.color,
-                    }}
-                  >
-                    {stat.icon}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <h4
-                      style={{
-                        fontSize: theme.fontSizeLG,
-                        fontWeight: theme.fontWeightStrong,
-                        margin: '0 0 8px 0',
-                        color: theme.colorText,
-                      }}
-                    >
-                      {stat.title}
-                    </h4>
-                    <div
-                      style={{
-                        fontSize: theme.fontSizeXL,
-                        fontWeight: theme.fontWeightStrong,
-                        color: theme.colorText,
-                      }}
-                    >
-                      {stat.current.toLocaleString()} / {stat.limit.toLocaleString()} {stat.unit}
-                    </div>
-                    <div
-                      style={{
-                        marginTop: theme.marginSM,
-                        width: '100%',
-                        height: 8,
-                        backgroundColor: theme.colorBgContainer,
-                        borderRadius: 4,
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: `${Math.min((stat.current / stat.limit) * 100, 100)}%`,
-                          height: '100%',
-                          backgroundColor: stat.color,
-                          transition: 'width 0.3s ease',
-                        }}
-                      />
-                    </div>
-                  </div>
-                </Flexbox>
-              </Card>
-            ))}
-          </Flexbox>
-        </div>
-      )}
 
       {/* Pricing Plans */}
       <div
@@ -863,7 +931,7 @@ const PricingPage = () => {
                         marginBottom: theme.marginMD,
                       }}
                     >
-                      {getIconComponent(plan.icon)}
+                      <Star size={24} />
                     </div>
                     <h3
                       style={{

@@ -2,12 +2,14 @@ import { createServer } from 'http';
 import next from 'next';
 import { parse } from 'url';
 
-import { OptimizedWebSocketServer } from './websocket/optimized-server';
-import { startBackgroundSyncWorker } from '@/services/sessionManagerFactory';
 import { logSessionConfig, validateSessionConfig } from '@/config/sessionConfig';
+import { monitoringService } from '@/services/monitoringService';
+import { OptimizedRedisService } from '@/services/optimized-redis-service';
 import { getOptimizedRedisService } from '@/services/optimized-redis-service-factory';
 import { OptimizedSyncService } from '@/services/optimized-sync-service';
-import { monitoringService } from '@/services/monitoringService';
+import { startBackgroundSyncWorker } from '@/services/sessionManagerFactory';
+
+import { OptimizedWebSocketServer } from './websocket/optimized-server';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
@@ -61,17 +63,18 @@ app.prepare().then(async () => {
 
   try {
     await wsServer.initialize();
-    
+
     // Get service instances for monitoring
     const redisService = await getOptimizedRedisService();
-    const syncService = new OptimizedSyncService();
-    
+    const syncService = new OptimizedSyncService(redisService as any);
+
     // Register instances with monitoring service
-    monitoringService.setInstances(wsServer, redisService, syncService);
-    
-    // Start background sync worker for Redis sessions
+    monitoringService.setInstances(wsServer, redisService as OptimizedRedisService, syncService);
+
+    // Start background sync for Redis sessions and credits
     startBackgroundSyncWorker();
-    console.log('✅ Background sync worker started');
+    syncService.startSync();
+    console.log('✅ Background sync workers started');
   } catch (error) {
     console.error('Failed to initialize WebSocket server:', error);
     process.exit(1);

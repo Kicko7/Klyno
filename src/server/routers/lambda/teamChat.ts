@@ -1,9 +1,16 @@
 import { z } from 'zod';
 
+import { OrganizationModel } from '@/database/models/organization';
 import { TeamChatItem } from '@/database/schemas/teamChat';
+import { idGenerator } from '@/database/utils/idGenerator';
 import { authedProcedure, router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
+import { CreditManager } from '@/server/services/credits/creditManager';
+import { UsageTracker } from '@/server/services/usage/usageTracker';
+import { creditServerService } from '@/services/creditService';
 import { TeamChatService } from '@/services/teamChatService';
+import type { ModelTokensUsage } from '@/types/message';
+import { calculateMessageCredits } from '@/utils/creditCalculation';
 
 const teamChatProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
@@ -94,6 +101,142 @@ export const teamChatRouter = router({
       }),
     )
     .mutation(async ({ input, ctx }) => {
+      // If assistant message, enforce credit check and deduction BEFORE persisting the message
+      if (input.messageType === 'assistant') {
+        const metadata = (input.metadata || {}) as ModelTokensUsage & { redisMessageId?: string };
+        const creditsConsumed = calculateMessageCredits('assistant', metadata);
+
+        if (creditsConsumed > 0) {
+          console.log('[TeamChat] assistant message credit calc', {
+            teamChatId: input.teamChatId,
+            creditsConsumed,
+            metadata,
+          });
+          // Resolve organization owner as the payer
+          let payerUserId = ctx.userId;
+          try {
+            const chat = await ctx.teamChatService.getChatById(input.teamChatId);
+            if (chat?.organizationId) {
+              const orgModel = new OrganizationModel(ctx.serverDB, ctx.userId);
+              const org = await orgModel.getOrganization(chat.organizationId);
+              if (org?.ownerId) payerUserId = org.ownerId;
+            }
+          } catch (e) {
+            // Fallback to current user if organization lookup fails
+            payerUserId = ctx.userId;
+          }
+
+          // Pre-allocate a message id for idempotent deduction and DB insert
+          const preallocatedMessageId =
+            metadata?.redisMessageId || idGenerator('team_chat_messages');
+          console.log('[TeamChat] preallocate message id', preallocatedMessageId);
+
+          // Determine final payer: prefer org owner; fallback to sender if owner lacks balance
+          const creditManager = new CreditManager();
+          try {
+            const ownerBalance = await creditManager.getUserBalance(payerUserId);
+            if (ownerBalance < creditsConsumed && payerUserId !== ctx.userId) {
+              const senderBalance = await creditManager.getUserBalance(ctx.userId);
+              if (senderBalance >= creditsConsumed) {
+                payerUserId = ctx.userId;
+              } else {
+                throw new Error('Insufficient credits');
+              }
+            }
+          } catch (e) {
+            // ignore balance check errors; proceed to attempt deduction which will validate
+          }
+          console.log('[TeamChat] final payer resolved', {
+            payerUserId,
+            teamChatId: input.teamChatId,
+          });
+
+          // Deduct credits from payer (idempotent by messageId)
+          console.log('[TeamChat] deducting credits', { payerUserId, creditsConsumed });
+          await creditManager.consumeCredits(payerUserId, creditsConsumed, {
+            messageId: preallocatedMessageId,
+            teamChatId: input.teamChatId,
+            source: 'team_chat',
+          });
+
+          // Update usage quota for the payer within current billing period
+          console.log('[TeamChat] updating usage quota for payer', {
+            payerUserId,
+            creditsConsumed,
+            messageId: preallocatedMessageId,
+          });
+
+          // Test database connection first
+          try {
+            const connectionTest = await new UsageTracker().testConnection();
+            console.log('[TeamChat] database connection test result', connectionTest);
+          } catch (e) {
+            console.warn('[TeamChat] database connection test failed', e);
+          }
+
+          // Debug database access first
+          try {
+            const debugResult = await new UsageTracker().debugDatabaseAccess(payerUserId);
+            console.log('[TeamChat] database access debug result', debugResult);
+          } catch (e) {
+            console.warn('[TeamChat] database access debug failed', e);
+          }
+
+          try {
+            const usageResult = await new UsageTracker().updateUsage({
+              userId: payerUserId,
+              creditsUsed: creditsConsumed,
+            });
+
+            if (usageResult.success) {
+              console.log('[TeamChat] usage quota updated successfully', {
+                payerUserId,
+                creditsConsumed,
+                updatedQuota: 'updatedQuota' in usageResult ? usageResult.updatedQuota : undefined,
+              });
+            } else {
+              console.warn('[TeamChat] usage quota update failed', {
+                payerUserId,
+                creditsConsumed,
+                message: 'message' in usageResult ? usageResult.message : 'Unknown error',
+              });
+            }
+          } catch (e) {
+            console.error('[TeamChat] usage quota update error', {
+              payerUserId,
+              creditsConsumed,
+              error: e,
+              messageId: preallocatedMessageId,
+            });
+            // Don't fail the message creation, but log the error for investigation
+          }
+
+          // Persist assistant message AFTER successful deduction
+          const message = await ctx.teamChatService.addMessageToChat(input.teamChatId, {
+            id: preallocatedMessageId,
+            content: input.content,
+            messageType: input.messageType,
+            metadata: input.metadata || {},
+          });
+          console.log('[TeamChat] assistant message persisted', { id: message.id });
+
+          // Track usage in Redis under the payer account for short-term analytics/sync
+          await creditServerService.trackCredits(payerUserId, message.id, creditsConsumed, {
+            source: 'team_chat',
+            teamChatId: input.teamChatId,
+            messageType: input.messageType,
+            metadata,
+          });
+          console.log('[TeamChat] credits tracked in Redis', {
+            payerUserId,
+            messageId: message.id,
+          });
+
+          return message;
+        }
+      }
+
+      // For user/system messages or zero-credit assistant messages, just persist
       const message = await ctx.teamChatService.addMessageToChat(input.teamChatId, {
         content: input.content,
         messageType: input.messageType,

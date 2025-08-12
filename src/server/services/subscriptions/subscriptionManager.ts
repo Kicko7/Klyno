@@ -187,15 +187,8 @@ export class SubscriptionManager {
         }
       }
 
-      // If subscription is active/trialing, allocate credits immediately
-      if ((status === 'active' || status === 'trialing') && (isNewSubscription || isPlanChange)) {
-        await this.allocateMonthlyCredits(userId, stripeSubscriptionId, {
-          subscriptionId: stripeSubscriptionId,
-          planId: plan.id,
-          planName: plan.name,
-          isPlanChange,
-        });
-      }
+      // Note: Credit allocation is now handled by webhook handlers to avoid duplicate allocation
+      // and ensure proper sequencing
     });
   }
 
@@ -299,9 +292,13 @@ export class SubscriptionManager {
           .where(eq(creditTransactions.stripeEventId, metadata.stripeEventId))
           .limit(1);
         if (existing.length > 0) {
+          console.log(
+            `Skipping credit allocation - already processed for event ${metadata.stripeEventId}`,
+          );
           return { success: true, creditsAdded: 0 };
         }
       }
+
       // First try to find subscription by the provided ID
       let subscription = await tx
         .select()
@@ -311,6 +308,9 @@ export class SubscriptionManager {
 
       // If not found by ID, try to find by user ID and active status
       if (subscription.length === 0) {
+        console.log(
+          `Subscription ${subscriptionId} not found by ID, trying to find by user ID ${userId}`,
+        );
         subscription = await tx
           .select()
           .from(userSubscriptions)
@@ -324,7 +324,24 @@ export class SubscriptionManager {
       }
 
       if (subscription.length === 0) {
-        throw new Error(`No active subscription found for user ${userId}`);
+        // Log more details to help debug the issue
+        const allUserSubs = await tx
+          .select({
+            id: userSubscriptions.id,
+            stripeSubscriptionId: userSubscriptions.stripeSubscriptionId,
+            status: userSubscriptions.status,
+            userId: userSubscriptions.userId,
+          })
+          .from(userSubscriptions)
+          .where(eq(userSubscriptions.userId, userId));
+
+        console.error(
+          `No active subscription found for user ${userId}. Available subscriptions:`,
+          allUserSubs,
+        );
+        throw new Error(
+          `No active subscription found for user ${userId}. Please ensure the subscription is properly created before allocating credits.`,
+        );
       }
 
       const sub = subscription[0];
@@ -522,12 +539,8 @@ export class SubscriptionManager {
     const subscription = await db
       .select()
       .from(userSubscriptions)
-      .where(
-        and(
-          eq(userSubscriptions.userId, userId),
-          inArray(userSubscriptions.status, ['active', 'trialing']),
-        ),
-      )
+      .where(eq(userSubscriptions.userId, userId))
+      .orderBy(sql`current_period_end DESC`)
       .limit(1);
 
     if (subscription.length === 0) {

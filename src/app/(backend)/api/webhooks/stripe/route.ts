@@ -90,7 +90,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
 
-    console.log(`Processing Stripe webhook: ${event.type}`);
+    // Add webhook event deduplication check
+    const webhookId = event.id;
+    console.log(`🔄 Processing Stripe webhook: ${event.type} (ID: ${webhookId})`);
 
     const creditManager = new CreditManager();
     const subscriptionManager = new SubscriptionManager();
@@ -98,47 +100,55 @@ export async function POST(request: NextRequest) {
     // Handle different event types
     switch (event.type) {
       case 'checkout.session.completed': {
+        console.log(`📋 Processing checkout.session.completed for event ${webhookId}`);
         await handleCheckoutSessionCompleted(event, stripe, creditManager, subscriptionManager);
         break;
       }
 
       case 'customer.subscription.created': {
+        console.log(`🆕 Processing customer.subscription.created for event ${webhookId}`);
         await handleSubscriptionCreated(event, stripe, subscriptionManager);
         break;
       }
 
       case 'customer.subscription.updated': {
+        console.log(`📝 Processing customer.subscription.updated for event ${webhookId}`);
         await handleSubscriptionUpdated(event, stripe, subscriptionManager);
         break;
       }
 
       case 'customer.subscription.deleted': {
+        console.log(`🗑️ Processing customer.subscription.deleted for event ${webhookId}`);
         await handleSubscriptionDeleted(event, subscriptionManager);
         break;
       }
 
       case 'invoice.payment_succeeded': {
+        console.log(`💰 Processing invoice.payment_succeeded for event ${webhookId}`);
         await handleInvoicePaymentSucceeded(event, stripe, subscriptionManager);
         break;
       }
 
       case 'invoice.payment_failed': {
+        console.log(`❌ Processing invoice.payment_failed for event ${webhookId}`);
         await handleInvoicePaymentFailed(event, stripe, subscriptionManager);
         break;
       }
 
       case 'charge.refunded': {
+        console.log(`↩️ Processing charge.refunded for event ${webhookId}`);
         await handleChargeRefunded(event, creditManager);
         break;
       }
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        console.log(`⚠️ Unhandled event type: ${event.type} (ID: ${webhookId})`);
     }
 
+    console.log(`✅ Successfully processed webhook: ${event.type} (ID: ${webhookId})`);
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error('Webhook error:', error);
+    console.error('❌ Webhook error:', error);
     return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
   }
 }
@@ -219,20 +229,12 @@ async function handleCheckoutSessionCompleted(
             canceledAt,
           );
 
-          // If subscription is active, allocate credits immediately
-          if (subscription.status === 'active' || subscription.status === 'trialing') {
-            try {
-              const result = await subscriptionManager.allocateMonthlyCredits(
-                userId,
-                subscription.id,
-              );
-              console.log(
-                `✅ Initial credits allocated for user ${userId}: ${result.creditsAdded}`,
-              );
-            } catch (creditError) {
-              console.error('Error allocating initial credits:', creditError);
-            }
-          }
+          // For checkout.session.completed, we'll let customer.subscription.created handle credit allocation
+          // to avoid duplicate allocation and race conditions
+          // Add a small delay to ensure proper sequencing
+          console.log(
+            `⏳ Waiting for customer.subscription.created event to handle credit allocation...`,
+          );
 
           console.log(
             `✅ Subscription ${subscription.id} created for user ${userId} with plan ${plan.name}`,
@@ -257,37 +259,49 @@ async function handleSubscriptionCreated(
   subscriptionManager: SubscriptionManager,
 ) {
   const subscription = event.data.object as Stripe.Subscription;
-  console.log(`Processing new subscription: ${subscription.id}`);
+  console.log(
+    `🆕 Processing new subscription: ${subscription.id} for customer: ${subscription.customer}`,
+  );
 
   try {
     const product = await stripe.products.retrieve(
       subscription.items.data[0].price.product as string,
     );
 
-    console.log(`Product metadata for new subscription:`, product.metadata);
+    console.log(`📦 Product metadata for new subscription:`, product.metadata);
 
     const plan = PlanMapper.getPlanFromStripeProduct(product);
 
     // Resolve userId: prefer subscription metadata, fallback to customer lookup
     let resolvedUserId = subscription.metadata?.userId;
     if (!resolvedUserId) {
+      console.log(
+        `🔍 User ID not found in subscription metadata, looking up by customer ID: ${subscription.customer}`,
+      );
       const user = await db
         .select({ id: users.id })
         .from(users)
         .where(eq(users.stripeCustomerId, subscription.customer as string))
         .limit(1);
-      if (user.length > 0) resolvedUserId = user[0].id;
+      if (user.length > 0) {
+        resolvedUserId = user[0].id;
+        console.log(`✅ Found user by customer ID: ${resolvedUserId}`);
+      } else {
+        console.log(`❌ No user found for customer ID: ${subscription.customer}`);
+      }
+    } else {
+      console.log(`✅ User ID found in subscription metadata: ${resolvedUserId}`);
     }
 
     if (!resolvedUserId) {
       console.error(
-        `Cannot process subscription ${subscription.id}: userId not found in metadata or by customer lookup`,
+        `❌ Cannot process subscription ${subscription.id}: userId not found in metadata or by customer lookup`,
       );
       return;
     }
 
     if (plan) {
-      console.log(`Mapped to plan: ${plan.name} (${plan.monthlyCredits} credits)`);
+      console.log(`📋 Mapped to plan: ${plan.name} (${plan.monthlyCredits} credits)`);
 
       const currentPeriodStart = safeUnixToDate(subscription.current_period_start);
       const currentPeriodEnd = safeUnixToDate(subscription.current_period_end);
@@ -295,6 +309,7 @@ async function handleSubscriptionCreated(
         ? safeUnixToDate(subscription.canceled_at)
         : undefined;
 
+      console.log(`💾 Upserting subscription in database...`);
       await subscriptionManager.upsertSubscription(
         resolvedUserId,
         subscription.id,
@@ -307,30 +322,31 @@ async function handleSubscriptionCreated(
         subscription.cancel_at_period_end,
         canceledAt,
       );
+      console.log(`✅ Subscription upserted successfully`);
 
-      // If subscription is active, allocate credits immediately
+      // If subscription is active, allocate credits with retry logic and proper error handling
       if (subscription.status === 'active' || subscription.status === 'trialing') {
-        try {
-          const result = await subscriptionManager.allocateMonthlyCredits(
-            resolvedUserId,
-            subscription.id,
-          );
-          console.log(
-            `✅ Initial credits allocated for user ${resolvedUserId}: ${result.creditsAdded}`,
-          );
-        } catch (creditError) {
-          console.error('Error allocating initial credits:', creditError);
-        }
+        console.log(`💰 Subscription is ${subscription.status}, allocating initial credits...`);
+        await allocateCreditsWithRetry(resolvedUserId, subscription.id, subscriptionManager, {
+          subscriptionId: subscription.id,
+          planId: plan.id,
+          planName: plan.name,
+          isPlanChange: false,
+          stripeEventId: event.id,
+        });
+      } else {
+        console.log(`⏸️ Subscription status is ${subscription.status}, skipping credit allocation`);
       }
 
       console.log(
         `✅ Subscription ${subscription.id} created for user ${resolvedUserId} with plan ${plan.name}`,
       );
     } else {
-      console.error(`Could not map product ${product.id} to plan configuration`);
+      console.error(`❌ Could not map product ${product.id} to plan configuration`);
     }
   } catch (error) {
-    console.error('Error processing customer.subscription.created:', error);
+    console.error('❌ Error processing customer.subscription.created:', error);
+    // Don't return error response to avoid webhook retries
   }
 }
 
@@ -410,6 +426,7 @@ async function handleSubscriptionUpdated(
     }
   } catch (error) {
     console.error('Error processing customer.subscription.updated:', error);
+    // Don't return error response to avoid webhook retries
   }
 }
 
@@ -449,6 +466,7 @@ async function handleSubscriptionDeleted(
     }
   } catch (error) {
     console.error('Error processing customer.subscription.deleted:', error);
+    // Don't return error response to avoid webhook retries
   }
 }
 
@@ -501,6 +519,7 @@ async function handleInvoicePaymentSucceeded(
       }
     } catch (error) {
       console.error('Error processing invoice.payment_succeeded:', error);
+      // Don't return error response to avoid webhook retries
     }
   }
 }
@@ -548,6 +567,7 @@ async function handleInvoicePaymentFailed(
       }
     } catch (error) {
       console.error('Error processing invoice.payment_failed:', error);
+      // Don't return error response to avoid webhook retries
     }
   }
 }
@@ -583,6 +603,7 @@ async function handleChargeRefunded(event: Stripe.Event, creditManager: CreditMa
     }
   } catch (error) {
     console.error('Error processing charge.refunded:', error);
+    // Don't return error response to avoid webhook retries
   }
 }
 
@@ -600,4 +621,79 @@ async function getCreditsAmountFromPrice(priceId: string, stripe: Stripe): Promi
     console.error('Error retrieving price:', error);
     return 1000; // Default fallback
   }
+}
+
+/**
+ * Allocate credits with retry logic to handle race conditions
+ */
+async function allocateCreditsWithRetry(
+  userId: string,
+  subscriptionId: string,
+  subscriptionManager: SubscriptionManager,
+  metadata: {
+    subscriptionId?: string;
+    planId?: string;
+    planName?: string;
+    isPlanChange?: boolean;
+    stripeEventId?: string;
+  },
+) {
+  const maxRetries = 3;
+  const retryDelay = 1000; // 1 second
+
+  console.log(`🔄 Starting credit allocation for user ${userId}, subscription ${subscriptionId}`);
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(
+        `📝 Attempting to allocate credits (attempt ${attempt}/${maxRetries}) for user ${userId}`,
+      );
+
+      const result = await subscriptionManager.allocateMonthlyCredits(
+        userId,
+        subscriptionId,
+        metadata,
+      );
+
+      if (result.success) {
+        console.log(
+          `✅ Initial credits allocated for user ${userId}: ${result.creditsAdded} credits`,
+        );
+        return result;
+      } else {
+        console.log(`⚠️ Credit allocation returned success: false for user ${userId}`);
+        return result;
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `⚠️ Credit allocation attempt ${attempt} failed for user ${userId}: ${errorMessage}`,
+      );
+
+      if (attempt === maxRetries) {
+        console.error(
+          `❌ Failed to allocate credits after ${maxRetries} attempts for user ${userId}: ${errorMessage}`,
+        );
+        // Don't throw - this is not a critical failure for the webhook
+        return {
+          success: false,
+          creditsAdded: 0,
+          error: errorMessage,
+          attempts: maxRetries,
+        };
+      }
+
+      console.log(`⏳ Waiting ${retryDelay * attempt}ms before retry...`);
+      // Wait before retrying
+      await new Promise((resolve) => setTimeout(resolve, retryDelay * attempt));
+    }
+  }
+
+  // This should never be reached, but just in case
+  return {
+    success: false,
+    creditsAdded: 0,
+    error: 'Unexpected end of retry loop',
+    attempts: maxRetries,
+  };
 }

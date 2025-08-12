@@ -31,14 +31,11 @@ export const useUserSubscription = () => {
       setIsLoading(true);
       setError(null);
 
-      console.log(`[useUserSubscription] Fetching subscription info for user: ${user.id}`);
-
       const result = await lambdaClient.subscription.getUserSubscriptionInfo.query({
         userId: user.id,
       });
 
       if (result.success) {
-        console.log(`[useUserSubscription] Successfully fetched subscription info:`, result.data);
         setSubscriptionInfo(result.data);
       } else {
         console.error(`[useUserSubscription] Failed to fetch subscription info:`, result.error);
@@ -68,6 +65,9 @@ export const useUserSubscription = () => {
   const hasActiveSubscription =
     subscriptionInfo?.subscription?.status === 'active' ||
     subscriptionInfo?.subscription?.status === 'trialing';
+  const hasAnySubscription = subscriptionInfo?.subscription !== null;
+  const needsUpgrade = hasAnySubscription && !hasActiveSubscription;
+  const subscriptionStatus = subscriptionInfo?.subscription?.status || null;
   const isTrialing = subscriptionInfo?.subscription?.status === 'trialing';
   const currentPlan = subscriptionInfo?.subscription?.planName || null;
   const nextBillingDate = subscriptionInfo?.subscription?.currentPeriodEnd;
@@ -78,8 +78,11 @@ export const useUserSubscription = () => {
     error,
     refetch,
     hasActiveSubscription,
+    hasAnySubscription,
+    needsUpgrade,
     isTrialing,
     currentPlan,
     nextBillingDate,
+    subscriptionStatus,
   };
 };

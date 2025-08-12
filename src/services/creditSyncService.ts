@@ -4,11 +4,10 @@ import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { db } from '@/database';
 import { credits } from '@/database/schemas/credits';
 import { getRedisService } from '@/libs/redis/client';
-
-import { CreditService } from './creditService';
+import { creditServerService } from '@/services/creditService';
 
 export class CreditSyncService {
-  private creditService = new CreditService();
+  private creditService = creditServerService;
   private redisService = getRedisService();
 
   // Sync credits for a specific user

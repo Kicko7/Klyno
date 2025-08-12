@@ -5,7 +5,9 @@ import { isServerMode } from '@/const/version';
 import { TeamChatItem, TeamChatMessageItem } from '@/database/schemas/teamChat';
 import { convertUsage } from '@/libs/model-runtime/utils/usageConverter';
 import { lambdaClient } from '@/libs/trpc/client';
+// Removed server-side service imports - these should not be used in client-side code
 import { chatService } from '@/services/chat';
+import { teamChatCreditService } from '@/services/teamChatCreditService/index';
 import { TeamChatService } from '@/services/teamChatService';
 import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
@@ -124,6 +126,9 @@ interface TeamChatState {
   // Message subscription actions (legacy - now handled by WebSocket)
   subscribeToChat: (chatId: string, userId: string) => void;
   unsubscribeFromChat: (chatId: string, userId: string) => void;
+
+  // Credit tracking service
+  creditService: typeof teamChatCreditService;
 }
 
 const getTeamChatService = async () => {
@@ -197,6 +202,7 @@ type TeamChatStore = TeamChatState & {
   unsubscribeFromChat: (chatId: string, userId: string) => void;
   startMessagePolling: (chatId: string) => void;
   stopMessagePolling: (chatId: string) => void;
+  creditService: typeof teamChatCreditService;
 };
 
 export const useTeamChatStore = create<TeamChatStore>()(
@@ -214,6 +220,9 @@ export const useTeamChatStore = create<TeamChatStore>()(
       activeChatStates: {},
       messageCache: {},
       messageSubscriptions: {},
+
+      // Initialize credit tracking service
+      creditService: teamChatCreditService,
 
       // Message subscription management (legacy - now handled by WebSocket)
       subscribeToChat: (chatId: string, userId: string) => {
@@ -771,6 +780,9 @@ export const useTeamChatStore = create<TeamChatStore>()(
             };
           }
 
+          // Note: Credit and usage limits are enforced server-side when the message is processed
+          // Client-side pre-checks have been removed to avoid bundling server-side dependencies
+
           // First, update the UI immediately for better UX
           set((state) => {
             const existingMessages = state.messages[teamChatId] || [];
@@ -845,6 +857,26 @@ export const useTeamChatStore = create<TeamChatStore>()(
           }
 
           console.log('✅ Message sent/updated');
+
+          // Track credit consumption for AI-generated messages
+          if (messageType === 'assistant' && message?.id) {
+            try {
+              const state = get();
+              const currentUser = useUserStore.getState().user;
+              if (currentUser) {
+                await state.creditService.trackMessageCredits(
+                  currentUser.id,
+                  teamChatId,
+                  message.id,
+                  messageType,
+                  messageMetadata,
+                );
+              }
+            } catch (error) {
+              console.error('❌ Failed to track credits for team chat message:', error);
+              // Don't throw error to avoid breaking the message flow
+            }
+          }
 
           // Retry logic if it's a retry attempt
           if (retry && messageType === 'assistant') {

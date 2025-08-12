@@ -1,14 +1,15 @@
-import { Redis } from '@upstash/redis';
-import { RedisClientType } from 'redis';
-
 import { getRedisClient } from '@/libs/redis/client';
 
 import { RedisService } from './redisService';
 
+// Dynamic imports to prevent client-side execution of Node.js modules
+let Redis: any;
+let RedisClientType: any;
+
 let redisService: RedisService | null = null;
 
 // Create a minimal adapter for local Redis client
-const createLocalAdapter = (client: any): Partial<Redis> => {
+const createLocalAdapter = (client: any): Partial<any> => {
   return {
     hset: async (key: string, field: any, value?: any) => {
       if (typeof field === 'object') {
@@ -37,7 +38,7 @@ const createLocalAdapter = (client: any): Partial<Redis> => {
       end: number,
     ): Promise<TResult[]> => {
       const result = await client.lRange(key, start, end);
-      return (result || []) as TResult[];
+      return result || [];
     },
     xadd: async (key: string, id: string, fields: any) => {
       const result = await client.xAdd(key, '*', fields);
@@ -73,15 +74,34 @@ const createLocalAdapter = (client: any): Partial<Redis> => {
 export const getRedisService = async () => {
   if (redisService) return redisService;
 
+  // Lazy load Redis modules only when needed
+  if (!Redis) {
+    try {
+      const upstashRedis = await import('@upstash/redis');
+      const redisModule = await import('redis');
+
+      Redis = upstashRedis.Redis;
+      RedisClientType = (redisModule as any).RedisClientType;
+    } catch (error) {
+      console.warn('⚠️ Redis modules not available (likely client-side):', error);
+      // Return mock service for client-side
+      return {
+        trackCredits: async () => console.log('Mock: trackCredits called'),
+        getUnsyncedCredits: async () => [],
+        markCreditsSynced: async () => console.log('Mock: markCreditsSynced called'),
+      };
+    }
+  }
+
   const redisClient = await getRedisClient();
 
   // Create a Redis service adapter for local Redis client
   if ((redisClient as any).isOpen !== undefined) {
-    const adapter = createLocalAdapter(redisClient) as Redis;
+    const adapter = createLocalAdapter(redisClient) as any;
     redisService = new RedisService(adapter);
   } else {
     // Use Upstash Redis client directly
-    redisService = new RedisService(redisClient as Redis);
+    redisService = new RedisService(redisClient as any);
   }
 
   return redisService;

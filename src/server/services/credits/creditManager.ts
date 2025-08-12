@@ -129,6 +129,96 @@ export class CreditManager {
   }
 
   /**
+   * Consume credits for usage (e.g., team chat assistant message)
+   * - Idempotent per messageId (uses transaction id derived from messageId if provided)
+   */
+  async consumeCredits(
+    userId: string,
+    amount: number,
+    metadata: {
+      messageId?: string;
+      teamChatId?: string;
+      source?: 'team_chat' | string;
+      currency?: string;
+    } = {},
+  ) {
+    console.log(
+      '[CreditManager] consumeCredits:start',
+      JSON.stringify({
+        userId,
+        amount,
+        messageId: metadata.messageId,
+        teamChatId: metadata.teamChatId,
+        source: metadata.source,
+      }),
+    );
+    if (amount <= 0) return { success: true, message: 'No credits to consume' };
+
+    const txId = metadata.messageId
+      ? `usage_${metadata.messageId}`
+      : `usage_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+    return db.transaction(async (tx) => {
+      // Idempotency: skip if this usage already recorded
+      const existing = await tx
+        .select({ id: creditTransactions.id })
+        .from(creditTransactions)
+        .where(eq(creditTransactions.id, txId))
+        .limit(1);
+
+      if (existing.length > 0) {
+        console.log('[CreditManager] consumeCredits:idempotent-skip', txId);
+        return { success: true, message: 'Usage already recorded' };
+      }
+
+      // Ensure user has enough balance
+      const creditsRow = await tx
+        .select({ balance: userCredits.balance })
+        .from(userCredits)
+        .where(eq(userCredits.userId, userId))
+        .limit(1);
+
+      const currentBalance = creditsRow[0]?.balance ?? 0;
+      console.log('[CreditManager] consumeCredits:balance-check', {
+        userId,
+        currentBalance,
+        amount,
+      });
+      if (currentBalance < amount) {
+        console.error('[CreditManager] consumeCredits:insufficient', {
+          userId,
+          currentBalance,
+          amount,
+        });
+        throw new Error('Insufficient credits');
+      }
+
+      // Deduct balance
+      await tx
+        .update(userCredits)
+        .set({ balance: sql`${userCredits.balance} - ${amount}`, lastUpdated: new Date() })
+        .where(eq(userCredits.userId, userId));
+
+      // Record usage transaction (negative amount)
+      await tx.insert(creditTransactions).values({
+        id: txId,
+        userId,
+        type: 'usage',
+        amount: -amount,
+        currency: metadata.currency || 'usd',
+        metadata: {
+          source: metadata.source || 'team_chat',
+          teamChatId: metadata.teamChatId,
+          messageId: metadata.messageId,
+        },
+      });
+
+      console.log('[CreditManager] consumeCredits:success', { txId, userId, amount });
+      return { success: true, message: 'Credits consumed' };
+    });
+  }
+
+  /**
    * Find transaction by Stripe payment intent ID
    */
   async findTransactionByPaymentIntent(paymentIntentId: string) {
