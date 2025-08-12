@@ -226,6 +226,38 @@ export const teamChatRouter = router({
       const chat = await ctx.teamChatService.removeChatMember(input.chatId, input.userId);
       return chat;
     }),
+  updateMessage: teamChatProcedure
+    .input(
+      z.object({
+        teamChatId: z.string(),
+        messageId: z.string(),
+        content: z.string(),
+        metadata: z.record(z.any()).optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const message = await ctx.teamChatService.updateMessage(
+        input.teamChatId,
+        input.messageId,
+        {
+          content: input.content,
+          metadata: input.metadata || {},
+        },
+      );
+      return message;
+    }),
+
+  deleteMessage: teamChatProcedure
+    .input(
+      z.object({
+        teamChatId: z.string(),
+        messageId: z.string(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      await ctx.teamChatService.deleteMessage(input.teamChatId, input.messageId);
+      return { success: true };
+    }),
 });
 
 export type TeamChatRouter = typeof teamChatRouter;

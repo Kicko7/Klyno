@@ -10,6 +10,7 @@ import { useTeamChatStore } from '@/store/teamChat';
 import TeamChatInput from '../TeamChatInput';
 import TeamChatList from '../TeamChatMessages';
 import TeamChatHeader from './TeamChatHeader';
+import FileList from '@/features/ChatInput/Desktop/FilePreview/FileList';
 
 const useStyles = createStyles(({ css, token }) => ({
   container: css`
@@ -69,7 +70,7 @@ const TeamChatLayout = ({
 
   return (
     <>
-      <TeamChatHeader teamChatId={teamChatId} />
+      {/* <TeamChatHeader teamChatId={teamChatId} /> */}
       <div className={styles.container}>
         <div className={styles.messagesContainer}>
           <Suspense fallback={<SkeletonList mobile={mobile} />}>
@@ -77,6 +78,7 @@ const TeamChatLayout = ({
           </Suspense>
         </div>
 
+          <FileList />
         <div className={styles.inputContainer}>
           <TeamChatInput teamChatId={teamChatId} />
         </div>

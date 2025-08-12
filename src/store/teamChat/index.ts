@@ -1,3 +1,5 @@
+import { copyToClipboard } from '@lobehub/ui';
+import { message } from 'antd';
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
@@ -11,6 +13,7 @@ import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
 import { useUserStore } from '@/store/user';
 import { CreateMessageParams } from '@/types/message';
+import { toggleBooleanList } from '../chat/utils';
 
 interface TeamChatMetadata {
   organizationId: string;
@@ -124,6 +127,7 @@ interface TeamChatState {
   // Message subscription actions (legacy - now handled by WebSocket)
   subscribeToChat: (chatId: string, userId: string) => void;
   unsubscribeFromChat: (chatId: string, userId: string) => void;
+  messageEditingIds: string[];
 }
 
 const getTeamChatService = async () => {
@@ -197,6 +201,11 @@ type TeamChatStore = TeamChatState & {
   unsubscribeFromChat: (chatId: string, userId: string) => void;
   startMessagePolling: (chatId: string) => void;
   stopMessagePolling: (chatId: string) => void;
+  getMessageById: (id: string) => void;
+  deleteMessage: (teamChatId: string, messageId: string) => void;
+  copyMessage: (content: string) => void;
+  toggleMessageEditing:(id:string,editing:boolean)=>void;
+  updateMessage: (teamChatId: string, messageId: string, content: string, metadata?: any) => void;
 };
 
 export const useTeamChatStore = create<TeamChatStore>()(
@@ -214,6 +223,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
       activeChatStates: {},
       messageCache: {},
       messageSubscriptions: {},
+      messageEditingIds: [],
 
       // Message subscription management (legacy - now handled by WebSocket)
       subscribeToChat: (chatId: string, userId: string) => {
@@ -757,9 +767,9 @@ export const useTeamChatStore = create<TeamChatStore>()(
         messageId?: string,
         retry: boolean = false,
         metadata?: any,
-      ) => {
+      ): Promise<any> => {
         try {
-          console.log('📤 Sending message to team chat:', teamChatId, messageType);
+          // console.log('📤 Sending message to team chat:', teamChatId, messageType);
 
           // Use provided metadata (including proper usage tokens) or fall back to simple estimation
           let messageMetadata = metadata || {};
@@ -844,6 +854,61 @@ export const useTeamChatStore = create<TeamChatStore>()(
             });
           }
 
+          // Update the message ID in the UI if it changed (temp ID to real ID)
+          if (message && message.id !== messageId) {
+            set((state) => {
+              const existingMessages = state.messages[teamChatId] || [];
+              const messageIndex = existingMessages.findIndex((m) => m.id === messageId);
+              
+              if (messageIndex >= 0) {
+                const updatedMessages = [...existingMessages];
+                updatedMessages[messageIndex] = {
+                  ...updatedMessages[messageIndex],
+                  id: message.id, // Update to real ID
+                  metadata: {
+                    ...(updatedMessages[messageIndex].metadata || {}),
+                    isPersisted: true, // Mark as fully persisted
+                  },
+                };
+                
+                return {
+                  messages: {
+                    ...state.messages,
+                    [teamChatId]: updatedMessages,
+                  },
+                };
+              }
+              
+              return state;
+            });
+          } else if (message) {
+            // Message was persisted with the same ID, mark it as persisted
+            set((state) => {
+              const existingMessages = state.messages[teamChatId] || [];
+              const messageIndex = existingMessages.findIndex((m) => m.id === messageId);
+              
+              if (messageIndex >= 0) {
+                const updatedMessages = [...existingMessages];
+                updatedMessages[messageIndex] = {
+                  ...updatedMessages[messageIndex],
+                  metadata: {
+                    ...(updatedMessages[messageIndex].metadata || {}),
+                    isPersisted: true, // Mark as fully persisted
+                  },
+                };
+                
+                return {
+                  messages: {
+                    ...state.messages,
+                    [teamChatId]: updatedMessages,
+                  },
+                };
+              }
+              
+              return state;
+            });
+          }
+
           console.log('✅ Message sent/updated');
 
           // Retry logic if it's a retry attempt
@@ -857,6 +922,9 @@ export const useTeamChatStore = create<TeamChatStore>()(
               // Here you'd re-trigger the AI message generation, similar to the logic in TeamChatInput
             }
           }
+
+          // Return the message object so caller can get the real ID
+          return message;
         } catch (error) {
           console.error('❌ Failed to send message:', error);
           set({
@@ -1078,7 +1146,126 @@ export const useTeamChatStore = create<TeamChatStore>()(
           },
         }));
       },
+
+      getMessageById: (id: string) => {
+        const { messages } = get();
+        return Object.values(messages)
+          .flat()
+          .find((message) => message.id === id);
+      },
+      deleteMessage: async (teamChatId, messageId) => {
+        set((state) => {
+          const chatMessages = state.messages[teamChatId];
+          if (!chatMessages) return state;
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: chatMessages.filter((msg) => msg.id !== messageId),
+            },
+          };
+        });
+        await lambdaClient.teamChat.deleteMessage.mutate({
+          teamChatId,
+          messageId,
+        });
+      },
+      copyMessage: async (content) => {
+        await copyToClipboard(content);
+      },
+      updateMessage: async (teamChatId: string, messageId: string, content: string, metadata?: any) => {
+        try {
+          // Update the UI immediately for better UX
+          set((state) => {
+            const existingMessages = state.messages[teamChatId] || [];
+            const messageIndex = existingMessages.findIndex((m) => m.id === messageId);
+            
+            if (messageIndex >= 0) {
+              const updatedMessages = [...existingMessages];
+              updatedMessages[messageIndex] = {
+                ...updatedMessages[messageIndex],
+                content,
+                metadata: {
+                  ...(updatedMessages[messageIndex].metadata || {}),
+                  ...(metadata || {}),
+                },
+                updatedAt: new Date(),
+              };
+              
+              return {
+                messages: {
+                  ...state.messages,
+                  [teamChatId]: updatedMessages,
+                },
+              };
+            }
+            
+            return state;
+          });
+
+          // Get current message data for metadata preservation
+          const currentState = get();
+          const currentMessages = currentState.messages[teamChatId] || [];
+          const currentMessage = currentMessages.find((m) => m.id === messageId);
+          
+          // Persist to database
+          if (isServerMode) {
+            await lambdaClient.teamChat.updateMessage.mutate({
+              teamChatId,
+              messageId,
+              content,
+              metadata: {
+                // Preserve existing metadata and add new metadata
+                ...(currentMessage?.metadata || {}),
+                ...(metadata || {}),
+                // Add edit tracking
+                editedAt: new Date().toISOString(),
+                editedBy: useUserStore.getState().user?.id,
+              },
+            });
+          } else {
+            const service = await getTeamChatService();
+            await service.updateMessage(teamChatId, messageId, {
+              content,
+              metadata: {
+                // Preserve existing metadata and add new metadata
+                ...(currentMessage?.metadata || {}),
+                ...(metadata || {}),
+                // Add edit tracking
+                editedAt: new Date().toISOString(),
+                editedBy: useUserStore.getState().user?.id,
+              },
+            });
+          }
+
+          console.log('✅ Message updated:', messageId);
+        } catch (error) {
+          console.error('❌ Failed to update message:', error);
+          set({
+            error: error instanceof Error ? error.message : 'Failed to update message',
+          });
+        }
+      },
+      toggleMessageEditing: (id: string, editing: boolean) => {
+          set((state) => {
+            const currentEditingIds = state.messageEditingIds || [];
+            
+            if (editing) {
+              // Add to editing list if not already there
+              return {
+                messageEditingIds: currentEditingIds.includes(id) 
+                  ? currentEditingIds 
+                  : [...currentEditingIds, id]
+              };
+            } else {
+              // Remove from editing list
+              return {
+                messageEditingIds: currentEditingIds.filter(editingId => editingId !== id)
+              };
+            }
+          }, false, 'toggleMessageEditing');
+        },
     }),
+
     {
       name: 'team-chat-store',
     },

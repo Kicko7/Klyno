@@ -169,7 +169,13 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
         });
       }
 
-      console.log('Sending user message:', messageToSend);
+      const fileMetadata = fileList.map((file) => ({
+        id: file.id,
+        name: file.file.name,
+        size: file.file.size,
+        type: file.file.type || 'application/octet-stream',
+        url: file.fileUrl || '',
+      }));
 
       // Prepare user metadata for the message
       const userMetadata = currentUser
@@ -182,9 +188,10 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
               firstName: currentUser.firstName,
               avatar: currentUser.avatar,
             },
+            files: fileMetadata, // <-- now included here
             isMultiUserChat: true,
           }
-        : {};
+        : { files: fileMetadata };
 
       // 1. Add user message to UI immediately (non-blocking)
       // Send user message with user information
