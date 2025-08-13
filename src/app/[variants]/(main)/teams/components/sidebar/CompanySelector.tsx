@@ -23,6 +23,8 @@ const CompanySelector = () => {
     selectedOrganizationId,
     setSelectedOrganizationId,
   } = useOrganizationStore();
+
+  console.log(organizations)
   const theme = useTheme()
   // Fetch organizations on mount if not loaded
   useEffect(() => {

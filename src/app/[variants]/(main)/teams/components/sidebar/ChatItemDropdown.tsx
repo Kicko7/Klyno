@@ -182,7 +182,10 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
       >
         <div className="space-y-4">
           <div>
-            <label htmlFor="chatTitle" className={`block text-sm font-medium ${theme.appearance == "dark" ? 'text-slate-300':'text-black'} mb-2`}>
+            <label
+              htmlFor="chatTitle"
+              className={`block text-sm font-medium ${theme.appearance == 'dark' ? 'text-slate-300' : 'text-black'} mb-2`}
+            >
               Chat Name
             </label>
             <Input
@@ -214,7 +217,7 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
             <Button
               onClick={handleConfirmDelete}
               disabled={isDeleting}
-              className={`${theme.appearance == 'dark' ? 'bg-black' : 'bg-white'}  border-slate-700 text-slate-200 hover:bg-white/10 text-red-500`}
+              className={`${theme.appearance == 'dark' ? 'bg-black' : 'bg-white'}  border-slate-700  hover:bg-white/10 text-red-500`}
             >
               {isDeleting ? 'Deleting...' : 'Delete'}
             </Button>
@@ -222,7 +225,9 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
         }
       >
         <div className="space-y-4">
-          <p className={`${theme.appearance === "dark" ? 'text-slate-300':'text-black'} text-base`}>
+          <p
+            className={`${theme.appearance === 'dark' ? 'text-slate-300' : 'text-black'} text-base`}
+          >
             Are you sure you want to delete "{chat.title || 'Untitled Chat'}"? This action cannot be
             undone and all messages will be permanently removed.
           </p>
