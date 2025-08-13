@@ -1,8 +1,10 @@
 import { sql } from 'drizzle-orm';
-import { boolean, pgTable, text, varchar } from 'drizzle-orm/pg-core';
+import { boolean, pgTable, text, varchar ,primaryKey} from 'drizzle-orm/pg-core';
 
 import { timestamps, timestamptz } from '../schemas/_helpers';
 import { users } from '../schemas/user';
+import { idGenerator } from '../utils/idGenerator';
+import { teamChats } from './teamChat';
 
 // Organizations table
 export const organizations = pgTable('organizations', {
@@ -116,3 +118,38 @@ export const teamMembers = pgTable('team_members', {
 
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type NewTeamMember = typeof teamMembers.$inferInsert;
+
+export const sharedParentFolder = pgTable('shared_folders', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => idGenerator('shared_folders'))
+    .notNull(),
+  userId: text('user_id')
+    .references(() => users.id, { onDelete: 'cascade' })
+    .notNull(),
+    name:text("name").notNull(),
+  createdAt: text("created_at").default(sql`NOW()`), 
+});
+
+export const sharedSubFolder = pgTable('shared_sub_folder', {
+  parentId: text('parent_folder_id')
+    .references(() => sharedParentFolder.id, { onDelete: 'cascade' })
+    .notNull(),
+    name:text("name").notNull(),
+      id: text('id')
+    .primaryKey()
+    .$defaultFn(() => idGenerator('shared_folders'))
+    .notNull(),
+  // teamChatId: text('team_chat_id')
+  //   .references(() => teamChats.id, { onDelete: 'cascade' })
+  //   .notNull(),
+}, (table) => ({
+  // pk: primaryKey({ columns: [table.sharedFolderId, table.teamChatId] }),
+}));
+
+
+export type SharedParentFolder = typeof sharedParentFolder.$inferSelect;
+export type NewSharedParentFolder = typeof sharedParentFolder.$inferInsert;
+
+export type SharedSubFolder = typeof sharedSubFolder.$inferSelect;
+export type NewSharedSubFolder = typeof sharedSubFolder.$inferInsert;

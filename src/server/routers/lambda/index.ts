@@ -26,6 +26,7 @@ import { teamChatRouter } from './teamChat';
 import { threadRouter } from './thread';
 import { topicRouter } from './topic';
 import { userRouter } from './user';
+import { sharedFolderRouter } from './sharedFolder';
 
 export const lambdaRouter = router({
   agent: agentRouter,
@@ -52,6 +53,7 @@ export const lambdaRouter = router({
   thread: threadRouter,
   topic: topicRouter,
   user: userRouter,
+  sharedFolder:sharedFolderRouter
 });
 
 export type LambdaRouter = typeof lambdaRouter;
