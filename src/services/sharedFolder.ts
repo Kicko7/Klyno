@@ -1,49 +1,49 @@
 
 import { db } from '@/database';
-import { NewSharedFolder, sharedFolder, sharedFolderTeamChats, teamChats } from '@/database/schemas';
+import { NewSharedParentFolder, sharedParentFolder, teamChats } from '@/database/schemas';
 import { eq } from 'drizzle-orm';
 
 
 export interface ISharedFolderService {
-  createSharedFolder: (params: {
+  createParentFolder: (params: {
    name:string;
    userId:string;
   }) => Promise<any>;
   getUserSharedFolders: (params: {
    userId:string;
   }) => Promise<any>;
-  getFolderTeamChats:(params:{
-    folderId:string
-  }) => Promise<any>
+  // getFolderTeamChats:(params:{
+  //   folderId:string
+  // }) => Promise<any>
 }
 
 export class SharedFolderService implements ISharedFolderService{
 
-  async createSharedFolder(data: { name: string ,userId:string}) {
-    const folder: NewSharedFolder = {
+  async createParentFolder(data: { name: string ,userId:string}) {
+    const folder: NewSharedParentFolder = {
       userId: data.userId,
       name: data.name,
     };
-
-    const [inserted] = await db.insert(sharedFolder).values(folder).returning();
+    const [inserted] = await db.insert(sharedParentFolder).values(folder).returning();
     return inserted;
   }
 
   async getUserSharedFolders(data:{userId:string}) {
     return db
       .select()
-      .from(sharedFolder)
-      .where(eq(sharedFolder.userId, data.userId));
+      .from(sharedParentFolder)
+      .where(eq(sharedParentFolder.userId, data.userId));
   }
 
-  async getFolderTeamChats(data:{folderId: string}) {
-    return db
-      .select({
-        folderId: sharedFolderTeamChats.sharedFolderId,
-        teamChat: teamChats,
-      })
-      .from(sharedFolderTeamChats)
-      .where(eq(sharedFolderTeamChats.sharedFolderId, data.folderId))
-      .innerJoin(teamChats, eq(teamChats.id, sharedFolderTeamChats.teamChatId));
-  }
+  // async getFolderTeamChats(data:{folderId: string}) {
+  //   return db
+  //     .select({
+  //       folderId: sharedFolderTeamChats.sharedFolderId,
+  //       teamChat: teamChats,
+  //     })
+  //     .from(sharedFolderTeamChats)
+  //     .where(eq(sharedFolderTeamChats.sharedFolderId, data.folderId))
+  //     .innerJoin(teamChats, eq(teamChats.id, sharedFolderTeamChats.teamChatId));
+  // }
+  
 }

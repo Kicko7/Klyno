@@ -119,7 +119,7 @@ export const teamMembers = pgTable('team_members', {
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type NewTeamMember = typeof teamMembers.$inferInsert;
 
-export const sharedFolder = pgTable('shared_folders', {
+export const sharedParentFolder = pgTable('shared_folders', {
   id: text('id')
     .primaryKey()
     .$defaultFn(() => idGenerator('shared_folders'))
@@ -131,20 +131,25 @@ export const sharedFolder = pgTable('shared_folders', {
   createdAt: text("created_at").default(sql`NOW()`), 
 });
 
-export const sharedFolderTeamChats = pgTable('shared_folder_team_chats', {
-  sharedFolderId: text('shared_folder_id')
-    .references(() => sharedFolder.id, { onDelete: 'cascade' })
+export const sharedSubFolder = pgTable('shared_sub_folder', {
+  parentId: text('parent_folder_id')
+    .references(() => sharedParentFolder.id, { onDelete: 'cascade' })
     .notNull(),
-  teamChatId: text('team_chat_id')
-    .references(() => teamChats.id, { onDelete: 'cascade' })
+    name:text("name").notNull(),
+      id: text('id')
+    .primaryKey()
+    .$defaultFn(() => idGenerator('shared_folders'))
     .notNull(),
+  // teamChatId: text('team_chat_id')
+  //   .references(() => teamChats.id, { onDelete: 'cascade' })
+  //   .notNull(),
 }, (table) => ({
-  pk: primaryKey({ columns: [table.sharedFolderId, table.teamChatId] }),
+  // pk: primaryKey({ columns: [table.sharedFolderId, table.teamChatId] }),
 }));
 
 
-export type SharedFolder = typeof sharedFolder.$inferSelect;
-export type NewSharedFolder = typeof sharedFolder.$inferInsert;
+export type SharedParentFolder = typeof sharedParentFolder.$inferSelect;
+export type NewSharedParentFolder = typeof sharedParentFolder.$inferInsert;
 
-export type SharedFolderTeamChat = typeof sharedFolderTeamChats.$inferSelect;
-export type NewSharedFolderTeamChat = typeof sharedFolderTeamChats.$inferInsert;
+export type SharedSubFolder = typeof sharedSubFolder.$inferSelect;
+export type NewSharedSubFolder = typeof sharedSubFolder.$inferInsert;
