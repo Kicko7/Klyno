@@ -114,11 +114,13 @@ export class TeamChatService {
     const result = await this.db
       .insert(teamChatMessages)
       .values({
-        ...data,
+        // Exclude isLocal from database insertion until migration is run
+        content: data.content,
+        messageType: data.messageType,
+        metadata: messageMetadata,
         teamChatId,
         userId: this.userId,
         id: messageId,
-        metadata: messageMetadata,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -149,7 +151,7 @@ export class TeamChatService {
 
     return this.db.query.teamChatMessages.findMany({
       where: and(...conditions),
-      orderBy: [desc(teamChatMessages.createdAt)], // Order by descending (newest first)
+      orderBy: [teamChatMessages.createdAt], // Order by ascending (oldest first) for chronological order
       limit,
       offset,
     });

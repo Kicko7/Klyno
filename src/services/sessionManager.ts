@@ -132,45 +132,104 @@ export class SessionManager {
   }
 
   /**
-   * Add a message to the session
+   * Add a message to an existing session
    */
   async appendMessage(teamChatId: string, message: MessageData): Promise<void> {
-    let session = await this.getSession(teamChatId);
+    try {
+      console.log(`📝 Adding message to session: ${teamChatId}`, {
+        messageId: message.id,
+        type: message.type,
+        contentLength: message.content.length,
+      });
 
-    if (!session) {
-      // Create new session if doesn't exist
-      session = await this.createSession(teamChatId, [message.userId]);
-    }
+      // Check if session exists in Redis
+      let session = await this.getSession(teamChatId);
 
-    // Check if we're at message limit
-    if (session.messages.length >= this.MAX_MESSAGES) {
-      // Remove oldest message and ensure it's saved to DB
-      const oldestMessage = session.messages.shift();
-      if (oldestMessage && !oldestMessage.syncedToDb) {
-        await this.syncService.syncSingleMessage(teamChatId, oldestMessage);
+      // If session doesn't exist, try to load from database first
+      if (!session) {
+        console.log(`📥 Session not found in Redis, loading from DB: ${teamChatId}`);
+        session = await this.loadSessionFromDb(teamChatId);
+        if (!session) {
+          // Create new session if none exists
+          session = await this.createSession(teamChatId);
+        }
       }
+
+      // Check if message with this ID already exists to prevent duplication
+      const existingMessageIndex = session.messages.findIndex((m) => m.id === message.id);
+      if (existingMessageIndex !== -1) {
+        console.log(
+          `⚠️ Message with ID ${message.id} already exists in session, updating instead of duplicating`,
+        );
+        // Update existing message instead of adding duplicate
+        session.messages[existingMessageIndex] = {
+          ...session.messages[existingMessageIndex],
+          content: message.content,
+          metadata: { ...session.messages[existingMessageIndex].metadata, ...message.metadata },
+          timestamp: message.timestamp,
+        };
+      } else {
+        // Add new message to session
+        session.messages.push(message);
+      }
+
+      // Update session with new message
+      const updatedSession: ChatSession = {
+        ...session,
+        messages: session.messages,
+        lastActivityAt: Date.now(),
+        expiresAt: Date.now() + this.SESSION_TTL * 1000,
+      };
+
+      // Save to Redis
+      await this.redisService.setSession(updatedSession);
+
+      // Immediately persist to database for critical messages (AI responses, system messages)
+      if (message.type === 'assistant' || message.type === 'system') {
+        try {
+          await this.persistMessageToDatabase(teamChatId, message);
+          console.log(`✅ Critical message persisted to database: ${message.id}`);
+        } catch (error) {
+          console.error(`❌ Failed to persist critical message to database: ${message.id}`, error);
+          // Don't throw error to prevent blocking the session update
+        }
+      }
+
+      console.log(
+        `✅ Message ${existingMessageIndex !== -1 ? 'updated' : 'added'} to session: ${teamChatId}`,
+        {
+          messageId: message.id,
+          totalMessages: updatedSession.messages.length,
+          wasUpdate: existingMessageIndex !== -1,
+        },
+      );
+    } catch (error) {
+      console.error(`❌ Failed to add message to session: ${teamChatId}`, error);
+      throw error;
     }
+  }
 
-    // Add new message
-    session.messages.push({
-      ...message,
-      syncedToDb: false,
-    });
+  /**
+   * Persist a message to the database
+   */
+  private async persistMessageToDatabase(teamChatId: string, message: MessageData): Promise<void> {
+    try {
+      const { lambdaClient } = await import('@/libs/trpc/client/lambda');
 
-    // Update participants if new user
-    if (!session.participants.includes(message.userId)) {
-      session.participants.push(message.userId);
+      await lambdaClient.teamChat.addMessage.mutate({
+        teamChatId,
+        content: message.content,
+        messageType: message.type as 'user' | 'assistant' | 'system',
+        metadata: {
+          ...message.metadata,
+          redisMessageId: message.id,
+          syncedFromRedis: true,
+        },
+      });
+    } catch (error) {
+      console.error(`Failed to persist message to database: ${message.id}`, error);
+      throw error;
     }
-
-    // Update timestamps
-    const now = Date.now();
-    session.lastActivityAt = now;
-    session.expiresAt = now + this.SESSION_TTL * 1000;
-
-    // Save updated session
-    await this.redisService.setSession(session);
-
-    console.log(`📝 Added message to session: ${teamChatId} (${session.messages.length} messages)`);
   }
 
   /**

@@ -64,8 +64,11 @@ export class WebSocketServer {
       // Room Events
       socket.on('room:join', async (roomId) => {
         try {
+          console.log(`🚪 User ${socket.data.userId} attempting to join room: ${roomId}`);
+
           await socket.join(roomId);
           socket.data.activeRooms.add(roomId);
+          console.log(`✅ User ${socket.data.userId} successfully joined room: ${roomId}`);
 
           // Check if session exists in Redis or load from DB
           let session = await this.sessionManager.getSession(roomId);
@@ -75,6 +78,7 @@ export class WebSocketServer {
             if (!session) {
               // Create new session if none exists
               session = await this.sessionManager.createSession(roomId, [socket.data.userId]);
+              console.log(`🆕 Created new session for room: ${roomId}`);
             }
           }
 
@@ -85,14 +89,26 @@ export class WebSocketServer {
             participants: session.participants,
             status: session.status,
           });
+          console.log(`📤 Sent session data to user ${socket.data.userId} for room ${roomId}:`, {
+            messageCount: session.messages.length,
+            participantCount: session.participants.length,
+          });
 
           // Send current presence list
           const presence = await this.redisService.getPresence(roomId);
           socket.emit('presence:list', presence);
+          console.log(
+            `📊 Sent presence list to user ${socket.data.userId} for room ${roomId}:`,
+            presence,
+          );
 
           // Send current read receipts
           const receipts = await this.redisService.getReadReceipts(roomId);
           socket.emit('receipt:list', receipts);
+          console.log(
+            `📖 Sent read receipts to user ${socket.data.userId} for room ${roomId}:`,
+            receipts,
+          );
 
           // Update user presence
           await this.redisService.updatePresence(roomId, {
@@ -108,11 +124,14 @@ export class WebSocketServer {
             isActive: true,
           });
 
+          // Get room information for debugging
+          const room = this.io.sockets.adapter.rooms.get(roomId);
+          const roomSize = room ? room.size : 0;
           console.log(
-            `✅ User ${socket.data.userId} joined room ${roomId} with session ${session.sessionId}`,
+            `✅ User ${socket.data.userId} joined room ${roomId} with session ${session.sessionId}. Room size: ${roomSize}`,
           );
         } catch (error) {
-          console.error('Error joining room:', error);
+          console.error(`❌ Error joining room ${roomId}:`, error);
           socket.emit('room:error', 'Failed to join room');
         }
       });
@@ -146,13 +165,20 @@ export class WebSocketServer {
         async (message: { teamId: string; content: string; type?: string; metadata?: any }) => {
           try {
             const timestamp = new Date().toISOString();
-            const messageId = `msg_${Date.now()}_${nanoid(10)}`;
+
+            // Use client-provided message ID if available, otherwise generate a new one
+            const messageId =
+              message.metadata?.clientMessageId || `msg_${Date.now()}_${nanoid(10)}`;
+
+            console.log(
+              `📨 Processing message: ${messageId} (client provided: ${!!message.metadata?.clientMessageId})`,
+            );
 
             // Create message data for session
             const messageData: MessageData = {
               id: messageId,
               content: message.content,
-              userId: socket.data.userId,
+              userId: message.type === 'assistant' ? 'assistant' : socket.data.userId,
               timestamp: Date.now(),
               type: (message.type as 'user' | 'assistant' | 'system') || 'user',
               metadata: message.metadata || {},
@@ -174,6 +200,31 @@ export class WebSocketServer {
               }
             }
 
+            // For AI messages, ensure immediate database persistence
+            if (message.type === 'assistant') {
+              try {
+                // Use the lambda client to persist AI messages immediately
+                const { lambdaClient } = await import('@/libs/trpc/client/lambda');
+                await lambdaClient.teamChat.addMessage.mutate({
+                  teamChatId: message.teamId,
+                  content: message.content,
+                  messageType: 'assistant',
+                  metadata: {
+                    ...message.metadata,
+                    redisMessageId: messageId,
+                    syncedFromWebSocket: true,
+                  },
+                });
+                console.log(`✅ AI message immediately persisted to database: ${messageId}`);
+              } catch (persistError) {
+                console.error(
+                  `❌ Failed to persist AI message to database: ${messageId}`,
+                  persistError,
+                );
+                // Don't fail the WebSocket flow, but log the error
+              }
+            }
+
             // Check if we need background sync (approaching 1000 message limit)
             if (await this.sessionManager.needsBackgroundSync(message.teamId)) {
               console.log(`🔄 Triggering background sync for ${message.teamId}`);
@@ -187,10 +238,10 @@ export class WebSocketServer {
             const streamMessage: MessageStreamData = {
               id: messageId,
               content: message.content,
-              userId: socket.data.userId,
+              userId: message.type === 'assistant' ? 'assistant' : socket.data.userId,
               teamId: message.teamId,
               timestamp,
-              type: 'message',
+              type: 'message', // Keep as 'message' for Redis compatibility, but userId will indicate AI
               metadata: message.metadata || {},
             };
 
@@ -202,8 +253,25 @@ export class WebSocketServer {
               console.error('Failed to add to message stream:', streamErr);
             }
 
-            // Broadcast to all users in the room
-            this.io.to(message.teamId).emit('message:new', streamMessage);
+            // Get room information for debugging
+            const room = this.io.sockets.adapter.rooms.get(message.teamId);
+            const roomSize = room ? room.size : 0;
+            console.log(
+              `📡 Broadcasting message ${messageId} to room ${message.teamId} (${roomSize} users)`,
+            );
+
+            // Broadcast to all users in the room EXCEPT the sender (to prevent duplication)
+            socket.broadcast.to(message.teamId).emit('message:new', streamMessage);
+
+            // Log broadcast details for debugging
+            console.log(`✅ Message ${messageId} broadcasted to room ${message.teamId}`, {
+              type: message.type,
+              userId: message.type === 'assistant' ? 'assistant' : socket.data.userId,
+              contentLength: message.content.length,
+              roomSize,
+              timestamp,
+              metadata: message.metadata,
+            });
 
             // Get session stats for monitoring
             const stats = await this.sessionManager.getSessionStats(message.teamId);

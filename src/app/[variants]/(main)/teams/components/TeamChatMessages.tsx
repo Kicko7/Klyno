@@ -43,10 +43,22 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
   const updateMessage = useTeamChatStore((state)=>state.updateMessage)
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    // If near bottom (within 200px), auto scroll
-    const el = messagesEndRef.current?.parentElement;
-    const nearBottom = el ? el.scrollHeight - el.scrollTop - el.clientHeight < 200 : true;
-    if (nearBottom) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = messagesEndRef.current?.parentElement;
+    if (!container) return;
+
+    const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 8;
+    // If already at bottom (or very close), keep it sticky to bottom
+    if (atBottom) {
+      // Jump to bottom without smooth to avoid bounce stacking on rapid streams
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      return;
+    }
+
+    // If not at bottom, avoid auto-scrolling unless new message is from current user or assistant stream
+    const last = messages?.[messages.length - 1];
+    if (!last) return;
+    const isAssistant = last.messageType === 'assistant';
+    if (isAssistant) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   if (isLoading) {
@@ -66,16 +78,17 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
 });
 
   return (
-    <Flexbox
+    <div
       style={{
         padding: '16px',
         width: '100%',
-        flexDirection: 'column',
-        gap: '16px',
+        height: '80vh',
         overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'flex-start', // Start from top, messages flow down
+        gap: '16px',
       }}
-      width={'100%'}
-      height={'80vh'}
     >
       {messages.map((message, index) => {
         const isAssistant = message.messageType === 'assistant';
@@ -101,7 +114,10 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
         const isCurrentUser = currentUser && userInfo && userInfo.id === currentUser.id;
 
         const avatar = isAssistant
-          ? currentSession?.meta || agentMeta // Use current session meta or fallback to agent meta
+          ? {
+              avatar: '🤖', // AI emoji
+              title: 'AI Assistant',
+            }
           : {
               avatar: userInfo?.avatar || userAvatar || DEFAULT_USER_AVATAR,
               title: userInfo?.fullName || userInfo?.username || userInfo?.email || 'Unknown User',
@@ -164,6 +180,31 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
                   model={(message.metadata as any)?.model || 'assistant'}
                   provider={(message.metadata as any)?.provider || 'openai'}
                 />
+              ) : isAssistant ? (
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: theme.colorTextSecondary,
+                    marginTop: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <span>🤖 AI Assistant</span>
+                  {(message.metadata as any)?.model && (
+                    <>
+                      <span>•</span>
+                      <span>{(message.metadata as any)?.model}</span>
+                    </>
+                  )}
+                  {(message.metadata as any)?.provider && (
+                    <>
+                      <span>•</span>
+                      <span>{(message.metadata as any)?.provider}</span>
+                    </>
+                  )}
+                </div>
               ) : !isAssistant && userInfo ? (
                 <div
                   style={{
@@ -203,7 +244,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
       })}
       {/* Invisible div to help with auto-scrolling */}
       <div ref={messagesEndRef} />
-    </Flexbox>
+    </div>
   );
 });
 
