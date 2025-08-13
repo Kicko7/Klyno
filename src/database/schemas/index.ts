@@ -1,6 +1,8 @@
 export * from './agent';
 export * from './aiInfra';
 export * from './asyncTask';
+export * from './creditTransactions';
+export * from './credits';
 export * from './document';
 export * from './file';
 export * from './message';
@@ -14,3 +16,6 @@ export * from './session';
 export * from './teamChat';
 export * from './topic';
 export * from './user';
+export * from './userCredits';
+export * from './userSubscriptions';
+export * from './userUsageQuotas';

@@ -49,6 +49,7 @@ export const config = {
     '/signup(.*)',
     '/oauth(.*)',
     '/oidc(.*)',
+    '/pricing',
     // ↓ cloud ↓
   ],
 };

@@ -1,4 +1,4 @@
-import { getRedisService } from './redisServiceFactory';
+import { getOptimizedRedisService } from './optimized-redis-service-factory';
 import { SessionManager } from './sessionManager';
 import { SyncService } from './syncService';
 
@@ -10,13 +10,13 @@ let syncServiceInstance: SyncService | null = null;
  */
 export async function getSessionManager(): Promise<SessionManager> {
   if (!sessionManagerInstance) {
-    const redisService = await getRedisService();
+    const redisService = await getOptimizedRedisService();
     const syncService = await getSyncService();
-    
+
     sessionManagerInstance = new SessionManager(redisService as any, syncService);
     console.log('✅ SessionManager initialized');
   }
-  
+
   return sessionManagerInstance;
 }
 
@@ -28,7 +28,7 @@ export async function getSyncService(): Promise<SyncService> {
     syncServiceInstance = new SyncService();
     console.log('✅ SyncService initialized');
   }
-  
+
   return syncServiceInstance;
 }
 
@@ -37,39 +37,39 @@ export async function getSyncService(): Promise<SyncService> {
  */
 export function startBackgroundSyncWorker(intervalMs: number = 60000): void {
   console.log('🚀 Starting background sync worker...');
-  
+
   setInterval(async () => {
     try {
       const sessionManager = await getSessionManager();
       const syncService = await getSyncService();
-      
+
       // Get sessions that need syncing
       const expiringSessions = await sessionManager.getExpiringSessions();
-      
+
       if (expiringSessions.length > 0) {
         console.log(`⏰ Found ${expiringSessions.length} sessions to sync`);
-        
+
         for (const session of expiringSessions) {
           try {
             // Mark as syncing
             await sessionManager.markSessionSyncing(session.teamChatId);
-            
+
             // Sync to database
             await syncService.syncSessionToDb(session);
-            
+
             // Remove from Redis
             await sessionManager.expireSession(session.teamChatId);
-            
+
             console.log(`✅ Synced and expired session: ${session.teamChatId}`);
           } catch (error) {
             console.error(`Failed to sync session ${session.teamChatId}:`, error);
           }
         }
       }
-      
+
       // Also check for sessions that need background sync (approaching limit)
       const activeSessions = await sessionManager.getAllActiveSessions();
-      
+
       for (const session of activeSessions) {
         if (await sessionManager.needsBackgroundSync(session.teamChatId)) {
           console.log(`🔄 Background sync needed for: ${session.teamChatId}`);
@@ -97,7 +97,7 @@ export const SessionManagerUtils = {
   }> {
     const sessionManager = await getSessionManager();
     const sessions = await sessionManager.getAllActiveSessions();
-    
+
     if (sessions.length === 0) {
       return {
         totalActiveSessions: 0,
@@ -106,10 +106,10 @@ export const SessionManagerUtils = {
         avgMessagesPerSession: 0,
       };
     }
-    
-    const totalMessages = sessions.reduce((sum, s) => sum + s.messages.length, 0);
-    const allParticipants = new Set(sessions.flatMap(s => s.participants));
-    
+
+    const totalMessages = sessions.reduce((sum: number, s: any) => sum + s.messages.length, 0);
+    const allParticipants = new Set(sessions.flatMap((s: any) => s.participants));
+
     return {
       totalActiveSessions: sessions.length,
       totalMessages,
@@ -117,7 +117,7 @@ export const SessionManagerUtils = {
       avgMessagesPerSession: Math.round(totalMessages / sessions.length),
     };
   },
-  
+
   /**
    * Force sync all active sessions
    */
@@ -125,9 +125,9 @@ export const SessionManagerUtils = {
     const sessionManager = await getSessionManager();
     const syncService = await getSyncService();
     const sessions = await sessionManager.getAllActiveSessions();
-    
+
     console.log(`🔄 Force syncing ${sessions.length} active sessions...`);
-    
+
     for (const session of sessions) {
       try {
         await syncService.syncSessionToDb(session);
@@ -137,16 +137,16 @@ export const SessionManagerUtils = {
       }
     }
   },
-  
+
   /**
    * Clear all sessions (emergency use only)
    */
   async clearAllSessions(): Promise<void> {
     const sessionManager = await getSessionManager();
     const sessions = await sessionManager.getAllActiveSessions();
-    
+
     console.warn(`⚠️ Clearing ${sessions.length} active sessions...`);
-    
+
     for (const session of sessions) {
       try {
         await sessionManager.expireSession(session.teamChatId);

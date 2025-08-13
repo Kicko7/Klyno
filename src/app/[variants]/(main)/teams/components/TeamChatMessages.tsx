@@ -43,7 +43,10 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
   const updateMessage = useTeamChatStore((state)=>state.updateMessage)
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // If near bottom (within 200px), auto scroll
+    const el = messagesEndRef.current?.parentElement;
+    const nearBottom = el ? el.scrollHeight - el.scrollTop - el.clientHeight < 200 : true;
+    if (nearBottom) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   if (isLoading) {

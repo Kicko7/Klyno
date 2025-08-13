@@ -7,7 +7,9 @@ import { isServerMode } from '@/const/version';
 import { TeamChatItem, TeamChatMessageItem } from '@/database/schemas/teamChat';
 import { convertUsage } from '@/libs/model-runtime/utils/usageConverter';
 import { lambdaClient } from '@/libs/trpc/client';
+// Removed server-side service imports - these should not be used in client-side code
 import { chatService } from '@/services/chat';
+import { teamChatCreditService } from '@/services/teamChatCreditService/index';
 import { TeamChatService } from '@/services/teamChatService';
 import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
@@ -93,6 +95,8 @@ interface TeamChatState {
 
   // Redis/WebSocket Integration
   updateMessages: (teamChatId: string, messages: any[]) => void;
+  upsertMessages: (teamChatId: string, messages: any[]) => void;
+  removeMessage: (teamChatId: string, messageId: string) => void;
   updatePresence: (teamChatId: string, presence: Record<string, any>) => void;
   updateTypingStatus: (teamChatId: string, userId: string, isTyping: boolean) => void;
   updateReadReceipts: (teamChatId: string, receipts: Record<string, any>) => void;
@@ -128,6 +132,8 @@ interface TeamChatState {
   // Message subscription actions (legacy - now handled by WebSocket)
   subscribeToChat: (chatId: string, userId: string) => void;
   unsubscribeFromChat: (chatId: string, userId: string) => void;
+  // Credit tracking service
+  creditService: typeof teamChatCreditService;
   messageEditingIds: string[];
 }
 
@@ -202,6 +208,7 @@ type TeamChatStore = TeamChatState & {
   unsubscribeFromChat: (chatId: string, userId: string) => void;
   startMessagePolling: (chatId: string) => void;
   stopMessagePolling: (chatId: string) => void;
+  creditService: typeof teamChatCreditService;
   getMessageById: (id: string) => void;
   deleteMessage: (teamChatId: string, messageId: string) => void;
   copyMessage: (content: string) => void;
@@ -226,6 +233,9 @@ export const useTeamChatStore = create<TeamChatStore>()(
       messageSubscriptions: {},
       messageEditingIds: [],
 
+      // Initialize credit tracking service
+      creditService: teamChatCreditService,
+
       // Message subscription management (legacy - now handled by WebSocket)
       subscribeToChat: (chatId: string, userId: string) => {
         console.log('⚠️ subscribeToChat is deprecated - use WebSocket instead');
@@ -246,18 +256,56 @@ export const useTeamChatStore = create<TeamChatStore>()(
 
       // Redis/WebSocket Integration
       updateMessages: (teamChatId: string, messages: any[]) => {
-        set((state) => {
-          const existingMessages = state.messages[teamChatId] || [];
-          const newMessages = messages.filter(
-            (msg) => !existingMessages.some((existing) => existing.id === msg.id),
-          );
+        // Backward-compatible: delegate to upsert to ensure replacement and sorting
+        get().upsertMessages(teamChatId, messages as any);
+      },
 
-          if (newMessages.length === 0) return state;
+      // Upsert messages: replace existing by id or append if new; keep list sorted ascending by createdAt
+      upsertMessages: (teamChatId: string, messagesToUpsert: any[]) => {
+        set((state) => {
+          const existing = state.messages[teamChatId] || [];
+          const byId = new Map(existing.map((m: any) => [m.id, m]));
+
+          for (const msg of messagesToUpsert) {
+            const prev = byId.get(msg.id);
+            if (prev) {
+              // preserve original createdAt if missing on payload
+              const createdAt = (msg as any).createdAt ?? prev.createdAt;
+              const updated = { ...prev, ...msg, createdAt };
+              byId.set(msg.id, updated);
+            } else {
+              byId.set(msg.id, msg);
+            }
+          }
+
+          // sort ascending by createdAt, fallback to id for stable order
+          const sorted = Array.from(byId.values()).sort((a: any, b: any) => {
+            const at =
+              a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
+            const bt =
+              b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
+            if (at !== bt) return at - bt;
+            return String(a.id).localeCompare(String(b.id));
+          });
 
           return {
             messages: {
               ...state.messages,
-              [teamChatId]: [...existingMessages, ...newMessages],
+              [teamChatId]: sorted,
+            },
+          };
+        });
+      },
+
+      // Remove a message by id
+      removeMessage: (teamChatId: string, messageId: string) => {
+        set((state) => {
+          const existing = state.messages[teamChatId] || [];
+          const filtered = existing.filter((m: any) => m.id !== messageId);
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: filtered,
             },
           };
         });
@@ -779,7 +827,61 @@ export const useTeamChatStore = create<TeamChatStore>()(
             };
           }
 
-          // Persist to database
+
+          // First, update the UI immediately for better UX
+          set((state) => {
+            const existingMessages = state.messages[teamChatId] || [];
+            let updatedMessages;
+
+            if (messageId) {
+              // Update existing message if messageId is provided
+              const existingIndex = existingMessages.findIndex((m) => m.id === messageId);
+              if (existingIndex >= 0) {
+                updatedMessages = [...existingMessages];
+                updatedMessages[existingIndex] = {
+                  ...updatedMessages[existingIndex],
+                  content,
+                  metadata: {
+                    ...(updatedMessages[existingIndex].metadata || {}),
+                    ...(messageMetadata || {}),
+                  },
+                };
+              } else {
+                // Add new message if not found
+                const newMessage = {
+                  id: messageId,
+                  content,
+                  messageType,
+                  teamChatId,
+                  metadata: messageMetadata || {},
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                };
+                updatedMessages = [...existingMessages, newMessage as any];
+              }
+            } else {
+              // Add new message with generated ID
+              const newMessage = {
+                id: `temp-${Date.now()}`,
+                content,
+                messageType,
+                teamChatId,
+                metadata: messageMetadata || {},
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              };
+              updatedMessages = [...existingMessages, newMessage as any];
+            }
+
+            return {
+              messages: {
+                ...state.messages,
+                [teamChatId]: updatedMessages,
+              },
+            };
+          });
+
+          // Then persist to database in background
           let message;
           if (isServerMode) {
             console.log('🚄 Using tRPC client to send message');
@@ -828,7 +930,26 @@ export const useTeamChatStore = create<TeamChatStore>()(
 
           console.log('✅ Message sent and stored');
 
-          // Retry logic for assistant messages
+          // Track credit consumption for AI-generated messages
+          if (messageType === 'assistant' && message?.id) {
+            try {
+              const state = get();
+              const currentUser = useUserStore.getState().user;
+              if (currentUser) {
+                await state.creditService.trackMessageCredits(
+                  currentUser.id,
+                  teamChatId,
+                  message.id,
+                  messageType,
+                  messageMetadata,
+                );
+              }
+            } catch (error) {
+              console.error('❌ Failed to track credits for team chat message:', error);
+              // Don't throw error to avoid breaking the message flow
+            }
+          }
+
           if (retry && messageType === 'assistant') {
             console.log('🔄 Retrying AI message with updated API key...');
             const state = get();

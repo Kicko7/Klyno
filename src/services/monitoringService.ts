@@ -1,9 +1,10 @@
-import { OptimizedWebSocketServer } from '@/server/websocket/optimized-server';
+import { WebSocketServer } from '@/server/websocket/server';
+
 import { OptimizedRedisService } from './optimized-redis-service';
 import { OptimizedSyncService } from './optimized-sync-service';
 
 interface MonitoringInstances {
-  wsServer: OptimizedWebSocketServer | null;
+  wsServer: WebSocketServer | null;
   redisService: OptimizedRedisService | null;
   syncService: OptimizedSyncService | null;
 }
@@ -26,9 +27,9 @@ class MonitoringService {
   }
 
   setInstances(
-    wsServer: OptimizedWebSocketServer,
+    wsServer: WebSocketServer,
     redisService: OptimizedRedisService,
-    syncService: OptimizedSyncService
+    syncService: OptimizedSyncService,
   ) {
     this.instances = {
       wsServer,
@@ -47,7 +48,7 @@ class MonitoringService {
 
     return {
       timestamp: new Date().toISOString(),
-      websocket: wsServer.getConnectionStats(),
+      websocket: {},
       redis: redisService.getHealth(),
       sync: syncService.getSyncMetrics(),
       system: {

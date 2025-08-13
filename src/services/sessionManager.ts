@@ -82,7 +82,7 @@ export class SessionManager {
   async loadSessionFromDb(teamChatId: string): Promise<ChatSession | null> {
     try {
       console.log(`📥 Loading session from DB for team chat: ${teamChatId}`);
-      
+
       // Load recent messages from database
       const messages = await lambdaClient.teamChat.getMessages.query({
         teamChatId,
@@ -123,7 +123,7 @@ export class SessionManager {
       // Cache in Redis
       await this.redisService.setSession(session);
       console.log(`✅ Loaded ${messages.length} messages from DB for team chat: ${teamChatId}`);
-      
+
       return session;
     } catch (error) {
       console.error(`Error loading session from DB for ${teamChatId}:`, error);
@@ -136,7 +136,7 @@ export class SessionManager {
    */
   async appendMessage(teamChatId: string, message: MessageData): Promise<void> {
     let session = await this.getSession(teamChatId);
-    
+
     if (!session) {
       // Create new session if doesn't exist
       session = await this.createSession(teamChatId, [message.userId]);
@@ -169,8 +169,7 @@ export class SessionManager {
 
     // Save updated session
     await this.redisService.setSession(session);
-    await this.redisService.appendMessage(teamChatId, message);
-    
+
     console.log(`📝 Added message to session: ${teamChatId} (${session.messages.length} messages)`);
   }
 
@@ -179,7 +178,7 @@ export class SessionManager {
    */
   async updateSession(teamChatId: string, messages: MessageData[]): Promise<void> {
     let session = await this.getSession(teamChatId);
-    
+
     if (!session) {
       const participants = [...new Set(messages.map((m) => m.userId))];
       session = await this.createSession(teamChatId, participants);
@@ -190,7 +189,7 @@ export class SessionManager {
     if (totalMessages > this.MAX_MESSAGES) {
       const toRemove = totalMessages - this.MAX_MESSAGES;
       const removedMessages = session.messages.splice(0, toRemove);
-      
+
       // Sync removed messages to DB
       const unsyncedMessages = removedMessages.filter((m) => !m.syncedToDb);
       if (unsyncedMessages.length > 0) {
@@ -242,14 +241,27 @@ export class SessionManager {
       const now = Date.now();
       const expiryThreshold = now + 60000; // Sessions expiring in next minute
 
-      return allSessions.filter(
-        (session) => 
-          session.status === 'active' && 
+      return (allSessions as ChatSession[]).filter(
+        (session: ChatSession) =>
+          session.status === 'active' &&
           session.expiresAt <= expiryThreshold &&
-          session.messages.some((m) => !m.syncedToDb) // Only if has unsynced messages
+          session.messages.some((m: MessageData) => !m.syncedToDb), // Only if has unsynced messages
       );
     } catch (error) {
       console.error('Error getting expiring sessions:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get all active sessions currently stored in Redis
+   */
+  async getAllActiveSessions(): Promise<ChatSession[]> {
+    try {
+      const sessions = await this.redisService.getAllActiveSessions();
+      return (sessions || []) as ChatSession[];
+    } catch (error) {
+      console.error('Error getting all active sessions:', error);
       return [];
     }
   }
@@ -332,7 +344,7 @@ export class SessionManager {
 
     if (messagesToSync.length > 0) {
       await this.syncService.batchSyncMessages(teamChatId, messagesToSync);
-      
+
       // Mark as synced in session
       session.messages.forEach((msg, index) => {
         if (index < halfIndex) {
@@ -341,7 +353,9 @@ export class SessionManager {
       });
 
       await this.redisService.setSession(session);
-      console.log(`🔄 Background sync completed for ${teamChatId}: ${messagesToSync.length} messages`);
+      console.log(
+        `🔄 Background sync completed for ${teamChatId}: ${messagesToSync.length} messages`,
+      );
     }
   }
 }

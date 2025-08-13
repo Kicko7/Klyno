@@ -6,8 +6,8 @@ import { setTimeout as sleep } from 'timers/promises';
 import { db } from '@/database';
 import { credits } from '@/database/schemas/credits';
 import { teamChatMessages } from '@/database/schemas/teamChat';
+import { creditServerService } from '@/services/creditService';
 
-import { CreditService } from './creditService';
 import { OptimizedRedisService } from './optimized-redis-service';
 
 interface SyncMetrics {
@@ -26,7 +26,7 @@ interface BatchSyncConfig {
 }
 
 export class OptimizedSyncService extends EventEmitter {
-  private creditService = new CreditService();
+  private creditService = creditServerService;
   private redisService: OptimizedRedisService;
   private syncMetrics: SyncMetrics;
   private syncInterval: NodeJS.Timeout | null = null;

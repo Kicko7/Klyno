@@ -1,9 +1,7 @@
-import { Redis } from '@upstash/redis';
-import { RedisClientType, createClient } from 'redis';
-
-import { redisConfigSchema } from '@/config/redis';
-
-let redisClient: Redis | RedisClientType | null = null;
+// Dynamic imports to prevent client-side execution of Node.js modules
+let Redis: any;
+let RedisClientType: any;
+let createClient: any;
 
 // Mock Redis client for development when Redis is disabled
 const createMockRedisClient = () => {
@@ -26,18 +24,35 @@ const createMockRedisClient = () => {
 };
 
 export const getRedisClient = async () => {
-  if (redisClient) return redisClient;
+  // Lazy load Redis modules only when needed
+  if (!Redis) {
+    try {
+      // Dynamic import to prevent client-side execution
+      const upstashRedis = await import('@upstash/redis');
+      const redisModule = await import('redis');
 
-  const config = redisConfigSchema.parse({
+      Redis = upstashRedis.Redis;
+      RedisClientType = (redisModule as any).RedisClientType;
+      createClient = redisModule.createClient;
+    } catch (error) {
+      console.warn('⚠️ Redis modules not available (likely client-side):', error);
+      // Return mock client for client-side
+      return createMockRedisClient();
+    }
+  }
+
+  let redisClient: any = null;
+
+  const config = {
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
     REDIS_MODE: process.env.REDIS_MODE,
     REDIS_URL: process.env.REDIS_URL,
-  });
+  };
 
   if (config.REDIS_MODE === 'disabled') {
     console.log('⚠️ Redis is disabled - using mock client for development');
-    redisClient = createMockRedisClient() as any;
+    redisClient = createMockRedisClient();
     return redisClient;
   }
 
@@ -48,17 +63,17 @@ export const getRedisClient = async () => {
         url: config.REDIS_URL || 'redis://localhost:6379',
       });
 
-      await (redisClient as RedisClientType).connect();
+      await redisClient.connect();
       console.log('✅ Connected to local Redis');
     } catch (error) {
       console.warn('⚠️ Failed to connect to local Redis, falling back to mock client:', error);
-      redisClient = createMockRedisClient() as any;
+      redisClient = createMockRedisClient();
     }
   } else {
     // Use Upstash Redis
     if (!config.UPSTASH_REDIS_REST_URL || !config.UPSTASH_REDIS_REST_TOKEN) {
       console.warn('⚠️ Upstash Redis credentials not provided, falling back to mock client');
-      redisClient = createMockRedisClient() as any;
+      redisClient = createMockRedisClient();
     } else {
       try {
         redisClient = new Redis({
@@ -68,7 +83,7 @@ export const getRedisClient = async () => {
         console.log('✅ Connected to Upstash Redis');
       } catch (error) {
         console.warn('⚠️ Failed to connect to Upstash Redis, falling back to mock client:', error);
-        redisClient = createMockRedisClient() as any;
+        redisClient = createMockRedisClient();
       }
     }
   }
@@ -77,8 +92,13 @@ export const getRedisClient = async () => {
 };
 
 export const getRedisService = () => {
-  if (!redisClient) {
-    throw new Error('Redis client not initialized. Call getRedisClient() first.');
+  // This function should only be called after getRedisClient has been called
+  // For client-side safety, return mock service if Redis is not available
+  try {
+    // Try to get the Redis client, but fall back to mock if it fails
+    return getRedisClient();
+  } catch (error) {
+    console.warn('⚠️ Redis service not available, returning mock service:', error);
+    return createMockRedisClient();
   }
-  return redisClient;
 };

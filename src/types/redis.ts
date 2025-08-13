@@ -47,7 +47,7 @@ export const MessageStreamSchema = z.object({
   userId: z.string(),
   teamId: z.string(),
   timestamp: z.string(),
-  type: z.enum(['message', 'presence', 'typing', 'read_receipt']),
+  type: z.enum(['message', 'presence', 'typing', 'read_receipt']).default('message'),
   metadata: z.record(z.unknown()).optional(),
 });
 
