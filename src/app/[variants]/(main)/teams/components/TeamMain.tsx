@@ -2,7 +2,7 @@
 
 import { Avatar } from '@lobehub/ui';
 import { Skeleton } from 'antd';
-import { createStyles } from 'antd-style';
+import { createStyles, useTheme } from 'antd-style';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Flexbox } from 'react-layout-kit';
@@ -35,7 +35,7 @@ interface TeamMainProps {
 const TeamMain = memo<TeamMainProps>(({ className }) => {
   const { t } = useTranslation(['chat']);
   const { styles } = useStyles();
-
+  const theme = useTheme()
   const { organizations } = useOrganizationStore();
   const currentOrganization = organizations?.[0];
 
@@ -65,7 +65,7 @@ const TeamMain = memo<TeamMainProps>(({ className }) => {
     <Flexbox align={'center'} className={className} gap={12} horizontal>
       <Avatar avatar={'🤖'} background={'#0066cc'} size={32} title={displayTitle} />
       <Flexbox align={'center'} className={styles.container} gap={8} horizontal>
-        <div className={styles.title}>{displayTitle}</div>
+        <div className={styles.title} style={{  color: theme.appearance === "dark" ? "#fefefe":'#080808'}}>{displayTitle}</div>
       </Flexbox>
     </Flexbox>
   );

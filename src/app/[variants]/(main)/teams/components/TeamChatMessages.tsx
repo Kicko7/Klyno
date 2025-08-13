@@ -3,7 +3,7 @@
 import { ModelTag } from '@lobehub/icons';
 import { useTheme } from 'antd-style';
 import isEqual from 'lodash/isEqual';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { memo, useEffect, useRef } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
@@ -11,6 +11,7 @@ import { DEFAULT_USER_AVATAR } from '@/const/meta';
 import { TeamChatMessageItem } from '@/database/schemas/teamChat';
 import ChatItem from '@/features/ChatItem';
 import Usage from '@/features/Conversation/Extras/Usage';
+import ActionsBar from '@/features/Conversation/components/ChatItem/ActionsBar';
 import { useSessionStore } from '@/store/session';
 import { sessionMetaSelectors } from '@/store/session/selectors';
 import { sessionSelectors } from '@/store/session/slices/session/selectors';
@@ -20,6 +21,7 @@ import { userProfileSelectors } from '@/store/user/selectors';
 
 import TeamAPIKeyForm from './TeamAPIKeyForm';
 import TeamChatWelcome from './TeamChatWelcome';
+import TeamChatActions from '../[teamId]/components/TeamChatActions';
 
 interface TeamChatMessagesProps {
   messages: TeamChatMessageItem[];
@@ -36,6 +38,9 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
   const theme = useTheme();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const isMessageEditing = useTeamChatStore((state)=>state.messageEditingIds)
+  const toggleMessageEditing = useTeamChatStore((state)=>state.toggleMessageEditing)
+  const updateMessage = useTeamChatStore((state)=>state.updateMessage)
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     const container = messagesEndRef.current?.parentElement;
@@ -68,6 +73,10 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
     return <TeamChatWelcome />;
   }
 
+  const MemoizedActionsBar = React.memo(({ id, index }:{id:any,index:number}) => {
+  return <ActionsBar id={id} index={index} />;
+});
+
   return (
     <div
       style={{
@@ -81,7 +90,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
         gap: '16px',
       }}
     >
-      {messages.map((message) => {
+      {messages.map((message, index) => {
         const isAssistant = message.messageType === 'assistant';
         let isApiKeyError = false;
         let errorProvider = 'openai';
@@ -142,14 +151,28 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
 
         return (
           <ChatItem
+            style={{
+              color: theme.appearance === 'dark' ? '#fefefe' : '#080808',
+              borderRadius: 8,
+              padding: 8,
+            }}
             key={message.id}
             avatar={avatar}
-            editing={false}
+            actions={<TeamChatActions id={message.id} index={index} />}
+            editing={isMessageEditing.includes(message.id)}
             loading={!message.content && isAssistant} // Show loading for empty assistant messages
             message={actualMessage || ''}
             placement={isAssistant ? 'left' : isCurrentUser ? 'right' : 'left'}
             primary={!isAssistant}
             time={new Date(message.createdAt).getTime()}
+            onChange={(value: string) => {
+              // Update the message content in real-time during editing
+              updateMessage(message.teamChatId, message.id, value);
+            }}
+            onEditingChange={(editing: boolean) => {
+              // Toggle editing mode
+              toggleMessageEditing(message.id, editing);
+            }}
             messageExtra={
               isAssistant && (message.metadata as any)?.totalTokens ? (
                 <Usage
@@ -191,8 +214,24 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
                     display: 'flex',
                     alignItems: 'center',
                     gap: '4px',
+                    flexDirection:"column"
                   }}
                 >
+                   {Array.isArray(message?.metadata?.files) &&
+                    message.metadata.files.length > 0 &&
+                    (() => {
+                      const firstImage = message.metadata.files.find(
+                        (file) => file.type && file.type.startsWith('image/'),
+                      );
+
+                      return firstImage ? (
+                        <img
+                          src={firstImage.url}
+                          alt={firstImage.name}
+                          style={{ maxWidth: '150px', borderRadius: '8px' ,maxHeight:'150px',objectFit:"contain"}}
+                        />
+                      ) : null;
+                    })()}
                   {userInfo.email && <span>{userInfo.email}</span>}
                   {userInfo.email && userInfo.username && <span>•</span>}
                   {userInfo.username && <span>@{userInfo.username}</span>}

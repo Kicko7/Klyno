@@ -9,6 +9,7 @@ export const uploadRouter = router({
     .mutation(async ({ input }) => {
       const s3 = new S3();
 
+      console.log(input.pathname)
       return await s3.createPreSignedUrl(input.pathname);
     }),
 });
