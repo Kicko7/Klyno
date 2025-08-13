@@ -48,26 +48,16 @@ const MAX_HISTORY_MESSAGES = 20;
 // Function to gather chat history and construct context
 const gatherChatHistory = async (
   teamChatId: string,
-  currentMessage: string,
-  messages: Record<string, TeamChatMessageItem[]>,
-  agentConfig: any,
+  maxMessages: number = MAX_HISTORY_MESSAGES,
 ): Promise<CreateMessageParams[]> => {
   const result: CreateMessageParams[] = [];
 
-  // Add system role if configured
-  if (agentConfig.systemRole) {
-    result.push({
-      role: 'system',
-      content: agentConfig.systemRole,
-      sessionId: teamChatId,
-    });
-  }
+  // Get chat history from the store
+  const teamChatStore = useTeamChatStore.getState();
+  const chatHistory = teamChatStore.messages[teamChatId] || [];
 
-  // Get chat history
-  const chatHistory = messages[teamChatId] || [];
-
-  // Take the last MAX_HISTORY_MESSAGES messages
-  const recentHistory = chatHistory.slice(-MAX_HISTORY_MESSAGES);
+  // Take the last maxMessages messages
+  const recentHistory = chatHistory.slice(-maxMessages);
 
   // Add history messages with user context for multi-user chat
   recentHistory.forEach((msg) => {
@@ -171,8 +161,11 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
 
       console.log('Sending user message:', messageToSend);
 
+      // Generate a consistent message ID that will be used by both client and server
+      const consistentMessageId = `msg_${Date.now()}_${nanoid(10)}`;
+
       // Prepare user metadata for the message
-      const userMetadataBase = currentUser
+      const userMetadata = currentUser
         ? {
             userInfo: {
               id: currentUser.id,
@@ -183,223 +176,187 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
               avatar: currentUser.avatar,
             },
             isMultiUserChat: true,
+            clientMessageId: consistentMessageId, // Pass the consistent ID
           }
-        : {};
+        : { clientMessageId: consistentMessageId };
 
-      // Create a client-side temporary id to reconcile with server message
-      const tempClientId = `tmp_${Date.now()}_${nanoid()}`;
-      const userMetadata = { ...userMetadataBase, clientTempId: tempClientId };
-
-      // 1. Add user message to UI immediately (non-blocking) with temp id
-      // Send user message with user information
-      sendTeamMessage(teamChatId, messageToSend, 'user', tempClientId, false, userMetadata);
-
-      // Send message via WebSocket for real-time updates to all team members
-      // This will handle both real-time broadcasting and database persistence
-      sendWebSocketMessage(messageToSend, 'user', userMetadata);
-      console.log('User message sent successfully via WebSocket');
-
-      // 2. Create a temporary assistant message for AI response with empty content initially
-      const assistantMessageId = nanoid();
-      sendTeamMessage(teamChatId, '', 'assistant', assistantMessageId);
-      console.log('Placeholder assistant message created:', assistantMessageId);
-
-      // 3. Generate AI response using the chat service with history and RAG
-      const sessionId = teamChatId;
-
-      // Get chat history including system role if configured
-      const messages = await gatherChatHistory(
-        teamChatId,
-        messageToSend,
-        teamChatStore.messages,
-        agentConfig,
-      );
-
-      // Add current user message
-      const currentMessage: CreateMessageParams = {
-        role: 'user',
+      // 1. Add user message to local store with the consistent ID
+      const userMessageId = await teamChatStore.addMessage(teamChatId, {
+        id: consistentMessageId, // Use the consistent ID
         content: messageToSend,
-        sessionId,
-        files: fileList
-          .map((f) => ({
-            id: f.id,
-            fileType: f.file.type || 'application/octet-stream',
-            name: f.file.name,
-            size: f.file.size,
-            url: f.fileUrl || '',
-          }))
-          .filter(Boolean),
-      };
+        messageType: 'user',
+        userId: currentUser?.id || 'unknown',
+        metadata: userMetadata,
+        isLocal: false, // This will trigger database persistence
+      });
 
-      // Check if search/RAG is enabled and handle it
-      const isSearchEnabled = agentConfig.plugins?.includes('search');
-      if (isSearchEnabled) {
-        try {
-          // Get chat history for context
-          const historyContext = messages.filter((m) => m.role !== 'system').map((m) => m.content);
+      // 2. Send message via WebSocket with the consistent ID for real-time updates
+      sendWebSocketMessage(messageToSend, 'user', userMetadata, consistentMessageId);
+      console.log('User message sent successfully via WebSocket with ID:', consistentMessageId);
 
-          // Rewrite query for better semantic search
-          // Create payload for query rewriting
-          const rewritePayload = chainRewriteQuery(messageToSend, historyContext);
+      // 3. Create a temporary assistant message for AI response
+      const assistantMessageId = `assistant_${Date.now()}_${nanoid(10)}`;
 
-          // Get rewritten query
-          const rewriteResponse = await chatService.createAssistantMessage({
-            messages: rewritePayload.messages as ChatMessage[],
-            model: agentConfig.model,
-            provider: agentConfig.provider,
-          });
+      // Add the assistant message to local store with isLocal: true initially (temporary)
+      await teamChatStore.addMessage(teamChatId, {
+        id: assistantMessageId,
+        content: 'Thinking...',
+        messageType: 'assistant',
+        userId: 'assistant',
+        metadata: {
+          isThinking: true,
+          clientMessageId: assistantMessageId, // Add clientMessageId for consistency
+        },
+        isLocal: true, // Temporary until AI response is complete
+      });
 
-          const rewrittenQuery = rewriteResponse.text || messageToSend;
-
-          // Get relevant chunks from knowledge base
-          // Use chat service to get search results
-          const searchResponse = await chatService.createAssistantMessage({
-            messages: [
-              {
-                role: 'user',
-                content: String(rewrittenQuery),
-                id: nanoid(),
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-                meta: {},
-              },
-            ],
-            model: agentConfig.model,
-            provider: agentConfig.provider,
-            enabledSearch: true,
-          });
-
-          if (searchResponse.text) {
-            // Add search results as context
-            currentMessage.content =
-              `${messageToSend}\n\nRelevant context:\n${searchResponse.text}`.trim();
-          }
-        } catch (error) {
-          console.error('Error processing RAG context:', error);
-          // Continue without RAG if there's an error
+      // 4. Generate AI response
+      try {
+        const agentConfig = agentSelectors.currentAgentConfig(agentState);
+        if (!agentConfig) {
+          throw new Error('No agent configuration found');
         }
-      }
 
-      // Add the current message to the history
-      messages.push(currentMessage);
+        // Gather chat history for context
+        const chatHistory = await gatherChatHistory(teamChatId, MAX_HISTORY_MESSAGES);
+        console.log('Gathered chat history for AI context:', chatHistory.length, 'messages');
 
-      let aiResponse = '';
+        // Create messages array for AI service
+        const messages: CreateMessageParams[] = [
+          ...chatHistory,
+          {
+            role: 'user',
+            content: messageToSend,
+            sessionId: teamChatId,
+          },
+        ];
 
-      // Stream AI response using proper streaming API
-      await chatService.createAssistantMessageStream({
-        params: {
-          messages: messages as unknown as ChatMessage[],
-          model: agentConfig.model,
-          provider: agentConfig.provider,
-          ...agentConfig.params,
-          plugins: agentConfig.plugins,
-        },
-        onMessageHandle: (chunk) => {
-          // Handle different chunk types like main chat
-          switch (chunk.type) {
-            case 'text': {
-              aiResponse += chunk.text;
-              // Update the assistant message in real-time for streaming effect
-              sendTeamMessage(teamChatId, aiResponse, 'assistant', assistantMessageId);
-              break;
-            }
-            case 'tool_calls': {
-              // Handle tool calls if needed
-              console.log('Tool calls received:', chunk.tool_calls);
-              break;
-            }
-            case 'reasoning': {
-              // Handle reasoning if needed
-              console.log('Reasoning chunk:', chunk.text);
-              break;
-            }
-            default: {
-              // Handle other chunk types
-              if ('text' in chunk && chunk.text) {
+        // Add system role if configured
+        if (agentConfig.systemRole) {
+          messages.unshift({
+            role: 'system',
+            content: agentConfig.systemRole,
+            sessionId: teamChatId,
+          });
+        }
+
+        // Generate AI response
+        let aiResponse = '';
+        await chatService.createAssistantMessageStream({
+          params: {
+            messages: messages as any,
+            model: agentConfig.model,
+            provider: agentConfig.provider,
+            ...agentConfig.params,
+            plugins: agentConfig.plugins,
+          },
+          onMessageHandle: async (chunk) => {
+            // Handle different chunk types
+            switch (chunk.type) {
+              case 'text': {
                 aiResponse += chunk.text;
-                sendTeamMessage(teamChatId, aiResponse, 'assistant', assistantMessageId);
+                // Update the assistant message in real-time for streaming effect
+                await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
+                  content: aiResponse,
+                  metadata: {
+                    isThinking: false,
+                    clientMessageId: assistantMessageId, // Keep clientMessageId consistent
+                  },
+                });
+                break;
+              }
+              case 'tool_calls': {
+                console.log('Tool calls received:', chunk.tool_calls);
+                break;
+              }
+              case 'reasoning': {
+                console.log('Reasoning chunk:', chunk.text);
+                break;
+              }
+              default: {
+                if ('text' in chunk && chunk.text) {
+                  aiResponse += chunk.text;
+                  await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
+                    content: aiResponse,
+                    metadata: {
+                      isThinking: false,
+                      clientMessageId: assistantMessageId, // Keep clientMessageId consistent
+                    },
+                  });
+                }
               }
             }
-          }
-        },
-        onFinish: async (finalContent, context) => {
-          // Use accumulated response if no final content provided
-          const finalMessage = finalContent || aiResponse || 'No response generated';
+          },
+          onFinish: async (finalContent, context) => {
+            const finalMessage = finalContent || aiResponse || 'No response generated';
 
-          // Extract usage information and include model/provider for proper display
-          const metadata = context?.usage
-            ? {
-                ...context.usage,
-                model: agentConfig.model,
-                provider: agentConfig.provider,
-                // Use the API's token count directly
-                totalTokens: context.usage.totalTokens || 0,
-              }
-            : {
-                model: agentConfig.model,
-                provider: agentConfig.provider,
-              };
+            // Extract usage information
+            const metadata = context?.usage
+              ? {
+                  ...context.usage,
+                  model: agentConfig.model,
+                  provider: agentConfig.provider,
+                  totalTokens: context.usage.totalTokens || 0,
+                  clientMessageId: assistantMessageId, // Keep clientMessageId consistent
+                }
+              : {
+                  model: agentConfig.model,
+                  provider: agentConfig.provider,
+                  clientMessageId: assistantMessageId, // Keep clientMessageId consistent
+                };
 
-          await sendTeamMessage(
-            teamChatId,
-            finalMessage,
-            'assistant',
-            assistantMessageId,
-            false,
-            metadata,
-          );
-        },
-        onErrorHandle: (error) => {
-          console.error('AI response error:', error);
+            // Update the final message with the same ID to prevent duplication
+            await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
+              content: finalMessage,
+              metadata: { ...metadata, isThinking: false, isLocal: false },
+            });
 
-          // Check if it's an API key error
-          if (error?.type === 'InvalidProviderAPIKey') {
-            // Create a special error message that will trigger the API key form
-            const errorMessage = {
-              id: assistantMessageId,
-              content: 'API key configuration required',
-              error: {
-                type: 'InvalidProviderAPIKey',
-                body: {
-                  provider: agentConfig.provider || 'openai',
-                },
+            // Send AI message via WebSocket with the SAME ID for real-time updates to other team members
+            // This ensures the message ID is consistent between client and server
+            sendWebSocketMessage(
+              finalMessage,
+              'assistant',
+              {
+                ...metadata,
+                clientMessageId: assistantMessageId, // Pass the consistent ID
               },
-              messageType: 'assistant',
+              assistantMessageId,
+            );
+            console.log('AI response sent via WebSocket with ID:', assistantMessageId);
+          },
+          onErrorHandle: async (error) => {
+            console.error('AI generation error:', error);
+            await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
+              content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`,
               metadata: {
                 isError: true,
-                errorType: 'InvalidProviderAPIKey',
-                provider: agentConfig.provider || 'openai',
+                isThinking: false,
+                clientMessageId: assistantMessageId, // Keep clientMessageId consistent
               },
-            };
-
-            // Store the error message in team chat for special handling
-            sendTeamMessage(
-              teamChatId,
-              JSON.stringify(errorMessage),
-              'assistant',
-              assistantMessageId,
-            );
-          } else {
-            sendTeamMessage(
-              teamChatId,
-              'Sorry, I encountered an error processing your request.',
-              'assistant',
-              assistantMessageId,
-            );
-          }
-        },
-      });
+            });
+          },
+        });
+      } catch (aiError) {
+        console.error('Failed to generate AI response:', aiError);
+        await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
+          content: `Sorry, I encountered an error generating a response: ${aiError instanceof Error ? aiError.message : 'Unknown error'}`,
+          metadata: {
+            isError: true,
+            isThinking: false,
+            clientMessageId: assistantMessageId, // Keep clientMessageId consistent
+          },
+        });
+      }
     } catch (error) {
       console.error('Failed to send message:', error);
       // Show detailed error message to user
-      const errorMessageId = nanoid();
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error sending message';
-      await sendTeamMessage(
-        teamChatId,
-        `Sorry, I encountered an error processing your request: ${errorMessage}`,
-        'assistant',
-        errorMessageId,
-      );
+      const errorMessageId = await teamChatStore.addMessage(teamChatId, {
+        content: `Sorry, I encountered an error processing your request: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        messageType: 'assistant',
+        userId: 'assistant',
+        metadata: { isError: true },
+        isLocal: true,
+      });
     } finally {
       setLoading(false);
     }
@@ -409,13 +366,13 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
     isUploadingFiles,
     fileList,
     teamChatId,
-    sendTeamMessage,
     agentConfig,
     clearChatUploadFileList,
     teamChatStore,
     chatService,
     agentState,
     currentUser,
+    sendWebSocketMessage,
   ]);
 
   return (

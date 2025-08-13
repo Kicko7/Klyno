@@ -1,4 +1,5 @@
 import { desc, eq, sql } from 'drizzle-orm';
+import { and } from 'drizzle-orm';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { EventEmitter } from 'events';
 import { setTimeout as sleep } from 'timers/promises';
@@ -208,6 +209,17 @@ export class OptimizedSyncService extends EventEmitter {
         const errorMessage = `User ${userId}: ${error instanceof Error ? error.message : String(error)}`;
         errors.push(errorMessage);
         console.error(errorMessage);
+
+        // If it's a database connection error, break the batch to prevent cascading failures
+        if (
+          error instanceof Error &&
+          (error.message.includes('connection') ||
+            error.message.includes('timeout') ||
+            error.message.includes('ECONNREFUSED'))
+        ) {
+          console.error('Database connection error detected, stopping batch processing');
+          break;
+        }
       }
     }
 
@@ -226,43 +238,65 @@ export class OptimizedSyncService extends EventEmitter {
       // Group credits by message ID
       const messageIds = unsyncedCredits.map((credit: any) => credit.messageId);
 
-      // Begin transaction with retry logic
+      // Begin transaction with retry logic and better error handling
       await this.executeWithRetry(async () => {
-        await db.transaction(async (tx) => {
-          // Check for existing credits to avoid duplicates
-          const existingCredits = await tx
-            .select({ messageId: credits.messageId })
-            .from(credits)
-            .where(eq(credits.userId, userId))
-            .where(sql`${credits.messageId} = ANY(${messageIds})`);
+        try {
+          await db.transaction(async (tx) => {
+            // Check for existing credits to avoid duplicates
+            const existingCredits = await tx
+              .select({ messageId: credits.messageId })
+              .from(credits)
+              .where(
+                and(eq(credits.userId, userId), sql`${credits.messageId} = ANY(${messageIds})`),
+              );
 
-          const existingMessageIds = new Set(existingCredits.map((c: any) => c.messageId));
-          const newCredits = unsyncedCredits.filter(
-            (credit: any) => !existingMessageIds.has(credit.messageId),
-          );
-
-          if (newCredits.length > 0) {
-            // Insert new credits into PostgreSQL
-            await tx.insert(credits).values(
-              newCredits.map((credit: any) => ({
-                id: `credit_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-                userId: credit.userId,
-                messageId: credit.messageId,
-                amount: credit.credits,
-                timestamp: new Date(credit.timestamp),
-                metadata: credit.metadata,
-              })),
+            const existingMessageIds = new Set(existingCredits.map((c: any) => c.messageId));
+            const newCredits = unsyncedCredits.filter(
+              (credit: any) => !existingMessageIds.has(credit.messageId),
             );
+
+            if (newCredits.length > 0) {
+              // Insert new credits into PostgreSQL
+              await tx.insert(credits).values(
+                newCredits.map((credit: any) => ({
+                  id: `credit_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+                  userId: credit.userId,
+                  messageId: credit.messageId,
+                  amount: credit.credits,
+                  timestamp: new Date(credit.timestamp),
+                  metadata: credit.metadata,
+                })),
+              );
+            }
+
+            // Mark credits as synced in Redis
+            await this.creditService.markCreditsSynced(userId, messageIds);
+          });
+        } catch (transactionError) {
+          console.error(`Transaction failed for user ${userId}:`, transactionError);
+
+          // If it's a connection error, throw it to trigger retry
+          if (
+            transactionError instanceof Error &&
+            (transactionError.message.includes('connection') ||
+              transactionError.message.includes('timeout') ||
+              transactionError.message.includes('ECONNREFUSED'))
+          ) {
+            throw transactionError;
           }
 
-          // Mark credits as synced in Redis
-          await this.creditService.markCreditsSynced(userId, messageIds);
-        });
+          // For other transaction errors, log but don't retry
+          console.error(`Non-retryable transaction error for user ${userId}:`, transactionError);
+          return;
+        }
       });
 
       console.log(`✅ Successfully synced ${unsyncedCredits.length} credits for user ${userId}`);
     } catch (error) {
       console.error(`Error syncing credits for user ${userId}:`, error);
+
+      // Don't throw the error to prevent batch failure, just log it
+      // The error will be collected in the batch result
       throw error;
     }
   }
@@ -281,8 +315,12 @@ export class OptimizedSyncService extends EventEmitter {
           const existingMessages = await tx
             .select({ id: teamChatMessages.id })
             .from(teamChatMessages)
-            .where(eq(teamChatMessages.teamChatId, teamId))
-            .where(sql`${teamChatMessages.id} = ANY(${messageIds})`);
+            .where(
+              and(
+                eq(teamChatMessages.teamChatId, teamId),
+                sql`${teamChatMessages.id} = ANY(${messageIds})`,
+              ),
+            );
 
           const existingIds = new Set(existingMessages.map((m: any) => m.id));
           const newMessages = messages.filter((m: any) => !existingIds.has(m.id));

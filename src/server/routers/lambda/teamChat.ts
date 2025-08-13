@@ -112,6 +112,7 @@ export const teamChatRouter = router({
             creditsConsumed,
             metadata,
           });
+
           // Resolve organization owner as the payer
           let payerUserId = ctx.userId;
           try {
@@ -133,6 +134,8 @@ export const teamChatRouter = router({
 
           // Determine final payer: prefer org owner; fallback to sender if owner lacks balance
           const creditManager = new CreditManager();
+          let creditDeductionSuccessful = false;
+
           try {
             const ownerBalance = await creditManager.getUserBalance(payerUserId);
             if (ownerBalance < creditsConsumed && payerUserId !== ctx.userId) {
@@ -143,75 +146,81 @@ export const teamChatRouter = router({
                 throw new Error('Insufficient credits');
               }
             }
-          } catch (e) {
-            // ignore balance check errors; proceed to attempt deduction which will validate
-          }
-          console.log('[TeamChat] final payer resolved', {
-            payerUserId,
-            teamChatId: input.teamChatId,
-          });
 
-          // Deduct credits from payer (idempotent by messageId)
-          console.log('[TeamChat] deducting credits', { payerUserId, creditsConsumed });
-          await creditManager.consumeCredits(payerUserId, creditsConsumed, {
-            messageId: preallocatedMessageId,
-            teamChatId: input.teamChatId,
-            source: 'team_chat',
-          });
-
-          // Update usage quota for the payer within current billing period
-          console.log('[TeamChat] updating usage quota for payer', {
-            payerUserId,
-            creditsConsumed,
-            messageId: preallocatedMessageId,
-          });
-
-          // Test database connection first
-          try {
-            const connectionTest = await new UsageTracker().testConnection();
-            console.log('[TeamChat] database connection test result', connectionTest);
-          } catch (e) {
-            console.warn('[TeamChat] database connection test failed', e);
-          }
-
-          // Debug database access first
-          try {
-            const debugResult = await new UsageTracker().debugDatabaseAccess(payerUserId);
-            console.log('[TeamChat] database access debug result', debugResult);
-          } catch (e) {
-            console.warn('[TeamChat] database access debug failed', e);
-          }
-
-          try {
-            const usageResult = await new UsageTracker().updateUsage({
-              userId: payerUserId,
-              creditsUsed: creditsConsumed,
-            });
-
-            if (usageResult.success) {
-              console.log('[TeamChat] usage quota updated successfully', {
-                payerUserId,
-                creditsConsumed,
-                updatedQuota: 'updatedQuota' in usageResult ? usageResult.updatedQuota : undefined,
-              });
-            } else {
-              console.warn('[TeamChat] usage quota update failed', {
-                payerUserId,
-                creditsConsumed,
-                message: 'message' in usageResult ? usageResult.message : 'Unknown error',
-              });
-            }
-          } catch (e) {
-            console.error('[TeamChat] usage quota update error', {
-              payerUserId,
-              creditsConsumed,
-              error: e,
+            // Deduct credits from payer (idempotent by messageId)
+            console.log('[TeamChat] deducting credits', { payerUserId, creditsConsumed });
+            await creditManager.consumeCredits(payerUserId, creditsConsumed, {
               messageId: preallocatedMessageId,
+              teamChatId: input.teamChatId,
+              source: 'team_chat',
             });
-            // Don't fail the message creation, but log the error for investigation
+            creditDeductionSuccessful = true;
+          } catch (e) {
+            console.error('[TeamChat] credit deduction failed:', e);
+            // Continue with message persistence even if credit deduction fails
+            // The message will be persisted but marked as having credit issues
+            input.metadata = {
+              ...input.metadata,
+              creditError: e instanceof Error ? e.message : 'Credit deduction failed',
+              creditDeductionFailed: true,
+            };
           }
 
-          // Persist assistant message AFTER successful deduction
+          // Update usage quota for the payer within current billing period (only if deduction was successful)
+          if (creditDeductionSuccessful) {
+            try {
+              const usageResult = await new UsageTracker().updateUsage({
+                userId: payerUserId,
+                creditsUsed: creditsConsumed,
+              });
+
+              if (usageResult.success) {
+                console.log('[TeamChat] usage quota updated successfully', {
+                  payerUserId,
+                  creditsConsumed,
+                  updatedQuota:
+                    'updatedQuota' in usageResult ? usageResult.updatedQuota : undefined,
+                });
+              } else {
+                console.warn('[TeamChat] usage quota update failed', {
+                  payerUserId,
+                  creditsConsumed,
+                  message: 'message' in usageResult ? usageResult.message : 'Unknown error',
+                });
+              }
+            } catch (e) {
+              console.error('[TeamChat] usage quota update error', {
+                payerUserId,
+                creditsConsumed,
+                error: e,
+                messageId: preallocatedMessageId,
+              });
+              // Don't fail the message creation, but log the error for investigation
+            }
+
+            // Track usage in Redis under the payer account for short-term analytics/sync
+            try {
+              await creditServerService.trackCredits(
+                payerUserId,
+                preallocatedMessageId,
+                creditsConsumed,
+                {
+                  source: 'team_chat',
+                  teamChatId: input.teamChatId,
+                  messageType: input.messageType,
+                  metadata,
+                },
+              );
+              console.log('[TeamChat] credits tracked in Redis', {
+                payerUserId,
+                messageId: preallocatedMessageId,
+              });
+            } catch (e) {
+              console.error('[TeamChat] failed to track credits in Redis:', e);
+            }
+          }
+
+          // Persist assistant message AFTER credit processing (regardless of success/failure)
           const message = await ctx.teamChatService.addMessageToChat(input.teamChatId, {
             id: preallocatedMessageId,
             content: input.content,
@@ -219,18 +228,6 @@ export const teamChatRouter = router({
             metadata: input.metadata || {},
           });
           console.log('[TeamChat] assistant message persisted', { id: message.id });
-
-          // Track usage in Redis under the payer account for short-term analytics/sync
-          await creditServerService.trackCredits(payerUserId, message.id, creditsConsumed, {
-            source: 'team_chat',
-            teamChatId: input.teamChatId,
-            messageType: input.messageType,
-            metadata,
-          });
-          console.log('[TeamChat] credits tracked in Redis', {
-            payerUserId,
-            messageId: message.id,
-          });
 
           return message;
         }
