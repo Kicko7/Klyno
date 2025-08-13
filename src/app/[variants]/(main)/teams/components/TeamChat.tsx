@@ -4,7 +4,7 @@ import { ModelTag } from '@lobehub/icons';
 import { ActionIcon, Avatar, Tag, Tooltip } from '@lobehub/ui';
 import { ChatHeader } from '@lobehub/ui/chat';
 import { Alert, Button } from 'antd';
-import { useResponsive } from 'antd-style';
+import { useResponsive, useTheme } from 'antd-style';
 import { UserPlus } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
@@ -155,6 +155,7 @@ const TeamChat = memo(() => {
     });
   }, [currentOrganization, teamChats, activeTeamChatId, isLoading]);
 
+  // const theme = useTheme()
   return (
     <div className="flex flex-col h-full w-full bg-black relative">
       {/* Team Chat Header */}

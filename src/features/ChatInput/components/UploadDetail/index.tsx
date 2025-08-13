@@ -31,7 +31,8 @@ const UploadDetail = memo<UploadDetailProps>(({ uploadState, status, size, tasks
   const { styles } = useStyles();
 
   return (
-    <Flexbox align={'center'} gap={8} height={22} horizontal>
+<>  
+  <Flexbox align={'center'} gap={8} height={22} horizontal>
       <UploadStatus size={size} status={status} uploadState={uploadState} />
       {!!tasks && Object.keys(tasks).length === 0 ? (
         <Text style={{ fontSize: 12 }} type={'secondary'}>
@@ -43,6 +44,7 @@ const UploadDetail = memo<UploadDetailProps>(({ uploadState, status, size, tasks
         </div>
       )}
     </Flexbox>
+    </>
   );
 });
 

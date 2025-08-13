@@ -1,3 +1,5 @@
+import { copyToClipboard } from '@lobehub/ui';
+import { message } from 'antd';
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
@@ -13,6 +15,8 @@ import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
 import { useUserStore } from '@/store/user';
 import { CreateMessageParams } from '@/types/message';
+
+import { toggleBooleanList } from '../chat/utils';
 
 interface TeamChatMetadata {
   organizationId: string;
@@ -128,9 +132,9 @@ interface TeamChatState {
   // Message subscription actions (legacy - now handled by WebSocket)
   subscribeToChat: (chatId: string, userId: string) => void;
   unsubscribeFromChat: (chatId: string, userId: string) => void;
-
   // Credit tracking service
   creditService: typeof teamChatCreditService;
+  messageEditingIds: string[];
 }
 
 const getTeamChatService = async () => {
@@ -205,6 +209,11 @@ type TeamChatStore = TeamChatState & {
   startMessagePolling: (chatId: string) => void;
   stopMessagePolling: (chatId: string) => void;
   creditService: typeof teamChatCreditService;
+  getMessageById: (id: string) => void;
+  deleteMessage: (teamChatId: string, messageId: string) => void;
+  copyMessage: (content: string) => void;
+  toggleMessageEditing: (id: string, editing: boolean) => void;
+  updateMessage: (teamChatId: string, messageId: string, content: string, metadata?: any) => void;
 };
 
 export const useTeamChatStore = create<TeamChatStore>()(
@@ -222,6 +231,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
       activeChatStates: {},
       messageCache: {},
       messageSubscriptions: {},
+      messageEditingIds: [],
 
       // Initialize credit tracking service
       creditService: teamChatCreditService,
@@ -806,22 +816,17 @@ export const useTeamChatStore = create<TeamChatStore>()(
         messageId?: string,
         retry: boolean = false,
         metadata?: any,
-      ) => {
+      ): Promise<any> => {
         try {
-          console.log('📤 Sending message to team chat:', teamChatId, messageType);
-
-          // Use provided metadata (including proper usage tokens) or fall back to simple estimation
           let messageMetadata = metadata || {};
 
-          // If no metadata provided for assistant messages, use simple estimation as fallback
+          // Estimate tokens if assistant message and no metadata provided
           if (messageType === 'assistant' && !metadata?.totalTokens && !metadata?.tokens) {
             messageMetadata = {
-              tokens: content ? content.length / 4 : 0, // Simple estimate as fallback
+              tokens: content ? content.length / 4 : 0,
             };
           }
 
-          // Note: Credit and usage limits are enforced server-side when the message is processed
-          // Client-side pre-checks have been removed to avoid bundling server-side dependencies
 
           // First, update the UI immediately for better UX
           set((state) => {
@@ -884,7 +889,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
               teamChatId,
               content,
               messageType,
-              metadata: messageMetadata || {},
+              metadata: messageMetadata,
             });
           } else {
             const service = await getTeamChatService();
@@ -892,11 +897,38 @@ export const useTeamChatStore = create<TeamChatStore>()(
               content,
               messageType,
               id: messageId,
-              metadata: messageMetadata || {},
+              metadata: messageMetadata,
             });
           }
 
-          console.log('✅ Message sent/updated');
+          // Ensure message is stored in state after persistence
+          if (message) {
+            set((state: any) => {
+              const existingMessages = state.messages[teamChatId] || [];
+          
+              const newMessage = {
+                id: message.id,
+                content: message.content,
+                messageType: message.messageType,
+                teamChatId,
+                metadata: {
+                  ...(message.metadata || {}),
+                  isPersisted: true,
+                },
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              };
+          
+              return {
+                messages: {
+                  ...state.messages,
+                  [teamChatId]: [...existingMessages, newMessage],
+                },
+              };
+            });
+          }
+
+          console.log('✅ Message sent and stored');
 
           // Track credit consumption for AI-generated messages
           if (messageType === 'assistant' && message?.id) {
@@ -918,17 +950,17 @@ export const useTeamChatStore = create<TeamChatStore>()(
             }
           }
 
-          // Retry logic if it's a retry attempt
           if (retry && messageType === 'assistant') {
             console.log('🔄 Retrying AI message with updated API key...');
-            // Code to retry AI generation
             const state = get();
             const existingMessages = state.messages[teamChatId] || [];
             const originalMessage = existingMessages.find((m) => m.id === messageId);
             if (originalMessage && originalMessage.messageType === 'assistant') {
-              // Here you'd re-trigger the AI message generation, similar to the logic in TeamChatInput
+              // Trigger AI message regeneration logic here
             }
           }
+
+          return message;
         } catch (error) {
           console.error('❌ Failed to send message:', error);
           set({
@@ -1150,7 +1182,135 @@ export const useTeamChatStore = create<TeamChatStore>()(
           },
         }));
       },
+
+      getMessageById: (id: string) => {
+        const { messages } = get();
+        return Object.values(messages)
+          .flat()
+          .find((message) => message.id === id);
+      },
+      deleteMessage: async (teamChatId, messageId) => {
+        set((state) => {
+          const chatMessages = state.messages[teamChatId];
+          if (!chatMessages) return state;
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: chatMessages.filter((msg) => msg.id !== messageId),
+            },
+          };
+        });
+        await lambdaClient.teamChat.deleteMessage.mutate({
+          teamChatId,
+          messageId,
+        });
+      },
+      copyMessage: async (content) => {
+        await copyToClipboard(content);
+      },
+      updateMessage: async (
+        teamChatId: string,
+        messageId: string,
+        content: string,
+        metadata?: any,
+      ) => {
+        try {
+          // Update the UI immediately for better UX
+          set((state) => {
+            const existingMessages = state.messages[teamChatId] || [];
+            const messageIndex = existingMessages.findIndex((m) => m.id === messageId);
+
+            if (messageIndex >= 0) {
+              const updatedMessages = [...existingMessages];
+              updatedMessages[messageIndex] = {
+                ...updatedMessages[messageIndex],
+                content,
+                metadata: {
+                  ...(updatedMessages[messageIndex].metadata || {}),
+                  ...(metadata || {}),
+                },
+                updatedAt: new Date(),
+              };
+
+              return {
+                messages: {
+                  ...state.messages,
+                  [teamChatId]: updatedMessages,
+                },
+              };
+            }
+
+            return state;
+          });
+
+          // Get current message data for metadata preservation
+          const currentState = get();
+          const currentMessages = currentState.messages[teamChatId] || [];
+          const currentMessage = currentMessages.find((m) => m.id === messageId);
+
+          // Persist to database
+          if (isServerMode) {
+            await lambdaClient.teamChat.updateMessage.mutate({
+              teamChatId,
+              messageId,
+              content,
+              metadata: {
+                // Preserve existing metadata and add new metadata
+                ...(currentMessage?.metadata || {}),
+                ...(metadata || {}),
+                // Add edit tracking
+                editedAt: new Date().toISOString(),
+                editedBy: useUserStore.getState().user?.id,
+              },
+            });
+          } else {
+            const service = await getTeamChatService();
+            await service.updateMessage(teamChatId, messageId, {
+              content,
+              metadata: {
+                // Preserve existing metadata and add new metadata
+                ...(currentMessage?.metadata || {}),
+                ...(metadata || {}),
+                // Add edit tracking
+                editedAt: new Date().toISOString(),
+                editedBy: useUserStore.getState().user?.id,
+              },
+            });
+          }
+
+          console.log('✅ Message updated:', messageId);
+        } catch (error) {
+          console.error('❌ Failed to update message:', error);
+          set({
+            error: error instanceof Error ? error.message : 'Failed to update message',
+          });
+        }
+      },
+      toggleMessageEditing: (id: string, editing: boolean) => {
+        set(
+          (state) => {
+            const currentEditingIds = state.messageEditingIds || [];
+
+            if (editing) {
+              // Add to editing list if not already there
+              return {
+                messageEditingIds: currentEditingIds.includes(id)
+                  ? currentEditingIds
+                  : [...currentEditingIds, id],
+              };
+            } else {
+              // Remove from editing list
+              return {
+                messageEditingIds: currentEditingIds.filter((editingId) => editingId !== id),
+              };
+            }
+          },
+          false,
+          'toggleMessageEditing',
+        );
+      },
     }),
+
     {
       name: 'team-chat-store',
     },

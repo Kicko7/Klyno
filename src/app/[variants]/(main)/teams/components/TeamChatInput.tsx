@@ -46,7 +46,7 @@ interface TeamChatInputProps {
 const MAX_HISTORY_MESSAGES = 20;
 
 // Function to gather chat history and construct context
-const gatherChatHistory = async (
+export const gatherChatHistory = async (
   teamChatId: string,
   currentMessage: string,
   messages: Record<string, TeamChatMessageItem[]>,
@@ -169,7 +169,13 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
         });
       }
 
-      console.log('Sending user message:', messageToSend);
+      const fileMetadata = fileList.map((file) => ({
+        id: file.id,
+        name: file.file.name,
+        size: file.file.size,
+        type: file.file.type || 'application/octet-stream',
+        url: file.fileUrl || '',
+      }));
 
       // Prepare user metadata for the message
       const userMetadataBase = currentUser
@@ -182,9 +188,10 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
               firstName: currentUser.firstName,
               avatar: currentUser.avatar,
             },
+            files: fileMetadata, // <-- now included here
             isMultiUserChat: true,
           }
-        : {};
+        : { files: fileMetadata };
 
       // Create a client-side temporary id to reconcile with server message
       const tempClientId = `tmp_${Date.now()}_${nanoid()}`;

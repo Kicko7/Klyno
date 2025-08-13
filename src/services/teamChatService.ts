@@ -508,4 +508,52 @@ export class TeamChatService {
       };
     });
   };
+
+
+  // Update an existing message
+  updateMessage = async (
+    teamChatId: string,
+    messageId: string,
+    data: { content: string; metadata?: any },
+  ) => {
+    const result = await this.db
+      .update(teamChatMessages)
+      .set({
+        content: data.content,
+        metadata: {
+          ...(data.metadata || {}),
+          updatedBy: this.userId,
+          updatedAt: new Date().toISOString(),
+        },
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(teamChatMessages.id, messageId),
+          eq(teamChatMessages.teamChatId, teamChatId),
+        ),
+      )
+      .returning();
+
+    if (result.length === 0) {
+      throw new Error('Message not found or cannot be updated');
+    }
+
+    return result[0];
+  };
+
+  async deleteMessage(teamChatId: string, messageId: string): Promise<void> {
+    const result = await this.db
+      .delete(teamChatMessages)
+      .where(
+        and(
+          eq(teamChatMessages.id, messageId),
+          eq(teamChatMessages.teamChatId, teamChatId)
+        )
+      );
+
+    if (result.rowCount === 0) {
+      throw new Error('Message not found or already deleted');
+    }
+  }
 }

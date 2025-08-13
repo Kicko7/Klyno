@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOrganizationStore } from '@/store/organization/store';
+import { useTheme } from 'antd-style';
 
 const CompanySelector = () => {
   const router = useRouter();
@@ -22,7 +23,7 @@ const CompanySelector = () => {
     selectedOrganizationId,
     setSelectedOrganizationId,
   } = useOrganizationStore();
-
+  const theme = useTheme()
   // Fetch organizations on mount if not loaded
   useEffect(() => {
     if (!organizations || organizations.length === 0) {
@@ -51,7 +52,7 @@ const CompanySelector = () => {
     if (!org) {
       return (
         <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-8 h-8 bg-white/10 rounded">
+          <div className={`flex items-center justify-center w-8 h-8 ${theme.appearance === "dark" ? "bg-white/10" : "bg-black/10"} rounded`}>
             <span className="text-xs font-bold text-slate-300">?</span>
           </div>
           <span className="font-semibold text-slate-100 text-wrap">No organization</span>
@@ -60,12 +61,12 @@ const CompanySelector = () => {
     }
     return (
       <div className="flex items-center gap-2">
-        <div className="flex items-center justify-center w-8 h-8 bg-white/10 rounded">
+        <div className={`flex items-center justify-center w-8 h-8 ${theme.appearance === "dark" ? "bg-white/10" : "bg-black/50"} rounded`}>
           <span className="text-xs font-bold text-slate-300">
             {org.name ? org.name.charAt(0).toUpperCase() : '?'}
           </span>
         </div>
-        <span className="font-semibold text-slate-100 text-wrap">{org.name || 'Unknown'}</span>
+        <span className={`font-semibold ${theme.appearance == "dark"? 'text-slate-200':'text-black'} text-wrap`}>{org.name || 'Unknown'}</span>
       </div>
     );
   };
@@ -85,31 +86,31 @@ const CompanySelector = () => {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
-          className="w-72 bg-black -md border-slate-200 text-slate-200 "
+          className={`w-72 ${theme.appearance == "dark" ? 'bg-black':'bg-white'} -md border-slate-200 text-slate-200`}
           align="start"
         >
           <div className="p-2">
             <div
-              className="flex items-center gap-2 p-2 rounded hover:bg-white/10 cursor-pointer"
+              className="flex items-center gap-2 p-2 rounded cursor-pointer"
               onClick={handleWorkspaceMembersClick}
             >
-              <Users className="w-4 h-4 text-slate-200" />
-              <span className="text-slate-200">Workspace members</span>
+              <Users className={`w-4 h-4 ${theme.appearance == "dark" ? 'text-slate-200':"text-black"}`} />
+              <span className={`${theme.appearance == "dark" ? 'text-slate-200':"text-black"}`}>Workspace members</span>
             </div>
             <div className="flex items-center gap-2 p-2 rounded hover:bg-slate-700 cursor-pointer">
-              <Grid3X3 className="w-4 h-4 text-slate-200" />
-              <span className="text-slate-200">My integrations</span>
+              <Grid3X3 className={`w-4 h-4 ${theme.appearance == "dark" ? 'text-slate-200':"text-black"}`} />
+              <span className={`${theme.appearance == "dark" ? 'text-slate-200':"text-black"}`}>My integrations</span>
             </div>
 
             <div className="mt-4 mb-2">
-              <span className="text-xs text-slate-200 font-medium">Your workspaces:</span>
+              <span className={`${theme.appearance == "dark" ? 'text-slate-200':"text-black"} text-xs font-medium`}>Your workspaces:</span>
             </div>
 
             <div className="flex flex-col gap-2">
               {organizations.map((org: any) => (
                 <div
                   key={org.id || org.name}
-                  className={`flex items-center gap-2 p-2 rounded hover:bg-slate-700 cursor-pointer ${selectedOrganizationId === org.id ? 'bg-slate-800' : ''}`}
+                  className={`flex items-center gap-2 p-2 rounded hover:bg-slate-200 cursor-pointer ${selectedOrganizationId === org.id ? 'bg-slate-200' : ''}`}
                   onClick={() => setSelectedOrganizationId(org.id)}
                 >
                   <ShowCompany org={org} />
@@ -121,14 +122,14 @@ const CompanySelector = () => {
               className="flex items-center gap-2 p-2 rounded hover:bg-slate-700 cursor-pointer mt-1"
               onClick={() => showCreateOrgModal()}
             >
-              <FolderPlus className="w-4 h-4 text-slate-200" />
-              <span className="text-slate-200">Create new workspace</span>
+              <FolderPlus className={`w-4 h-4 ${theme.appearance == "dark" ?"text-slate-200":'text-black'}`} />
+              <span className={`${theme.appearance == "dark" ?"text-slate-200":'text-black'}`}>Create new workspace</span>
             </div>
 
             <div className="border-t border-slate-700 mt-2 pt-2">
               <div className="flex items-center gap-2 p-2 rounded hover:bg-slate-700 cursor-pointer">
-                <FileText className="w-4 h-4 text-slate-200" />
-                <span className="text-slate-200">Pages</span>
+                <FileText className={`w-4 h-4 ${theme.appearance == "dark" ?"text-slate-200":'text-black'}`} />
+                <span className={`${theme.appearance == "dark" ?"text-slate-200":'text-black'}`}>Pages</span>
               </div>
             </div>
           </div>

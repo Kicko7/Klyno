@@ -151,7 +151,6 @@ export const createFileSlice: StateCreator<
       if (isChunkingUnsupported(file.type)) return;
 
       const data = await ragService.parseFileContent(fileResult.id);
-      console.log(data);
     });
 
     await Promise.all(pools);
