@@ -61,12 +61,12 @@ const CompanySelector = () => {
     }
     return (
       <div className="flex items-center gap-2">
-        <div className={`flex items-center justify-center w-8 h-8 ${theme.appearance === "dark" ? "bg-white/10" : "bg-black/50"} rounded`}>
-          <span className="text-xs font-bold text-slate-300">
+        <div className={`flex items-center justify-center w-8 h-8 ${theme.appearance === "dark" ? "bg-white/10 hover:text-black" : "bg-black/50"} rounded`}>
+          <span className={`text-xs font-bold ${theme.appearance === "dark"? 'text-black':''}`}>
             {org.name ? org.name.charAt(0).toUpperCase() : '?'}
           </span>
         </div>
-        <span className={`font-semibold ${theme.appearance == "dark"? 'text-slate-200':'text-black'} text-wrap`}>{org.name || 'Unknown'}</span>
+        <span className={`font-semibold ${theme.appearance == "dark"? 'text-slate-500':'text-black'} text-wrap`}>{org.name || 'Unknown'}</span>
       </div>
     );
   };
@@ -97,7 +97,7 @@ const CompanySelector = () => {
               <Users className={`w-4 h-4 ${theme.appearance == "dark" ? 'text-slate-200':"text-black"}`} />
               <span className={`${theme.appearance == "dark" ? 'text-slate-200':"text-black"}`}>Workspace members</span>
             </div>
-            <div className="flex items-center gap-2 p-2 rounded hover:bg-slate-700 cursor-pointer">
+            <div className="flex items-center gap-2 p-2 rounded hover:bg-slate-200 cursor-pointer">
               <Grid3X3 className={`w-4 h-4 ${theme.appearance == "dark" ? 'text-slate-200':"text-black"}`} />
               <span className={`${theme.appearance == "dark" ? 'text-slate-200':"text-black"}`}>My integrations</span>
             </div>
@@ -110,7 +110,7 @@ const CompanySelector = () => {
               {organizations.map((org: any) => (
                 <div
                   key={org.id || org.name}
-                  className={`flex items-center gap-2 p-2 rounded hover:bg-slate-200 cursor-pointer ${selectedOrganizationId === org.id ? 'bg-slate-200' : ''}`}
+                  className={`flex items-center gap-2 p-2 rounded hover:bg-slate-200 cursor-pointer ${selectedOrganizationId === org.id ? 'bg-slate-200 text-black' : ''}`}
                   onClick={() => setSelectedOrganizationId(org.id)}
                 >
                   <ShowCompany org={org} />
@@ -119,15 +119,15 @@ const CompanySelector = () => {
             </div>
 
             <div
-              className="flex items-center gap-2 p-2 rounded hover:bg-slate-700 cursor-pointer mt-1"
+              className="flex items-center gap-2 p-2 rounded hover:bg-slate-200 cursor-pointer mt-1"
               onClick={() => showCreateOrgModal()}
             >
               <FolderPlus className={`w-4 h-4 ${theme.appearance == "dark" ?"text-slate-200":'text-black'}`} />
               <span className={`${theme.appearance == "dark" ?"text-slate-200":'text-black'}`}>Create new workspace</span>
             </div>
 
-            <div className="border-t border-slate-700 mt-2 pt-2">
-              <div className="flex items-center gap-2 p-2 rounded hover:bg-slate-700 cursor-pointer">
+            <div className="border-t border-slate-200 mt-2 pt-2">
+              <div className="flex items-center gap-2 p-2 rounded hover:bg-slate-200 cursor-pointer">
                 <FileText className={`w-4 h-4 ${theme.appearance == "dark" ?"text-slate-200":'text-black'}`} />
                 <span className={`${theme.appearance == "dark" ?"text-slate-200":'text-black'}`}>Pages</span>
               </div>

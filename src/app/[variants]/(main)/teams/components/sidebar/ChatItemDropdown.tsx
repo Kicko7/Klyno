@@ -1,6 +1,7 @@
 'use client';
 
 import { Modal } from '@lobehub/ui';
+import { useTheme } from 'antd-style';
 import { Edit3, MoreHorizontal, Trash2, Users } from 'lucide-react';
 import React, { useState } from 'react';
 
@@ -91,6 +92,8 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
 
   const isPublic = chat.metadata?.isPublic || false;
 
+  const theme = useTheme();
+
   return (
     <>
       <DropdownMenu>
@@ -98,23 +101,30 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 w-6 p-0 text-slate-400 hover:text-slate-200 hover:bg-white/20"
+            className="h-6 w-6 p-0 text-slate-200 hover:text-slate-200 hover:bg-white/20"
             onClick={(e) => {
               e.stopPropagation();
             }}
           >
-            <MoreHorizontal className="h-4 w-4" />
+            <MoreHorizontal
+              className={`h-4 w-4 ${theme.appearance == 'light' ? 'text-white' : 'text-black'}`}
+            />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48 bg-black border-slate-700">
+        <DropdownMenuContent
+          align="end"
+          className={`w-48 ${theme.appearance == 'dark' ? 'bg-black' : 'bg-white'} border-slate-700`}
+        >
           <DropdownMenuItem
             onClick={(e) => {
               e.stopPropagation();
               handleEdit();
             }}
-            className="text-slate-200 hover:bg-white/10 focus:bg-white/10 hover:text-white focus:text-white"
+            className={`${theme.appearance == 'dark' ? 'text-slate-200 hover:text-white hover:bg-white/10 ' : 'text-black hover:text-black'} focus:bg-white/10  `}
           >
-            <Edit3 className="mr-2 h-4 w-4" />
+            <Edit3
+              className={`mr-2 h-4 w-4 ${theme.appearance === 'dark' ? 'text-white' : 'text-black'}`}
+            />
             Edit Name
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -122,9 +132,11 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
               e.stopPropagation();
               handleMakePublic();
             }}
-            className="text-slate-200 hover:bg-white/10 focus:bg-white/10 hover:text-white focus:text-white"
+            className={`${theme.appearance == 'dark' ? 'text-slate-200 hover:text-white hover:bg-white/10 ' : 'text-black hover:text-black'} focus:bg-white/10  `}
           >
-            <Users className="mr-2 h-4 w-4" />
+            <Users
+              className={`mr-2 h-4 w-4 ${theme.appearance === 'dark' ? 'text-white' : 'text-black'}`}
+            />
             {isPublic ? 'Make Private' : 'Make Public'}
           </DropdownMenuItem>
           <DropdownMenuSeparator className="bg-slate-700" />
@@ -135,7 +147,9 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
             }}
             className="text-red-400 hover:bg-white/20 focus:bg-white/20 hover:text-red-500 focus:text-red-500"
           >
-            <Trash2 className="mr-2 h-4 w-4" />
+            <Trash2
+              className={`mr-2 h-4 w-4 ${theme.appearance === 'dark' ? 'text-white' : 'text-black'}`}
+            />
             Delete Chat
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -151,14 +165,15 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
             <Button
               variant="outline"
               onClick={() => setIsEditDialogOpen(false)}
-              className="bg-black border-slate-700 text-slate-200 hover:bg-white/10"
+              className={`${theme.appearance == 'dark' ? 'bg-black' : 'bg-white'}  border-slate-700 text-slate-200 hover:bg-white/10`}
             >
               Cancel
             </Button>
             <Button
               onClick={handleSaveEdit}
+              variant="outline"
               disabled={isUpdating || !editTitle.trim()}
-              className="bg-black hover:bg-white/20 text-white"
+              className={`${theme.appearance == 'dark' ? 'bg-black' : 'bg-white'}  border-slate-700 text-slate-200 hover:bg-white/10`}
             >
               {isUpdating ? 'Saving...' : 'Save'}
             </Button>
@@ -167,14 +182,14 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
       >
         <div className="space-y-4">
           <div>
-            <label htmlFor="chatTitle" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="chatTitle" className={`block text-sm font-medium ${theme.appearance == "dark" ? 'text-slate-300':'text-black'} mb-2`}>
               Chat Name
             </label>
             <Input
               id="chatTitle"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="bg-black border-slate-700 text-slate-200 hover:bg-white/10"
+              className={`${theme.appearance === 'dark' ? 'bg-black' : 'bg-white'} border-slate-700 text-slate-200 hover:bg-white/10`}
               placeholder="Enter chat name..."
               maxLength={100}
             />
@@ -192,14 +207,14 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
             <Button
               variant="outline"
               onClick={() => setIsDeleteDialogOpen(false)}
-              className="bg-black border-slate-700 text-slate-200 hover:bg-white/10"
+              className={`${theme.appearance == 'dark' ? 'bg-black' : 'bg-white'}  border-slate-700 text-slate-200 hover:bg-white/10`}
             >
               Cancel
             </Button>
             <Button
               onClick={handleConfirmDelete}
               disabled={isDeleting}
-              className="bg-black hover:bg-white/20 text-red-500"
+              className={`${theme.appearance == 'dark' ? 'bg-black' : 'bg-white'}  border-slate-700 text-slate-200 hover:bg-white/10 text-red-500`}
             >
               {isDeleting ? 'Deleting...' : 'Delete'}
             </Button>
@@ -207,7 +222,7 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
         }
       >
         <div className="space-y-4">
-          <p className="text-slate-300">
+          <p className={`${theme.appearance === "dark" ? 'text-slate-300':'text-black'} text-base`}>
             Are you sure you want to delete "{chat.title || 'Untitled Chat'}"? This action cannot be
             undone and all messages will be permanently removed.
           </p>

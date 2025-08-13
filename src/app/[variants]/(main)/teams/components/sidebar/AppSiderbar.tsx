@@ -1,18 +1,16 @@
 'use client';
 
+import { useTheme } from 'antd-style';
 import {
   ChevronDown,
   ChevronRight,
   FileText,
   FolderOpen,
-  FolderPlus,
-  Grid3X3,
   ImageIcon,
   MessageCircle,
   Plus,
   RefreshCw,
   Settings,
-  Sparkles,
   Users,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -22,15 +20,8 @@ import { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -50,8 +41,6 @@ import { useUserStore } from '@/store/user';
 
 import { ChatItemDropdown } from './ChatItemDropdown';
 import CompanySelector from './CompanySelector';
-import { useTheme } from 'antd-style';
-import Appearance from '../../../settings/common/features/Appearance';
 
 // This will be dynamically populated with team chat sessions
 const mainItems = [
@@ -294,10 +283,12 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
     ],
   );
 
-  const theme = useTheme()
+  const theme = useTheme();
   return (
     <Sidebar className="border-r border-border/40  text-slate-100 ml-12" {...props}>
-      <SidebarHeader className={`border-b border-grey p-4 bg-black ${theme.appearance === "dark" ? "bg-black text-white" : "bg-white"}`}>
+      <SidebarHeader
+        className={`border-b border-grey p-4 ${theme.appearance === 'dark' ? 'bg-black text-white' : 'bg-white'}`}
+      >
         <CompanySelector />
         <div className="mt-4 px-1">
           <Button
@@ -315,12 +306,16 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className={`${theme.appearance === "dark" ? 'bg-black':'bg-white'} px-4 py-4`}>
+      <SidebarContent
+        className={`${theme.appearance === 'dark' ? 'bg-black' : 'bg-white'} px-4 py-4`}
+      >
         {/* Chats Section - Show team chats */}
         <SidebarGroup>
           <Collapsible open={openSections.chats} onOpenChange={() => toggleSection('chats')}>
             <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className={`${theme.appearance === "dark" ?'text-white':'text-black'} text-xs uppercase tracking-wider font-medium hover:text-slate-300 cursor-pointer flex items-center gap-1`}>
+              <SidebarGroupLabel
+                className={`${theme.appearance === 'dark' ? 'text-white' : 'text-black'} text-xs uppercase tracking-wider font-medium hover:text-slate-300 cursor-pointer flex items-center gap-1`}
+              >
                 {openSections.chats ? (
                   <ChevronDown className="w-3 h-3" />
                 ) : (
@@ -357,13 +352,22 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
                       <SidebarMenuItem key={chat.id} className="">
                         <div className="relative-group">
                           <SidebarMenuButton
-                            className={`${theme.appearance === "dark" ? 'bg-white hover:bg-white':'bg-black hover:bg-black'} text-slate-300 pr-8 transition-all duration-300 ease-in-out rounded-xl ${
-                              activeTeamChatId === chat.id ? theme.appearance === "dark" ? 'bg-white text-black':'bg-black text-white' : ''
-                            } ${isPublic ? ' border-emerald-500' : ''}`}
+                            className={`${theme.appearance === 'dark' ? 'bg-white hover:bg-white' : 'bg-black hover:bg-black'} text-slate-300 pr-8 transition-all duration-300 ease-in-out rounded-xl ${activeTeamChatId === chat.id
+                                ? theme.appearance === 'dark'
+                                  ? 'bg-white text-black'
+                                  : 'bg-black text-white'
+                                : ''
+                              } ${isPublic ? ' border-emerald-500' : ''}`}
                             onClick={(e) => handleChatClick(chat.id)}
                           >
-                            <MessageCircle className={`w-4 h-4 ${theme.appearance === "dark" ?'text-black':'text-white'}`} />
-                            <span className={`flex-1 truncate ${theme.appearance === "dark" ?'text-black':'text-white'}`}>{chat.title || 'Untitled Chat'}</span>
+                            <MessageCircle
+                              className={`w-4 h-4 ${theme.appearance === 'dark' ? 'text-black' : 'text-white'}`}
+                            />
+                            <span
+                              className={`flex-1 truncate ${theme.appearance === 'dark' ? 'text-black' : 'text-white'}`}
+                            >
+                              {chat.title || 'Untitled Chat'}
+                            </span>
                             {isPublic && <Users className="w-3 h-3 text-emerald-400 ml-1" />}
                           </SidebarMenuButton>
                           <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -378,12 +382,12 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
                       <SidebarMenuButton
                         className="text-slate-400 hover:text-white cursor-pointer"
                         onClick={() => {
-                          console.log('🔍 Manual load team chats triggered');
-                          console.log('🔍 User state:', {
-                            isSignedIn: userState.isSignedIn,
-                            userId: userState.user?.id,
-                            isLoaded: userState.isLoaded,
-                          });
+                          // console.log('🔍 Manual load team chats triggered');
+                          // console.log('🔍 User state:', {
+                          //   isSignedIn: userState.isSignedIn,
+                          //   userId: userState.user?.id,
+                          //   isLoaded: userState.isLoaded,
+                          // });
                           if (
                             currentOrganization?.id &&
                             userState.isSignedIn &&
@@ -415,7 +419,9 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
         <SidebarGroup>
           <Collapsible open={openSections.recent} onOpenChange={() => toggleSection('recent')}>
             <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className={`${theme.appearance === "dark"? 'text-white':"text-black"} text-xs uppercase tracking-wider font-medium hover:text-slate-300 cursor-pointer flex items-center gap-1`}>
+              <SidebarGroupLabel
+                className={`${theme.appearance === 'dark' ? 'text-white' : 'text-black'} text-xs uppercase tracking-wider font-medium hover:text-slate-300 cursor-pointer flex items-center gap-1`}
+              >
                 {openSections.recent ? (
                   <ChevronDown className="w-3 h-3" />
                 ) : (
@@ -430,8 +436,14 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
                   {mainItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton className="text-slate-300 hover:text-slate-100 hover:bg-white/10">
-                        <item.icon className={`w-4 h-4 ${theme.appearance === "dark" ? 'text-white':'text-black'}`} />
-                        <span className={` ${theme.appearance === "dark" ? 'text-slate-200':'text-black'}`}>{item.title}</span>
+                        <item.icon
+                          className={`w-4 h-4 ${theme.appearance === 'dark' ? 'text-white' : 'text-black'}`}
+                        />
+                        <span
+                          className={` ${theme.appearance === 'dark' ? 'text-slate-200' : 'text-black'}`}
+                        >
+                          {item.title}
+                        </span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
@@ -445,7 +457,9 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
         <SidebarGroup>
           <Collapsible open={openSections.private} onOpenChange={() => toggleSection('private')}>
             <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className={`${theme.appearance == "dark" ? 'text-slate-400':'text-black'} text-xs uppercase tracking-wider font-medium hover:text-slate-300 cursor-pointer flex items-center gap-1`}>
+              <SidebarGroupLabel
+                className={`${theme.appearance == 'dark' ? 'text-slate-400' : 'text-black'} text-xs uppercase tracking-wider font-medium hover:text-slate-300 cursor-pointer flex items-center gap-1`}
+              >
                 {openSections.private ? (
                   <ChevronDown className="w-3 h-3" />
                 ) : (
@@ -457,9 +471,15 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
             <CollapsibleContent>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  <SidebarMenuItem className={`${theme.appearance === "dark" ? 'hover:text-black':""}`}>
+                  <SidebarMenuItem
+                    className={`${theme.appearance === 'dark' ? 'hover:text-black' : ''}`}
+                  >
                     <SidebarMenuButton>
-                      <span className={`${theme.appearance === "dark" ? 'text-black-200 hover:text-black':'text-black'} `}>Create Private Project</span>
+                      <span
+                        className={`${theme.appearance === 'dark' ? 'text-black-200 hover:text-black' : 'text-black'} `}
+                      >
+                        Create Private Project
+                      </span>
                       <Plus className="w-4 h-4 ml-auto" />
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -473,7 +493,9 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
         <SidebarGroup>
           <Collapsible open={openSections.shared} onOpenChange={() => toggleSection('shared')}>
             <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className={`${theme.appearance == "dark" ? 'text-slate-400':'text-black'} text-xs uppercase tracking-wider font-medium hover:text-slate-300 cursor-pointer flex items-center gap-1`}>
+              <SidebarGroupLabel
+                className={`${theme.appearance == 'dark' ? 'text-slate-400' : 'text-black'} text-xs uppercase tracking-wider font-medium hover:text-slate-300 cursor-pointer flex items-center gap-1`}
+              >
                 {openSections.shared ? (
                   <ChevronDown className="w-3 h-3" />
                 ) : (
@@ -486,18 +508,25 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
               <SidebarGroupContent>
                 <SidebarMenu>
                   {sharedItems.map((item) => (
-                    <SidebarMenuItem key={item.title}  >
+                    <SidebarMenuItem key={item.title}>
                       <Collapsible
                         open={openSections.clientWork}
                         onOpenChange={() => toggleSection('clientWork')}
-                        
                       >
                         <CollapsibleTrigger asChild>
-                          <SidebarMenuButton className={`${theme.appearance == 'dark' ?'bg-black':'bg-black'}`}>
+                          <SidebarMenuButton
+                                 style={{
+                                  background:"black"
+                                 }}
+                          >
                             <span className="w-4 h-4 flex items-center justify-center text-emerald-400 font-bold text-xs">
                               C
                             </span>
-                            <span className={`${theme.appearance == "dark" ? 'text-dark':"text-white"}`}>{item.title}</span>
+                            <span
+                              className={`${theme.appearance === 'dark' ? 'text-dark' : 'text-white'}`}
+                            >
+                              {item.title}
+                            </span>
                             {openSections.clientWork ? (
                               <ChevronDown className="w-3 h-3 ml-auto" />
                             ) : (
@@ -510,8 +539,8 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
                             {item.items?.map((subItem) => (
                               <SidebarMenuSubItem key={subItem.title}>
                                 <SidebarMenuSubButton className="text-slate-400 hover:text-slate-200 hover:bg-white/10">
-                                  <FolderOpen className="w-4 h-4 text-yellow-500" />
-                                  <span>{subItem.title}</span>
+                                  <FolderOpen className="w-4 h-4 text-slate-200" style={{color:theme.appearance == "dark" ? 'white':''}} />
+                                  <span className={`${theme.appearance == "dark" ? 'text-slate-200':'text-primary-300'} text-xs`}>{subItem.title}</span>
                                 </SidebarMenuSubButton>
                               </SidebarMenuSubItem>
                             ))}

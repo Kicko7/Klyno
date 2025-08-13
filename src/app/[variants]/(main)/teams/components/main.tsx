@@ -14,6 +14,7 @@ import Members from './Members';
 import TeamChat from './TeamChat';
 import TeamWelcome from './TeamWelcome';
 import { AppSidebar } from './sidebar/AppSiderbar';
+import { useTheme } from 'antd-style';
 
 const Main = () => {
   const searchParams = useSearchParams();
@@ -52,8 +53,10 @@ const Main = () => {
       </div>
     );
   };
+  const theme = useTheme();
+
   return (
-    <div className="bg-black w-full h-full text-white">
+    <div className={` ${theme.appearance == "dark" ? "bg-black":"bg-white"} w-full h-full text-white`}>
       {!currentOrganization && !isLoading ? (
         <Flexbox align="center" justify="center" style={{ minHeight: '40vh', width: '100%' }}>
           <Empty
