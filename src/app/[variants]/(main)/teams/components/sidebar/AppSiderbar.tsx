@@ -401,7 +401,7 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
                           }
                         }}
                       >
-                        <span>
+                        <span className={`${theme.appearance == "light" ? "text-black":''}`}>
                           {!userState.isSignedIn || !userState.user?.id
                             ? 'Please sign in to view chats'
                             : 'No chats yet'}

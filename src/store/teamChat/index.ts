@@ -1579,6 +1579,12 @@ export const useTeamChatStore = create<TeamChatStore>()(
           throw error;
         }
       },
+          getMessageById: (id: string) => {
+        const { messages } = get();
+        return Object.values(messages)
+          .flat()
+          .find((message) => message.id === id);
+      },
     }),
     {
       name: 'team-chat-store',

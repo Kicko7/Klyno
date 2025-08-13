@@ -125,7 +125,7 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
             <Edit3
               className={`mr-2 h-4 w-4 ${theme.appearance === 'dark' ? 'text-white' : 'text-black'}`}
             />
-            Edit Name
+            <span className={`${theme.appearance === "dark" ? 'text-slate-200':'text-black'}`}>Edit Name</span>
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={(e) => {
@@ -137,7 +137,8 @@ export const ChatItemDropdown = ({ chat, onClose }: ChatItemDropdownProps) => {
             <Users
               className={`mr-2 h-4 w-4 ${theme.appearance === 'dark' ? 'text-white' : 'text-black'}`}
             />
-            {isPublic ? 'Make Private' : 'Make Public'}
+            <span className={`${theme.appearance === "dark" ? 'text-slate-200':'text-black'}`}>{isPublic ? 'Make Private' : 'Make Public'}</span>
+            
           </DropdownMenuItem>
           <DropdownMenuSeparator className="bg-slate-700" />
           <DropdownMenuItem
