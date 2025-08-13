@@ -160,34 +160,32 @@ const PricingPage = () => {
         ];
 
   // Usage statistics (used/limit + remaining) from quotas
-  // Try to get usage from multiple sources to ensure we have the right data
-  const creditsUsed =
-    (subscriptionInfo?.usageQuota?.creditsUsed ?? subscriptionInfo?.currentCredits)
-      ? (subscriptionInfo.subscription?.monthlyCredits ?? 0) -
-        (subscriptionInfo.currentCredits ?? 0)
-      : 0;
-
+  // Use quota-tracked usage exclusively to avoid negative values when balance > monthly credits
   const creditsLimit =
     subscriptionInfo?.usageQuota?.creditsLimit ??
     subscriptionInfo?.subscription?.monthlyCredits ??
     0;
+  const creditsUsedRaw = subscriptionInfo?.usageQuota?.creditsUsed ?? 0;
+  const creditsUsed = Math.min(Math.max(creditsUsedRaw, 0), creditsLimit);
   const creditsRemaining = Math.max(creditsLimit - creditsUsed, 0);
 
-  const fileUsedMB = subscriptionInfo?.usageQuota?.fileStorageUsed ?? 0; // quotas store MB
-  const fileUsedGB = fileUsedMB / 1024;
+  const fileUsedMBRaw = subscriptionInfo?.usageQuota?.fileStorageUsed ?? 0; // quotas store MB
   const fileLimitMBRaw =
     subscriptionInfo?.usageQuota?.fileStorageLimit ??
     (subscriptionInfo?.subscription?.fileStorageLimit
       ? subscriptionInfo.subscription.fileStorageLimit * 1024
       : 0);
+  const fileUsedMB = Math.min(Math.max(fileUsedMBRaw, 0), fileLimitMBRaw);
+  const fileUsedGB = fileLimitMBRaw > 0 ? fileUsedMB / 1024 : 0;
   const fileLimitGB = fileLimitMBRaw / 1024;
   const fileRemainingGB = Math.max(fileLimitGB - fileUsedGB, 0);
 
-  const vectorUsedMB = subscriptionInfo?.usageQuota?.vectorStorageUsed ?? 0;
+  const vectorUsedMBRaw = subscriptionInfo?.usageQuota?.vectorStorageUsed ?? 0;
   const vectorLimitMB =
     subscriptionInfo?.usageQuota?.vectorStorageLimit ??
     subscriptionInfo?.subscription?.vectorStorageLimit ??
     0;
+  const vectorUsedMB = Math.min(Math.max(vectorUsedMBRaw, 0), vectorLimitMB);
   const vectorRemainingMB = Math.max(vectorLimitMB - vectorUsedMB, 0);
 
   // Debug logging to see what data we're getting

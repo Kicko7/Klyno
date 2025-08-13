@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import React from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { MonitoringDashboard } from '@/components/TeamChat/MonitoringDashboard';
 import { monitoringService } from '@/services/monitoringService';
-import { OptimizedWebSocketServer } from '@/server/websocket/optimized-server';
 import { OptimizedRedisService } from '@/services/optimized-redis-service';
 import { OptimizedSyncService } from '@/services/optimized-sync-service';
 
@@ -64,7 +65,7 @@ describe('Monitoring Service', () => {
       monitoringService.setInstances(
         mockWsServer as any,
         mockRedisService as any,
-        mockSyncService as any
+        mockSyncService as any,
       );
 
       const metrics = monitoringService.getMetrics();
@@ -78,7 +79,7 @@ describe('Monitoring Service', () => {
       // Create a new instance for this test
       const MonitoringService = require('@/services/monitoringService').MonitoringService;
       const newService = new MonitoringService();
-      
+
       const metrics = newService.getMetrics();
       expect(metrics).toBeNull();
     });
@@ -87,7 +88,7 @@ describe('Monitoring Service', () => {
       monitoringService.setInstances(
         mockWsServer as any,
         mockRedisService as any,
-        mockSyncService as any
+        mockSyncService as any,
       );
 
       const isHealthy = monitoringService.isHealthy();
@@ -106,7 +107,7 @@ describe('Monitoring Service', () => {
       monitoringService.setInstances(
         mockWsServer as any,
         mockRedisService as any,
-        mockSyncService as any
+        mockSyncService as any,
       );
 
       const isHealthy = monitoringService.isHealthy();
@@ -117,7 +118,7 @@ describe('Monitoring Service', () => {
       monitoringService.setInstances(
         mockWsServer as any,
         mockRedisService as any,
-        mockSyncService as any
+        mockSyncService as any,
       );
 
       const metrics = monitoringService.getMetrics();
@@ -172,12 +173,12 @@ describe('Monitoring Service', () => {
     });
 
     it('should render loading state initially', () => {
-      render(<MonitoringDashboard />);
+      render(React.createElement(MonitoringDashboard));
       expect(screen.getByText('Loading monitoring data...')).toBeTruthy();
     });
 
     it('should display metrics after loading', async () => {
-      render(<MonitoringDashboard />);
+      render(React.createElement(MonitoringDashboard));
 
       await waitFor(() => {
         expect(screen.getByText('WebSocket & Redis Monitoring')).toBeTruthy();
@@ -200,7 +201,7 @@ describe('Monitoring Service', () => {
     it('should handle fetch errors gracefully', async () => {
       (global.fetch as any).mockRejectedValueOnce(new Error('Network error'));
 
-      render(<MonitoringDashboard />);
+      render(React.createElement(MonitoringDashboard));
 
       await waitFor(() => {
         expect(screen.getByText(/Error:/)).toBeTruthy();
@@ -246,7 +247,7 @@ describe('Monitoring Service', () => {
         }),
       });
 
-      render(<MonitoringDashboard />);
+      render(React.createElement(MonitoringDashboard));
 
       await waitFor(() => {
         expect(screen.getByText('Disconnected')).toBeTruthy();
@@ -277,11 +278,7 @@ describe('Monitoring Service', () => {
             failedSyncs: 5,
             lastSyncTime: new Date().toISOString(),
             syncDuration: 200,
-            errors: [
-              'Database connection timeout',
-              'Redis key not found',
-              'JSON parse error',
-            ],
+            errors: ['Database connection timeout', 'Redis key not found', 'JSON parse error'],
           },
           system: {
             uptime: 7200,
@@ -296,7 +293,7 @@ describe('Monitoring Service', () => {
         }),
       });
 
-      render(<MonitoringDashboard />);
+      render(React.createElement(MonitoringDashboard));
 
       await waitFor(() => {
         expect(screen.getByText('Recent Errors:')).toBeTruthy();
@@ -308,8 +305,8 @@ describe('Monitoring Service', () => {
 
     it('should auto-refresh metrics', async () => {
       vi.useFakeTimers();
-      
-      render(<MonitoringDashboard />);
+
+      render(React.createElement(MonitoringDashboard));
 
       // Initial fetch
       expect(global.fetch).toHaveBeenCalledTimes(1);
@@ -331,7 +328,7 @@ describe('Monitoring Service', () => {
     });
 
     it('should format memory usage correctly', async () => {
-      render(<MonitoringDashboard />);
+      render(React.createElement(MonitoringDashboard));
 
       await waitFor(() => {
         // Check memory formatting (100MB)
@@ -342,7 +339,7 @@ describe('Monitoring Service', () => {
     });
 
     it('should calculate heap usage percentage', async () => {
-      render(<MonitoringDashboard />);
+      render(React.createElement(MonitoringDashboard));
 
       await waitFor(() => {
         // Heap used (60MB) / Heap total (80MB) = 75%
@@ -352,7 +349,7 @@ describe('Monitoring Service', () => {
     });
 
     it('should show session management configuration', async () => {
-      render(<MonitoringDashboard />);
+      render(React.createElement(MonitoringDashboard));
 
       await waitFor(() => {
         expect(screen.getByText('Session Management')).toBeTruthy();

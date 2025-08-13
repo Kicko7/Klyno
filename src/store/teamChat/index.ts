@@ -248,11 +248,33 @@ type TeamChatStore = TeamChatState & {
   startMessagePolling: (chatId: string) => void;
   stopMessagePolling: (chatId: string) => void;
   creditService: typeof teamChatCreditService;
-  getMessageById: (id: string) => void;
-  deleteMessage: (teamChatId: string, messageId: string) => void;
+  getMessageById: (id: string) => TeamChatMessageItem | undefined;
+  removeMessage: (teamChatId: string, messageId: string) => void;
   copyMessage: (content: string) => void;
   toggleMessageEditing: (id: string, editing: boolean) => void;
   updateMessage: (teamChatId: string, messageId: string, content: string, metadata?: any) => void;
+
+  // Redis-based real-time operations
+  handleRedisMessageDelete: (messageId: string, teamChatId: string) => void;
+  handleRedisMessageUpdate: (
+    messageId: string,
+    teamChatId: string,
+    updates: Partial<TeamChatMessageItem>,
+  ) => void;
+  handleRedisMessageComplete: (
+    messageId: string,
+    teamChatId: string,
+    finalMessage: TeamChatMessageItem,
+  ) => void;
+  handleRedisTypingUpdate: (teamChatId: string, userId: string, isTyping: boolean) => void;
+  handleRedisMessageError: (messageId: string, teamChatId: string, error: string) => void;
+  handleRedisMessageReaction: (
+    messageId: string,
+    teamChatId: string,
+    userId: string,
+    reaction: string,
+  ) => void;
+  handleRedisReadReceipt: (messageId: string, teamChatId: string, userId: string) => void;
 };
 
 export const useTeamChatStore = create<TeamChatStore>()(
@@ -388,6 +410,269 @@ export const useTeamChatStore = create<TeamChatStore>()(
             messages: {
               ...state.messages,
               [teamChatId]: filteredMessages,
+            },
+          };
+        });
+      },
+
+      // Get a message by id from any team chat
+      getMessageById: (id: string) => {
+        const state = get();
+        for (const messages of Object.values(state.messages)) {
+          const message = messages.find((m: any) => m.id === id);
+          if (message) return message;
+        }
+        return undefined;
+      },
+
+      // Copy message content to clipboard
+      copyMessage: (content: string) => {
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(content);
+        } else {
+          // Fallback for older browsers
+          const textArea = document.createElement('textarea');
+          textArea.value = content;
+          textArea.style.position = 'fixed';
+          textArea.style.left = '-999999px';
+          textArea.style.top = '-999999px';
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          try {
+            document.execCommand('copy');
+          } catch (err) {
+            console.error('Failed to copy message:', err);
+          }
+          document.body.removeChild(textArea);
+        }
+      },
+
+      // Toggle message editing state
+      toggleMessageEditing: (id: string, editing: boolean) => {
+        set((state) => ({
+          messageEditingIds: editing
+            ? [...state.messageEditingIds, id]
+            : state.messageEditingIds.filter((editId) => editId !== id),
+        }));
+      },
+
+      // Redis-based real-time message operations
+      // These methods are called by WebSocket handlers to sync state across all users
+
+      // Handle real-time message deletion from Redis
+      handleRedisMessageDelete: (messageId: string, teamChatId: string) => {
+        console.log(`🔄 Redis: Handling message deletion: ${messageId} in ${teamChatId}`);
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const filteredMessages = existingMessages.filter((m: any) => m.id !== messageId);
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: filteredMessages,
+            },
+          };
+        });
+      },
+
+      // Handle real-time message updates from Redis (for streaming)
+      handleRedisMessageUpdate: (
+        messageId: string,
+        teamChatId: string,
+        updates: Partial<TeamChatMessageItem>,
+      ) => {
+        console.log(`🔄 Redis: Handling message update: ${messageId} in ${teamChatId}`);
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m: any) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found for Redis update: ${messageId}`);
+            return state;
+          }
+
+          const updatedMessages = [...existingMessages];
+          updatedMessages[messageIndex] = {
+            ...updatedMessages[messageIndex],
+            ...updates,
+            updatedAt: new Date(),
+          } as any;
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: updatedMessages,
+            },
+          };
+        });
+      },
+
+      // Handle real-time message completion from Redis
+      handleRedisMessageComplete: (
+        messageId: string,
+        teamChatId: string,
+        finalMessage: TeamChatMessageItem,
+      ) => {
+        console.log(`🔄 Redis: Handling message completion: ${messageId} in ${teamChatId}`);
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m: any) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found for Redis completion: ${messageId}`);
+            return state;
+          }
+
+          const updatedMessages = [...existingMessages];
+          updatedMessages[messageIndex] = {
+            ...finalMessage,
+            updatedAt: new Date(),
+          } as any;
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: updatedMessages,
+            },
+          };
+        });
+      },
+
+      // Handle real-time typing indicators from Redis
+      handleRedisTypingUpdate: (teamChatId: string, userId: string, isTyping: boolean) => {
+        console.log(
+          `🔄 Redis: Handling typing update: ${userId} ${isTyping ? 'started' : 'stopped'} typing in ${teamChatId}`,
+        );
+        set((state) => ({
+          activeChatStates: {
+            ...state.activeChatStates,
+            [teamChatId]: {
+              ...state.activeChatStates[teamChatId],
+              typingUsers: {
+                ...state.activeChatStates[teamChatId]?.typingUsers,
+                [userId]: isTyping ? Date.now() : undefined,
+              },
+            },
+          },
+        }));
+      },
+
+      // Handle real-time message errors from Redis
+      handleRedisMessageError: (messageId: string, teamChatId: string, error: string) => {
+        console.log(`🔄 Redis: Handling message error: ${messageId} in ${teamChatId} - ${error}`);
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m: any) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found for Redis error: ${messageId}`);
+            return state;
+          }
+
+          const updatedMessages = [...existingMessages];
+          updatedMessages[messageIndex] = {
+            ...updatedMessages[messageIndex],
+            error: {
+              type: 'redis_error',
+              message: error,
+            },
+            updatedAt: new Date(),
+          } as any;
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: updatedMessages,
+            },
+          };
+        });
+      },
+
+      // Handle real-time message reactions from Redis
+      handleRedisMessageReaction: (
+        messageId: string,
+        teamChatId: string,
+        userId: string,
+        reaction: string,
+      ) => {
+        console.log(
+          `🔄 Redis: Handling message reaction: ${userId} reacted with ${reaction} to ${messageId} in ${teamChatId}`,
+        );
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m: any) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found for Redis reaction: ${messageId}`);
+            return state;
+          }
+
+          const updatedMessages = [...existingMessages];
+          const currentMessage = updatedMessages[messageIndex] as any;
+
+          // Initialize reactions if they don't exist
+          if (!currentMessage.reactions) {
+            currentMessage.reactions = {};
+          }
+
+          // Add or update reaction
+          if (!currentMessage.reactions[reaction]) {
+            currentMessage.reactions[reaction] = [];
+          }
+
+          // Add user to reaction if not already there
+          if (!currentMessage.reactions[reaction].includes(userId)) {
+            currentMessage.reactions[reaction].push(userId);
+          }
+
+          updatedMessages[messageIndex] = {
+            ...currentMessage,
+            updatedAt: new Date(),
+          };
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: updatedMessages,
+            },
+          };
+        });
+      },
+
+      // Handle real-time read receipts from Redis
+      handleRedisReadReceipt: (messageId: string, teamChatId: string, userId: string) => {
+        console.log(
+          `🔄 Redis: Handling read receipt: ${userId} read ${messageId} in ${teamChatId}`,
+        );
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m: any) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found for Redis read receipt: ${messageId}`);
+            return state;
+          }
+
+          const updatedMessages = [...existingMessages];
+          const currentMessage = updatedMessages[messageIndex] as any;
+
+          // Initialize read receipts if they don't exist
+          if (!currentMessage.readReceipts) {
+            currentMessage.readReceipts = {};
+          }
+
+          // Mark message as read by user
+          currentMessage.readReceipts[userId] = new Date().toISOString();
+
+          updatedMessages[messageIndex] = {
+            ...currentMessage,
+            updatedAt: new Date(),
+          };
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: updatedMessages,
             },
           };
         });
