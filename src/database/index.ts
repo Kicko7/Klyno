@@ -1,13 +1,15 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
+import { creditTransactions } from './schemas/creditTransactions';
 import { credits } from './schemas/credits';
+import { userCredits } from './schemas/userCredits';
 import { Credit, NewCredit } from './types';
 
 const connectionString = process.env.DATABASE_URL!;
 
 const client = postgres(connectionString);
-export const db = drizzle(client, { schema: { credits } });
+export const db = drizzle(client, { schema: { credits, userCredits, creditTransactions } });
 
 export type { Credit, NewCredit };
 export { credits } from './schemas/credits';

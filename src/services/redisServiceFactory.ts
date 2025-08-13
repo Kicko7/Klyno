@@ -1,14 +1,15 @@
-import { Redis } from '@upstash/redis';
-import { RedisClientType } from 'redis';
-
 import { getRedisClient } from '@/libs/redis/client';
 
 import { RedisService } from './redisService';
 
+// Dynamic imports to prevent client-side execution of Node.js modules
+let Redis: any;
+let RedisClientType: any;
+
 let redisService: RedisService | null = null;
 
 // Create a minimal adapter for local Redis client
-const createLocalAdapter = (client: any): Partial<Redis> => {
+const createLocalAdapter = (client: any): Partial<any> => {
   return {
     hset: async (key: string, field: any, value?: any) => {
       if (typeof field === 'object') {
@@ -37,7 +38,7 @@ const createLocalAdapter = (client: any): Partial<Redis> => {
       end: number,
     ): Promise<TResult[]> => {
       const result = await client.lRange(key, start, end);
-      return (result || []) as TResult[];
+      return result || [];
     },
     xadd: async (key: string, id: string, fields: any) => {
       const result = await client.xAdd(key, '*', fields);
@@ -70,18 +71,45 @@ const createLocalAdapter = (client: any): Partial<Redis> => {
   };
 };
 
-export const getRedisService = async () => {
+export const getRedisService = async (): Promise<RedisService> => {
   if (redisService) return redisService;
+
+  // Lazy load Redis modules only when needed
+  if (!Redis) {
+    try {
+      const upstashRedis = await import('@upstash/redis');
+      const redisModule = await import('redis');
+
+      Redis = upstashRedis.Redis;
+      RedisClientType = (redisModule as any).RedisClientType;
+    } catch (error) {
+      console.warn('⚠️ Redis modules not available (likely client-side):', error);
+      // Provide a no-op RedisService adapter that satisfies the interface shape
+      const noopAdapter: any = {
+        hset: async () => 1,
+        hget: async () => null,
+        hgetall: async () => ({}),
+        expire: async () => 1,
+        del: async () => 0,
+        rpush: async () => 0,
+        lrange: async () => [],
+        xadd: async () => '',
+        xrange: async () => ({}),
+        scan: async () => ['0', []],
+      };
+      return new RedisService(noopAdapter as any);
+    }
+  }
 
   const redisClient = await getRedisClient();
 
   // Create a Redis service adapter for local Redis client
   if ((redisClient as any).isOpen !== undefined) {
-    const adapter = createLocalAdapter(redisClient) as Redis;
+    const adapter = createLocalAdapter(redisClient) as any;
     redisService = new RedisService(adapter);
   } else {
     // Use Upstash Redis client directly
-    redisService = new RedisService(redisClient as Redis);
+    redisService = new RedisService(redisClient as any);
   }
 
   return redisService;
