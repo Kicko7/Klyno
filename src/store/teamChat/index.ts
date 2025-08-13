@@ -13,6 +13,7 @@ import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
 import { useUserStore } from '@/store/user';
 import { CreateMessageParams } from '@/types/message';
+
 import { toggleBooleanList } from '../chat/utils';
 
 interface TeamChatMetadata {
@@ -204,7 +205,7 @@ type TeamChatStore = TeamChatState & {
   getMessageById: (id: string) => void;
   deleteMessage: (teamChatId: string, messageId: string) => void;
   copyMessage: (content: string) => void;
-  toggleMessageEditing:(id:string,editing:boolean)=>void;
+  toggleMessageEditing: (id: string, editing: boolean) => void;
   updateMessage: (teamChatId: string, messageId: string, content: string, metadata?: any) => void;
 };
 
@@ -769,72 +770,16 @@ export const useTeamChatStore = create<TeamChatStore>()(
         metadata?: any,
       ): Promise<any> => {
         try {
-          // console.log('📤 Sending message to team chat:', teamChatId, messageType);
-
-          // Use provided metadata (including proper usage tokens) or fall back to simple estimation
           let messageMetadata = metadata || {};
 
-          // If no metadata provided for assistant messages, use simple estimation as fallback
+          // Estimate tokens if assistant message and no metadata provided
           if (messageType === 'assistant' && !metadata?.totalTokens && !metadata?.tokens) {
             messageMetadata = {
-              tokens: content ? content.length / 4 : 0, // Simple estimate as fallback
+              tokens: content ? content.length / 4 : 0,
             };
           }
 
-          // First, update the UI immediately for better UX
-          set((state) => {
-            const existingMessages = state.messages[teamChatId] || [];
-            let updatedMessages;
-
-            if (messageId) {
-              // Update existing message if messageId is provided
-              const existingIndex = existingMessages.findIndex((m) => m.id === messageId);
-              if (existingIndex >= 0) {
-                updatedMessages = [...existingMessages];
-                updatedMessages[existingIndex] = {
-                  ...updatedMessages[existingIndex],
-                  content,
-                  metadata: {
-                    ...(updatedMessages[existingIndex].metadata || {}),
-                    ...(messageMetadata || {}),
-                  },
-                };
-              } else {
-                // Add new message if not found
-                const newMessage = {
-                  id: messageId,
-                  content,
-                  messageType,
-                  teamChatId,
-                  metadata: messageMetadata || {},
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                };
-                updatedMessages = [...existingMessages, newMessage as any];
-              }
-            } else {
-              // Add new message with generated ID
-              const newMessage = {
-                id: `temp-${Date.now()}`,
-                content,
-                messageType,
-                teamChatId,
-                metadata: messageMetadata || {},
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              };
-              updatedMessages = [...existingMessages, newMessage as any];
-            }
-
-            return {
-              messages: {
-                ...state.messages,
-                [teamChatId]: updatedMessages,
-              },
-            };
-          });
-
-          // Then persist to database in background
+          // Persist to database
           let message;
           if (isServerMode) {
             console.log('🚄 Using tRPC client to send message');
@@ -842,7 +787,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
               teamChatId,
               content,
               messageType,
-              metadata: messageMetadata || {},
+              metadata: messageMetadata,
             });
           } else {
             const service = await getTeamChatService();
@@ -850,80 +795,50 @@ export const useTeamChatStore = create<TeamChatStore>()(
               content,
               messageType,
               id: messageId,
-              metadata: messageMetadata || {},
+              metadata: messageMetadata,
             });
           }
 
-          // Update the message ID in the UI if it changed (temp ID to real ID)
-          if (message && message.id !== messageId) {
-            set((state) => {
+          // Ensure message is stored in state after persistence
+          if (message) {
+            set((state: any) => {
               const existingMessages = state.messages[teamChatId] || [];
-              const messageIndex = existingMessages.findIndex((m) => m.id === messageId);
-              
-              if (messageIndex >= 0) {
-                const updatedMessages = [...existingMessages];
-                updatedMessages[messageIndex] = {
-                  ...updatedMessages[messageIndex],
-                  id: message.id, // Update to real ID
-                  metadata: {
-                    ...(updatedMessages[messageIndex].metadata || {}),
-                    isPersisted: true, // Mark as fully persisted
-                  },
-                };
-                
-                return {
-                  messages: {
-                    ...state.messages,
-                    [teamChatId]: updatedMessages,
-                  },
-                };
-              }
-              
-              return state;
-            });
-          } else if (message) {
-            // Message was persisted with the same ID, mark it as persisted
-            set((state) => {
-              const existingMessages = state.messages[teamChatId] || [];
-              const messageIndex = existingMessages.findIndex((m) => m.id === messageId);
-              
-              if (messageIndex >= 0) {
-                const updatedMessages = [...existingMessages];
-                updatedMessages[messageIndex] = {
-                  ...updatedMessages[messageIndex],
-                  metadata: {
-                    ...(updatedMessages[messageIndex].metadata || {}),
-                    isPersisted: true, // Mark as fully persisted
-                  },
-                };
-                
-                return {
-                  messages: {
-                    ...state.messages,
-                    [teamChatId]: updatedMessages,
-                  },
-                };
-              }
-              
-              return state;
+          
+              const newMessage = {
+                id: message.id,
+                content: message.content,
+                messageType: message.messageType,
+                teamChatId,
+                metadata: {
+                  ...(message.metadata || {}),
+                  isPersisted: true,
+                },
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              };
+          
+              return {
+                messages: {
+                  ...state.messages,
+                  [teamChatId]: [...existingMessages, newMessage],
+                },
+              };
             });
           }
 
-          console.log('✅ Message sent/updated');
+          console.log('✅ Message sent and stored');
 
-          // Retry logic if it's a retry attempt
+          // Retry logic for assistant messages
           if (retry && messageType === 'assistant') {
             console.log('🔄 Retrying AI message with updated API key...');
-            // Code to retry AI generation
             const state = get();
             const existingMessages = state.messages[teamChatId] || [];
             const originalMessage = existingMessages.find((m) => m.id === messageId);
             if (originalMessage && originalMessage.messageType === 'assistant') {
-              // Here you'd re-trigger the AI message generation, similar to the logic in TeamChatInput
+              // Trigger AI message regeneration logic here
             }
           }
 
-          // Return the message object so caller can get the real ID
           return message;
         } catch (error) {
           console.error('❌ Failed to send message:', error);
@@ -1172,13 +1087,18 @@ export const useTeamChatStore = create<TeamChatStore>()(
       copyMessage: async (content) => {
         await copyToClipboard(content);
       },
-      updateMessage: async (teamChatId: string, messageId: string, content: string, metadata?: any) => {
+      updateMessage: async (
+        teamChatId: string,
+        messageId: string,
+        content: string,
+        metadata?: any,
+      ) => {
         try {
           // Update the UI immediately for better UX
           set((state) => {
             const existingMessages = state.messages[teamChatId] || [];
             const messageIndex = existingMessages.findIndex((m) => m.id === messageId);
-            
+
             if (messageIndex >= 0) {
               const updatedMessages = [...existingMessages];
               updatedMessages[messageIndex] = {
@@ -1190,7 +1110,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
                 },
                 updatedAt: new Date(),
               };
-              
+
               return {
                 messages: {
                   ...state.messages,
@@ -1198,7 +1118,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
                 },
               };
             }
-            
+
             return state;
           });
 
@@ -1206,7 +1126,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
           const currentState = get();
           const currentMessages = currentState.messages[teamChatId] || [];
           const currentMessage = currentMessages.find((m) => m.id === messageId);
-          
+
           // Persist to database
           if (isServerMode) {
             await lambdaClient.teamChat.updateMessage.mutate({
@@ -1246,24 +1166,28 @@ export const useTeamChatStore = create<TeamChatStore>()(
         }
       },
       toggleMessageEditing: (id: string, editing: boolean) => {
-          set((state) => {
+        set(
+          (state) => {
             const currentEditingIds = state.messageEditingIds || [];
-            
+
             if (editing) {
               // Add to editing list if not already there
               return {
-                messageEditingIds: currentEditingIds.includes(id) 
-                  ? currentEditingIds 
-                  : [...currentEditingIds, id]
+                messageEditingIds: currentEditingIds.includes(id)
+                  ? currentEditingIds
+                  : [...currentEditingIds, id],
               };
             } else {
               // Remove from editing list
               return {
-                messageEditingIds: currentEditingIds.filter(editingId => editingId !== id)
+                messageEditingIds: currentEditingIds.filter((editingId) => editingId !== id),
               };
             }
-          }, false, 'toggleMessageEditing');
-        },
+          },
+          false,
+          'toggleMessageEditing',
+        );
+      },
     }),
 
     {

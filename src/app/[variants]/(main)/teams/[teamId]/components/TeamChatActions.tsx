@@ -11,6 +11,11 @@ import { useChatStore } from '@/store/chat';
 import { chatSelectors } from '@/store/chat/selectors';
 import { useTeamChatStore } from '@/store/teamChat';
 import { MessageRoleType } from '@/types/message';
+import { nanoid } from 'nanoid';
+import { agentSelectors } from '@/store/agent/selectors';
+import { getAgentStoreState, useAgentStore } from '@/store/agent';
+import { gatherChatHistory } from '../../components/TeamChatInput';
+import { chatService } from '@/services/chat';
 
 // import { renderActions } from '../../Actions';
 // import { useChatListActionsBar } from '../../hooks/useChatListActionsBar';
@@ -43,6 +48,10 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
   const deleteMessageById = useTeamChatStore((state)=>state.deleteMessage)
   const copyMessage = useTeamChatStore((state)=>state.copyMessage);
   const toggleMessageEditing = useTeamChatStore((state)=>state.toggleMessageEditing)
+  const sendMessage = useTeamChatStore((state)=>state.sendMessage)
+  const agentConfig = useAgentStore(agentSelectors.currentAgentConfig);
+  const agentState = getAgentStoreState();
+  const teamChatStore = useTeamChatStore();
 
   const messageInfo:any = useMemo(() => getMessageById(id), [getMessageById, id]);
   const { t } = useTranslation('common');
@@ -72,6 +81,8 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
 
   const [showShareModal, setShareModal] = useState(false);
 
+  
+
   const handleActionClick = useCallback(
     async (action: ActionIconGroupEvent) => {
       switch (action.key) {
@@ -100,12 +111,80 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
         }
 
         case 'regenerate': {
-          if (inPortalThread) {
-            // resendThreadMessage(id);
-          } else regenerateMessage(id);
-
-          // if this message is an error message, we need to delete it
-          // if (item.error) deleteMessage(id);
+          const assistantMessageId = nanoid();
+        
+          // Create a placeholder assistant message
+          sendMessage(messageInfo.teamChatId, '', 'assistant', assistantMessageId);
+        
+          // Gather history including the original user message
+          const agentConfig = agentSelectors.currentAgentConfig(agentState);
+          const messages = await gatherChatHistory(
+            messageInfo.teamChatId,
+            messageInfo.content,
+            teamChatStore.messages,
+            agentConfig,
+          );
+        
+          // Add the original user message to the history
+          const currentMessage: any = {
+            role: 'user',
+            content: messageInfo.content,
+            sessionId: messageInfo.teamChatId,
+            files: messageInfo.metadata?.files || [],
+          };
+          messages.push(currentMessage);
+        
+          let aiResponse = '';
+        
+          // Stream assistant response
+          await chatService.createAssistantMessageStream({
+            params: {
+              messages: messages as any,
+              model: agentConfig.model,
+              provider: agentConfig.provider,
+              ...agentConfig.params,
+              plugins: agentConfig.plugins,
+            },
+            onMessageHandle: (chunk) => {
+              if ('text' in chunk && chunk.text) {
+                aiResponse += chunk.text;
+                sendMessage(messageInfo.teamChatId, aiResponse, 'assistant', assistantMessageId);
+              }
+            },
+            onFinish: async (finalContent, context) => {
+              const finalMessage = finalContent || aiResponse || 'No response generated';
+              const metadata = context?.usage
+                ? {
+                    ...context.usage,
+                    model: agentConfig.model,
+                    provider: agentConfig.provider,
+                    totalTokens: context.usage.totalTokens || 0,
+                  }
+                : {
+                    model: agentConfig.model,
+                    provider: agentConfig.provider,
+                  };
+        
+              await sendMessage(
+                messageInfo.teamChatId,
+                finalMessage,
+                'assistant',
+                assistantMessageId,
+                false,
+                metadata,
+              );
+            },
+            onErrorHandle: (error) => {
+              console.error('AI response error:', error);
+              sendMessage(
+                messageInfo.teamChatId,
+                'Sorry, I encountered an error regenerating the response.',
+                'assistant',
+                assistantMessageId,
+              );
+            },
+          });
+        
           break;
         }
 

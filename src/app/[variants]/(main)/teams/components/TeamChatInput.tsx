@@ -46,7 +46,7 @@ interface TeamChatInputProps {
 const MAX_HISTORY_MESSAGES = 20;
 
 // Function to gather chat history and construct context
-const gatherChatHistory = async (
+export const gatherChatHistory = async (
   teamChatId: string,
   currentMessage: string,
   messages: Record<string, TeamChatMessageItem[]>,
