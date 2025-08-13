@@ -23,6 +23,7 @@ import { renderEmail } from '@/libs/emails/render-email';
 import { OrganizationInvitation } from '@/libs/emails/templates/organization-invitation';
 import { useOrganizationStore } from '@/store/organization/store';
 import AddOrganizationMemberModal from './AddOrganizationMemberModal';
+import { useTheme } from 'antd-style';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -121,6 +122,8 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
     if (size) setPageSize(size);
   };
 
+  const theme = useTheme()
+
   if (!currentOrganization) {
     return (
       <div className="flex items-center justify-center h-full bg-gray-900">
@@ -133,7 +136,7 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className={`min-h-screen ${theme.appearance == "dark" ? 'bg-black text-white':'bg-white text-black'}`}>
       <div className="p-6 w-full h-full">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">

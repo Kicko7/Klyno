@@ -120,9 +120,7 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
           const agentConfig = agentSelectors.currentAgentConfig(agentState);
           const messages = await gatherChatHistory(
             messageInfo.teamChatId,
-            messageInfo.content,
-            teamChatStore.messages,
-            agentConfig,
+          1
           );
         
           // Add the original user message to the history

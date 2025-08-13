@@ -62,14 +62,13 @@ export class OrganizationModel {
   }
   async getUserOrganizations() {
     const userOrgs = await this.db
-      .select({
+      .selectDistinctOn([organizations.id], {
         member: organizationMembers,
         organization: organizations,
       })
       .from(organizationMembers)
       .innerJoin(organizations, eq(organizationMembers.organizationId, organizations.id))
       .where(eq(organizationMembers.userId, this.userId));
-
     return userOrgs.map((org) => ({
       ...org.organization,
       memberRole: org.member.role,
