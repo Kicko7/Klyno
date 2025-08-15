@@ -39,9 +39,9 @@ import { useOrganizationStore } from '@/store/organization/store';
 import { useTeamChatStore } from '@/store/teamChat';
 import { useUserStore } from '@/store/user';
 
+import TeamSharedSectionHeader from '../TeamSharedSectionHeader';
 import { ChatItemDropdown } from './ChatItemDropdown';
 import CompanySelector from './CompanySelector';
-import TeamSharedSectionHeader from '../TeamSharedSectionHeader';
 
 // This will be dynamically populated with team chat sessions
 const mainItems = [
@@ -49,8 +49,6 @@ const mainItems = [
   { title: 'Gallery', icon: ImageIcon },
   { title: 'Tools', icon: Settings },
 ];
-
-
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   userOrgs?: any; // Replace 'any' with the correct type if known
@@ -79,21 +77,23 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
   } = useTeamChatStore();
 
   // Get chats for current organization
-  const teamChats = currentOrganization?.id ? teamChatsByOrg[currentOrganization.id] || [] : [];
+  const teamChats = currentOrganization?.id
+    ? (teamChatsByOrg[currentOrganization.id] || []).filter((chat) => chat?.isInFolder === false)
+    : [];
 
   // Debug logging
-  console.log('🔍 Sidebar debug:', {
-    currentOrganizationId: currentOrganization?.id,
-    teamChatStoreCurrentOrgId: currentOrganizationId,
-    teamChatsByOrgKeys: Object.keys(teamChatsByOrg),
-    teamChatsCount: teamChats.length,
-    isLoading,
-    userState: {
-      userId: userState.user?.id,
-      isSignedIn: userState.isSignedIn,
-      isLoaded: userState.isLoaded,
-    },
-  });
+  // console.log('🔍 Sidebar debug:', {
+  //   currentOrganizationId: currentOrganization?.id,
+  //   teamChatStoreCurrentOrgId: currentOrganizationId,
+  //   teamChatsByOrgKeys: Object.keys(teamChatsByOrg),
+  //   teamChatsCount: teamChats.length,
+  //   isLoading,
+  //   userState: {
+  //     userId: userState.user?.id,
+  //     isSignedIn: userState.isSignedIn,
+  //     isLoaded: userState.isLoaded,
+  //   },
+  // });
 
   // Handle organization switching - load chats and clear active chat
   React.useEffect(() => {
@@ -110,7 +110,7 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
       refreshTeamChats();
 
       // Reset URL to teams page
-      router.push('/teams');
+      // router.push('/teams');
     }
   }, [
     currentOrganization?.id,
@@ -152,7 +152,8 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
     private: true,
     shared: true,
     chats: true,
-    clientWork: true,
+    clientWork: {} as Record<string, boolean>,
+    subFolder: {} as Record<string, boolean>, // This should be a flat object with composite keys
   });
 
   const [isCreatingChat, setIsCreatingChat] = React.useState(false);
@@ -272,7 +273,35 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
     ],
   );
 
+  const toggleClientWorkFolder = (folderId: any) => {
+    setOpenSections((prev: any) => ({
+      ...prev,
+      clientWork: {
+        ...prev.clientWork,
+        [folderId]: !prev.clientWork[folderId],
+      },
+    }));
+  };
+
+  const toggleSubFolder = (parentFolderId: string, subFolderId: string) => {
+    // Create a composite key to uniquely identify each subfolder
+    const compositeKey = `${parentFolderId}_${subFolderId}`;
+
+    setOpenSections((prev: any) => ({
+      ...prev,
+      subFolder: {
+        ...prev.subFolder,
+        [compositeKey]: !prev.subFolder[compositeKey],
+      },
+    }));
+  };
+
   const theme = useTheme();
+
+  const handlrRouteMainItems = (item: any) => {
+    console.log(item);
+    router.push(`/teams/${item.title.toLowerCase()}`);
+  };
   return (
     <Sidebar className="border-r border-border/40  text-slate-100 ml-12" {...props}>
       <SidebarHeader
@@ -445,7 +474,7 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
               <SidebarGroupContent>
                 <SidebarMenu>
                   {mainItems.map((item) => (
-                    <SidebarMenuItem key={item.title}>
+                    <SidebarMenuItem key={item.title} onClick={() => handlrRouteMainItems(item)}>
                       <SidebarMenuButton className="text-slate-300 hover:text-slate-100 hover:bg-white/10">
                         <item.icon
                           className={`w-4 h-4 ${theme.appearance === 'dark' ? 'text-white' : 'text-black'}`}
@@ -465,7 +494,7 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
         </SidebarGroup>
 
         {/* Private Section */}
-        <SidebarGroup>
+        {/* <SidebarGroup>
           <Collapsible open={openSections.private} onOpenChange={() => toggleSection('private')}>
             <CollapsibleTrigger asChild>
               <SidebarGroupLabel
@@ -498,10 +527,15 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
               </SidebarGroupContent>
             </CollapsibleContent>
           </Collapsible>
-        </SidebarGroup>
+        </SidebarGroup> */}
 
         {/* Shared Section */}
-        <TeamSharedSectionHeader openSections={openSections} toggleSection={toggleSection}/>
+        <TeamSharedSectionHeader
+          openSections={openSections}
+          toggleSection={toggleSection}
+          toggleClientWorkFolder={toggleClientWorkFolder}
+          toggleSubFolder={toggleSubFolder}
+        />
       </SidebarContent>
       <SidebarRail />
     </Sidebar>

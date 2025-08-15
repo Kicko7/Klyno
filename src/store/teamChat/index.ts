@@ -762,7 +762,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
 
           if (isServerMode) {
             console.log('🚄 Using tRPC client for server mode');
-            newChatId = await lambdaClient.teamChat.createTeamChat.mutate({
+            const chat = await lambdaClient.teamChat.createTeamChat.mutate({
               organizationId,
               title,
               metadata: {
@@ -777,6 +777,8 @@ export const useTeamChatStore = create<TeamChatStore>()(
                 ],
               },
             });
+
+            newChatId = chat.id;
 
             // For server mode, we need to reload the list to get the full object
             const chats = await lambdaClient.teamChat.getTeamChatsByOrganization.query({

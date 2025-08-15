@@ -22,13 +22,12 @@ export const teamChats = pgTable('team_chats', {
   teamId: text('team_id'),
 
   // Owner of the chat
-  userId: text('user_id')
-    .references(() => users.id, { onDelete: 'cascade' })
-    .notNull(),
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
 
   // Chat configuration
   isActive: boolean('is_active').default(true),
 
+  isInFolder:boolean("is_in_folder").default(false),
   // Additional metadata
   metadata: jsonb('metadata')
     .$type<{

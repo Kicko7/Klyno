@@ -80,7 +80,7 @@ export const useOrganizationStore = create<OrganizationStore>()(
         set({ isLoading: true });
         try {
           const organizations = await lambdaClient.organization.getMyOrganizations.query();
-          console.log("Organizations from DataBase",organizations)
+          // console.log("Organizations from DataBase",organizations)
           // If no selectedOrganizationId, set to first org
           let selectedOrganizationId = get().selectedOrganizationId;
           if (!selectedOrganizationId && organizations.length > 0) {

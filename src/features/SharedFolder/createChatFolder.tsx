@@ -7,25 +7,26 @@ import { useOrganizationStore } from '@/store/organization/store';
 import { useSharedFolderStore } from '@/store/sharedFolder/store';
 import { useUserStore } from '@/store/user';
 
-interface CreateSubFolderModalProps {
+interface CreateSubFolderChatProps {
   onClose: () => void;
   open: boolean;
-  parentId: string;
 }
 
-const CreateSubFolderModal: React.FC<CreateSubFolderModalProps> = ({ onClose, open, parentId }) => {
+const CreateSubFolderChat: React.FC<CreateSubFolderChatProps> = ({ onClose, open }) => {
   const [form] = Form.useForm();
-  const { createSharedSubFolder, loading } = useSharedFolderStore();
+  const { createSharedFolder, loading,selectedSubFolderId ,createChatInSubFolder} = useSharedFolderStore();
   const user = useUserStore((state) => state.user);
+  const selectedOrganizationId = useOrganizationStore((state) => state.selectedOrganizationId);
 
   const handleCreate = async () => {
     try {
-      if (!user) return;
-      if (!parentId) return;
+      if (!selectedOrganizationId ||!selectedSubFolderId) return;
       const values = await form.validateFields();
-      await createSharedSubFolder({
-        name:values.name,
-        parentId
+      await createChatInSubFolder({
+        title:values.name,
+        organizationId:selectedOrganizationId,
+        subFolderId:selectedSubFolderId,
+        isInFolder:true
       })
       onClose();
     } catch (errorInfo) {
@@ -41,20 +42,20 @@ const CreateSubFolderModal: React.FC<CreateSubFolderModalProps> = ({ onClose, op
       onCancel={onClose}
       onOk={handleCreate}
       open={open}
-      title="Create Sub Folder"
+      title="Create Chat"
       width={600}
     >
       <Form form={form} layout="vertical">
         <Form.Item
-          label="Folder Name"
+          label="Create Chat"
           name="name"
-          rules={[{ message: 'Please input folder name', required: true }]}
+          rules={[{ message: 'Please input chat name', required: true }]}
         >
-          <Input placeholder="Enter Folder Name" />
+          <Input placeholder="Enter Chat Name" />
         </Form.Item>
       </Form>
     </Modal>
   );
 };
 
-export default CreateSubFolderModal;
+export default CreateSubFolderChat;

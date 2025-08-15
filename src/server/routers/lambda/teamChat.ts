@@ -30,6 +30,7 @@ export const teamChatRouter = router({
         title: z.string().optional(),
         userId: z.string().optional(), // Optional since we get it from context
         metadata: z.record(z.any()).optional(),
+        isInFolder:z.boolean().default(false).optional()
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -48,8 +49,9 @@ export const teamChatRouter = router({
           ],
           ...(input.metadata || {}),
         },
+        isInFolder:input.isInFolder
       });
-      return teamChat.id;
+      return teamChat;
     }),
 
   updateTeamChat: teamChatProcedure
