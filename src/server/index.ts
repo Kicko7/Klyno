@@ -2,9 +2,9 @@ import { createServer } from 'http';
 import next from 'next';
 import { parse } from 'url';
 
-import { WebSocketServer } from './websocket/server';
 import { startBackgroundSyncWorker } from '@/services/sessionManagerFactory';
 import { logSessionConfig, validateSessionConfig } from '@/config/sessionConfig';
+import { WebSocketServer } from './websocket/server';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';

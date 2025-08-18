@@ -63,12 +63,12 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
       'session:loaded',
       (data: { sessionId: string; messages: any[]; participants: string[]; status: string }) => {
         try {
-          console.log(`📥 Session loaded for room ${teamChatId}:`, {
-            sessionId: data.sessionId,
-            messageCount: data.messages?.length || 0,
-            participants: data.participants?.length || 0,
-            status: data.status,
-          });
+          // console.log(`📥 Session loaded for room ${teamChatId}:`, {
+          //   sessionId: data.sessionId,
+          //   messageCount: data.messages?.length || 0,
+          //   participants: data.participants?.length || 0,
+          //   status: data.status,
+          // });
 
           const converted = (data.messages || [])
             .map((m: any) => ({
@@ -100,50 +100,50 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
 
     // Handle presence updates
     socket.on('presence:list', (presence: Record<string, PresenceData>) => {
-      console.log('📊 Received presence list:', presence);
+      // console.log('📊 Received presence list:', presence);
       updatePresence(teamChatId, presence);
     });
 
     socket.on('presence:update', (data: PresenceData) => {
-      console.log('👤 Presence update:', data);
+      // console.log('👤 Presence update:', data);
       updatePresence(teamChatId, { [data.userId]: data });
     });
 
     // Handle typing indicators
     socket.on('typing:start', (data: TypingData) => {
-      console.log('⌨️ Typing started:', data);
+      // console.log('⌨️ Typing started:', data);
       updateTypingStatus(teamChatId, data.userId, true);
     });
 
     socket.on('typing:stop', (data: TypingData) => {
-      console.log('⌨️ Typing stopped:', data);
+      // console.log('⌨️ Typing stopped:', data);
       updateTypingStatus(teamChatId, data.userId, false);
     });
 
     // Handle read receipts
     socket.on('receipt:list', (receipts: Record<string, ReadReceiptData>) => {
-      console.log('📖 Received read receipts:', receipts);
+      // console.log('📖 Received read receipts:', receipts);
       updateReadReceipts(teamChatId, receipts);
     });
 
     socket.on('receipt:update', (data: ReadReceiptData & { teamId: string }) => {
-      console.log('📖 Read receipt update:', data);
+      // console.log('📖 Read receipt update:', data);
       updateReadReceipts(teamChatId, { [data.userId]: data });
     });
 
     // Handle new messages
     socket.on('message:new', (message: MessageStreamData) => {
-      console.log('💬 New message received:', {
-        id: message.id,
-        type: message.type,
-        userId: message.userId,
-        teamId: message.teamId,
-        contentLength: message.content.length,
-        timestamp: message.timestamp,
-        metadata: message.metadata,
-        isAIMessage: message.userId === 'assistant',
-        hasClientMessageId: !!message.metadata?.clientMessageId,
-      });
+      // console.log('💬 New message received:', {
+      //   id: message.id,
+      //   type: message.type,
+      //   userId: message.userId,
+      //   teamId: message.teamId,
+      //   contentLength: message.content.length,
+      //   timestamp: message.timestamp,
+      //   metadata: message.metadata,
+      //   isAIMessage: message.userId === 'assistant',
+      //   hasClientMessageId: !!message.metadata?.clientMessageId,
+      // });
 
       // Convert MessageStreamData to TeamChatMessageItem format
       const teamChatMessage = {
@@ -167,14 +167,14 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
         accessedAt: new Date(), // Add missing required field
       };
 
-      console.log(`🔄 Converting message to TeamChatMessageItem:`, {
-        originalId: message.id,
-        convertedId: teamChatMessage.id,
-        messageType: teamChatMessage.messageType,
-        userId: teamChatMessage.userId,
-        isAIMessage: message.userId === 'assistant',
-        clientMessageId: message.metadata?.clientMessageId,
-      });
+      // console.log(`🔄 Converting message to TeamChatMessageItem:`, {
+      //   originalId: message.id,
+      //   convertedId: teamChatMessage.id,
+      //   messageType: teamChatMessage.messageType,
+      //   userId: teamChatMessage.userId,
+      //   isAIMessage: message.userId === 'assistant',
+      //   clientMessageId: message.metadata?.clientMessageId,
+      // });
 
       // Enhanced deduplication: Check for messages with similar content and metadata
       const existingMessages = useTeamChatStore.getState().messages[message.teamId] || [];

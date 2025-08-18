@@ -296,7 +296,8 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
           },
           onFinish: async (finalContent, context) => {
             const finalMessage = finalContent || aiResponse || 'No response generated';
-
+            console.log("On Finish Called",finalContent,context)
+            console.log("Model & Provider" ,agentConfig.model,agentConfig.provider)
             // Extract usage information
             const metadata = context?.usage
               ? {

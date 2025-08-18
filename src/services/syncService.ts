@@ -1,4 +1,3 @@
-import { nanoid } from 'nanoid';
 
 import { lambdaClient } from '@/libs/trpc/client';
 
