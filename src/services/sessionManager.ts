@@ -1,8 +1,7 @@
 import { nanoid } from 'nanoid';
 
-import { TeamChatMessageItem } from '@/database/schemas/teamChat';
-import { lambdaClient } from '@/libs/trpc/client';
 
+import { ApiService } from './fetchService';
 import { OptimizedRedisService } from './optimized-redis-service';
 import { SyncService } from './syncService';
 
@@ -30,13 +29,15 @@ export interface MessageData {
 export class SessionManager {
   private redisService: OptimizedRedisService;
   private syncService: SyncService;
+  private apiService: ApiService;
   private readonly SESSION_TTL = 1200; // 20 minutes in seconds
-  private readonly MAX_MESSAGES = 1000;
+  private readonly MAX_MESSAGES = 2;
   private readonly INITIAL_LOAD_SIZE = 50;
 
   constructor(redisService: OptimizedRedisService, syncService: SyncService) {
     this.redisService = redisService;
     this.syncService = syncService;
+    this.apiService = new ApiService(); // Create instance in constructor
   }
 
   /**
@@ -44,7 +45,7 @@ export class SessionManager {
    */
   async createSession(teamChatId: string, participants: string[] = []): Promise<ChatSession> {
     const now = Date.now();
-    const session: ChatSession = {
+    const session: any = {
       sessionId: `session_${teamChatId}_${nanoid()}`,
       teamChatId,
       participants,
@@ -63,7 +64,7 @@ export class SessionManager {
   /**
    * Get an existing session from Redis
    */
-  async getSession(teamChatId: string): Promise<ChatSession | null> {
+  async getSession(teamChatId: string): Promise<ChatSession | any> {
     try {
       const session = await this.redisService.getSession(teamChatId);
       if (session && session.status === 'active') {
@@ -79,15 +80,12 @@ export class SessionManager {
   /**
    * Load session from database if not in Redis
    */
-  async loadSessionFromDb(teamChatId: string): Promise<ChatSession | null> {
+  async loadSessionFromDb(teamChatId: string): Promise<ChatSession | any> {
     try {
       console.log(`📥 Loading session from DB for team chat: ${teamChatId}`);
 
       // Load recent messages from database
-      const messages = await lambdaClient.teamChat.getMessages.query({
-        teamChatId,
-        limit: this.INITIAL_LOAD_SIZE,
-      });
+      const messages = await this.apiService.getMessages(teamChatId, this.INITIAL_LOAD_SIZE);
 
       if (!messages || messages.length === 0) {
         return null;
@@ -185,15 +183,15 @@ export class SessionManager {
       await this.redisService.setSession(updatedSession);
 
       // Immediately persist to database for critical messages (AI responses, system messages)
-      if (message.type === 'assistant' || message.type === 'system') {
-        try {
-          await this.persistMessageToDatabase(teamChatId, message);
-          console.log(`✅ Critical message persisted to database: ${message.id}`);
-        } catch (error) {
-          console.error(`❌ Failed to persist critical message to database: ${message.id}`, error);
-          // Don't throw error to prevent blocking the session update
-        }
-      }
+      // if (message.type === 'assistant' || message.type === 'system') {
+      //   try {
+      //     await this.persistMessageToDatabase(teamChatId, message);
+      //     console.log(`✅ Critical message persisted to database: ${message.id}`);
+      //   } catch (error) {
+      //     console.error(`❌ Failed to persist critical message to database: ${message.id}`, error);
+      //     // Don't throw error to prevent blocking the session update
+      //   }
+      // }
 
       console.log(
         `✅ Message ${existingMessageIndex !== -1 ? 'updated' : 'added'} to session: ${teamChatId}`,
@@ -212,25 +210,25 @@ export class SessionManager {
   /**
    * Persist a message to the database
    */
-  private async persistMessageToDatabase(teamChatId: string, message: MessageData): Promise<void> {
-    try {
-      const { lambdaClient } = await import('@/libs/trpc/client/lambda');
-
-      await lambdaClient.teamChat.addMessage.mutate({
-        teamChatId,
-        content: message.content,
-        messageType: message.type as 'user' | 'assistant' | 'system',
-        metadata: {
-          ...message.metadata,
-          redisMessageId: message.id,
-          syncedFromRedis: true,
-        },
-      });
-    } catch (error) {
-      console.error(`Failed to persist message to database: ${message.id}`, error);
-      throw error;
-    }
-  }
+  // private async persistMessageToDatabase(teamChatId: string, message: MessageData): Promise<void> {
+  //   console.log('Persisting message to database', message);
+  //   try {
+  //     await this.apiService.addMessage({
+  //       teamChatId,
+  //       userId: message.userId,
+  //       content: message.content,
+  //       messageType: message.type as 'user' | 'assistant' | 'system',
+  //       metadata: {
+  //         ...message.metadata,
+  //         redisMessageId: message.id,
+  //         syncedFromRedis: true,
+  //       },
+  //     });
+  //   } catch (error) {
+  //     console.error(`Failed to persist message to database: ${message.id}`, error);
+  //     throw error;
+  //   }
+  // }
 
   /**
    * Update session with multiple messages (batch operation)

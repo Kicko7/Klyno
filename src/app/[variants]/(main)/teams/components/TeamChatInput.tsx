@@ -197,7 +197,7 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
         id: assistantMessageId,
         content: 'Thinking...',
         messageType: 'assistant',
-        userId: 'assistant',
+        userId: currentUser?.id || 'unknown',
         metadata: { isThinking: true, clientMessageId: assistantMessageId, isLocal: true },
         isLocal: true,
       });
@@ -319,7 +319,7 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
       metadata: { ...metadata, isThinking: false, isLocal: true },
     });
 
-    sendWebSocketMessage(finalMessage, 'assistant', { isThinking: false, clientMessageId: assistantMessageId }, assistantMessageId);
+    sendWebSocketMessage(finalMessage, 'assistant', { isThinking: false, clientMessageId: assistantMessageId,userId:currentUser?.id || 'assistant' }, assistantMessageId);
 
   };
 

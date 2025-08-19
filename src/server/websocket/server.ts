@@ -225,29 +225,29 @@ export class WebSocketServer {
             }
 
             // For AI messages, ensure immediate database persistence
-            if (message.type === 'assistant') {
-              try {
-                // Use the lambda client to persist AI messages immediately
-                const { lambdaClient } = await import('@/libs/trpc/client/lambda');
-                await lambdaClient.teamChat.addMessage.mutate({
-                  teamChatId: message.teamId,
-                  content: message.content,
-                  messageType: 'assistant',
-                  metadata: {
-                    ...message.metadata,
-                    redisMessageId: messageId,
-                    syncedFromWebSocket: true,
-                  },
-                });
-                console.log(`✅ AI message immediately persisted to database: ${messageId}`);
-              } catch (persistError) {
-                console.error(
-                  `❌ Failed to persist AI message to database: ${messageId}`,
-                  persistError,
-                );
-                // Don't fail the WebSocket flow, but log the error
-              }
-            }
+            // if (message.type === 'assistant') {
+            //   try {
+            //     // Use the lambda client to persist AI messages immediately
+            //     const { lambdaClient } = await import('@/libs/trpc/client/lambda');
+            //     await lambdaClient.teamChat.addMessage.mutate({
+            //       teamChatId: message.teamId,
+            //       content: message.content,
+            //       messageType: 'assistant',
+            //       metadata: {
+            //         ...message.metadata,
+            //         redisMessageId: messageId,
+            //         syncedFromWebSocket: true,
+            //       },
+            //     });
+            //     console.log(`✅ AI message immediately persisted to database: ${messageId}`);
+            //   } catch (persistError) {
+            //     console.error(
+            //       `❌ Failed to persist AI message to database: ${messageId}`,
+            //       persistError,
+            //     );
+            //     // Don't fail the WebSocket flow, but log the error
+            //   }
+            // }
 
             // Check if we need background sync (approaching 1000 message limit)
             if (await this.sessionManager.needsBackgroundSync(message.teamId)) {

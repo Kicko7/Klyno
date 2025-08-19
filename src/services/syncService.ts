@@ -2,19 +2,26 @@
 import { lambdaClient } from '@/libs/trpc/client';
 
 import { ChatSession, MessageData } from './sessionManager';
+import { ApiService } from './fetchService';
 
 export class SyncService {
   private readonly BATCH_SIZE = 100;
   private readonly RETRY_ATTEMPTS = 3;
   private readonly RETRY_DELAY = 1000; // ms
+  private apiService: ApiService;
+
+  constructor(apiService: ApiService) {
+    this.apiService = new ApiService();
+  }
 
   /**
    * Sync a single message to database
    */
   async syncSingleMessage(teamChatId: string, message: MessageData): Promise<void> {
     try {
-      await lambdaClient.teamChat.addMessage.mutate({
+       await this.apiService.addMessage({
         teamChatId,
+        userId: message.userId,
         content: message.content,
         messageType: message.type as 'user' | 'assistant' | 'system',
         metadata: {
@@ -51,18 +58,18 @@ export class SyncService {
    */
   private async syncBatch(teamChatId: string, batch: MessageData[]): Promise<void> {
     let lastError: Error | null = null;
-
+  
     for (let attempt = 1; attempt <= this.RETRY_ATTEMPTS; attempt++) {
       try {
         // Use Promise.all for parallel processing within batch
         await Promise.all(
           batch.map(async (message) => {
-            // Check if message already exists (by redisMessageId)
-            const existingMessage = await this.checkMessageExists(teamChatId, message.id);
-            
-            if (!existingMessage) {
-              await lambdaClient.teamChat.addMessage.mutate({
+
+            if(message?.id){
+              const result = await this.apiService.addMessage({
+                id: message?.id || '',
                 teamChatId,
+                userId: message.userId,
                 content: message.content,
                 messageType: message.type as 'user' | 'assistant' | 'system',
                 metadata: {
@@ -72,11 +79,17 @@ export class SyncService {
                   originalTimestamp: message.timestamp,
                   syncAttempt: attempt,
                 },
-              });
+              }); 
+            
+  
+              // ✅ Validate the result
+              if (!result.success) {
+                throw new Error(`Failed to add message ${message.id} to database`);
+              }
             }
           })
         );
-
+  
         console.log(`✅ Synced batch of ${batch.length} messages (attempt ${attempt})`);
         return; // Success, exit retry loop
       } catch (error) {
@@ -88,7 +101,7 @@ export class SyncService {
         }
       }
     }
-
+  
     // All retries failed
     throw new Error(`Failed to sync batch after ${this.RETRY_ATTEMPTS} attempts: ${lastError?.message}`);
   }
