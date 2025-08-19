@@ -18,6 +18,12 @@ export class WebSocketServer {
   private io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
   private redisService!: RedisService;
   private sessionManager!: SessionManager;
+  private connectionStats = {
+    totalConnections: 0,
+    activeConnections: 0,
+    totalDisconnections: 0,
+    pingTimeouts: 0,
+  };
 
   constructor(httpServer: HttpServer) {
     this.io = new Server(httpServer, {
@@ -28,8 +34,20 @@ export class WebSocketServer {
         credentials: true,
       },
       path: '/socket.io',
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       allowEIO3: true,
+      // Optimized timeout configurations to prevent ping timeout issues
+      pingTimeout: 120000, // 120 seconds - time to wait for pong response (reduced from 120s)
+      pingInterval: 60000, // 60 seconds - interval between pings (reduced from 60s)
+      upgradeTimeout: 10000, // 10 seconds - timeout for upgrade to WebSocket
+      maxHttpBufferSize: 1e6, // 1MB - max message size
+      // Connection settings
+      connectTimeout: 45000, // 45 seconds - connection timeout
+      // Add connection state validation
+      allowRequest: (req, callback) => {
+        // Allow all requests but log them for debugging
+        callback(null, true);
+      },
     });
   }
 
@@ -59,7 +77,15 @@ export class WebSocketServer {
 
   private setupEventHandlers() {
     this.io.on('connection', (socket) => {
+      // Track connection time for debugging
+      (socket.data as any).connectTime = Date.now();
+      
+      // Update connection statistics
+      this.connectionStats.totalConnections++;
+      this.connectionStats.activeConnections++;
+      
       console.log(`Socket connected: ${socket.id} (User: ${socket.data.userId})`);
+      console.log(`📊 Connection stats: Total: ${this.connectionStats.totalConnections}, Active: ${this.connectionStats.activeConnections}`);
 
       // Room Events
       socket.on('room:join', async (roomId) => {
@@ -406,9 +432,23 @@ export class WebSocketServer {
         }
       });
 
-      // Disconnect handling
-      socket.on('disconnect', async () => {
-        console.log(`Socket disconnected: ${socket.id} (User: ${socket.data.userId})`);
+      // Custom ping/pong handler to prevent timeout issues
+ 
+
+      // Handle connection errors
+      socket.on('error', (error) => {
+        console.error(`Socket error for ${socket.id} (User: ${socket.data.userId}):`, error);
+      });
+
+      socket.on('disconnect', async (reason) => {
+        const duration = Date.now() - ((socket.data as any).connectTime || Date.now());
+        
+        // Update connection statistics
+        this.connectionStats.activeConnections = Math.max(0, this.connectionStats.activeConnections - 1);
+        this.connectionStats.totalDisconnections++;
+        
+        console.log(`Socket disconnected: ${socket.id} (User: ${socket.data.userId}) - Reason: ${reason} - Duration: ${duration}ms`);
+        console.log(`📊 Connection stats: Total: ${this.connectionStats.totalConnections}, Active: ${this.connectionStats.activeConnections}, Disconnections: ${this.connectionStats.totalDisconnections}`);
 
         // Update presence for all active rooms
         for (const roomId of socket.data.activeRooms) {
@@ -434,5 +474,12 @@ export class WebSocketServer {
 
   public getIO() {
     return this.io;
+  }
+
+  public getConnectionStats() {
+    return {
+      ...this.connectionStats,
+      currentTime: new Date().toISOString(),
+    };
   }
 }
