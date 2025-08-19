@@ -15,6 +15,8 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
   const socketRef = useRef<Socket | null>(null);
   const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
   const isCleanupRef = useRef(false);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastPongRef = useRef<number>(Date.now());
 
   const currentUser = useUserStore(userProfileSelectors.userProfile);
 
@@ -29,20 +31,23 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
     batchUpdateMessages,
   } = useTeamChatStore();
 
-  // socket config (changes only if userId changes)
+  // Optimized socket config
   const socketConfig = useMemo(
     () => ({
       auth: { userId: currentUser?.id },
-      transports: ['polling'],
+      transports: ['polling', 'websocket'],
       upgrade: true,
       reconnection: true,
-      reconnectionAttempts: Infinity,
+      reconnectionAttempts: 5, // Limit attempts instead of Infinity
       reconnectionDelay: 1000,
       reconnectionDelayMax: 10000,
-      timeout: 120000,
-      autoConnect: true,
-      forceNew:true,
-      closeOnBeforeunload:true,
+      timeout: 45000, // Reduced from 120000
+      autoConnect: false, // Manual connection control
+      forceNew: false,
+      closeOnBeforeunload: false,
+      // Add ping/pong settings
+      pingTimeout: 60000, // Match server or slightly less
+      pingInterval: 25000, // Shorter than server's 60s
     }),
     [currentUser?.id],
   );
@@ -87,15 +92,23 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
     return false;
   }, []);
 
+  // Enhanced cleanup with better error handling
   const cleanup = useCallback(() => {
     if (isCleanupRef.current) return;
     isCleanupRef.current = true;
 
+    // Clear all timers
     if (heartbeatRef.current) {
       clearInterval(heartbeatRef.current);
       heartbeatRef.current = null;
     }
 
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+
+    // Clean up socket
     if (socketRef.current) {
       try {
         socketRef.current.emit('room:leave', teamChatId);
@@ -112,6 +125,32 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
     }
   }, [teamChatId, currentUser?.id, unsubscribeFromChat]);
 
+  // Enhanced heartbeat with ping/pong monitoring
+  const startHeartbeat = useCallback(() => {
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current);
+    }
+
+    heartbeatRef.current = setInterval(() => {
+      const socket = socketRef.current;
+      if (!socket?.connected || isCleanupRef.current) return;
+
+      // Check if we've received a recent pong
+      const timeSinceLastPong = Date.now() - lastPongRef.current;
+      if (timeSinceLastPong > 90000) { // 90 seconds without pong
+        console.warn('⚠️ No pong received for 90s, forcing reconnection');
+        socket.disconnect();
+        return;
+      }
+
+      // Send heartbeat
+      socket.emit('presence:heartbeat', teamChatId);
+      
+      // Send ping to test connection
+      socket.volatile.emit('ping', Date.now());
+    }, 30000); // 30 second intervals
+  }, [teamChatId]);
+
   useEffect(() => {
     isCleanupRef.current = false;
 
@@ -126,45 +165,75 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
     }
 
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
-    // console.log('🔌 Connecting socket to:', socketUrl);
+    console.log('🔌 Connecting socket to:', socketUrl);
 
     const socket = io(socketUrl, socketConfig);
     socketRef.current = socket;
 
-    // --- Event listeners ---
+    // --- Enhanced Event listeners ---
     socket.on('connect', () => {
       console.log('✅ Socket connected:', socket.id);
+      lastPongRef.current = Date.now(); // Reset pong timer
+      
       socket.emit('room:join', teamChatId);
       subscribeToChat(teamChatId, currentUser.id);
-
-      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
-      heartbeatRef.current = setInterval(() => {
-        if (socket.connected && !isCleanupRef.current) {
-          socket.emit('presence:heartbeat', teamChatId);
-        }
-      }, 30000);
+      
+      // Start heartbeat only after connection
+      startHeartbeat();
     });
 
     socket.on('disconnect', (reason) => {
       console.warn('❌ Socket disconnected:', reason);
+      
+      // Clear heartbeat on disconnect
       if (heartbeatRef.current) {
         clearInterval(heartbeatRef.current);
         heartbeatRef.current = null;
+      }
+
+      // Handle different disconnect reasons
+      if (reason === 'ping timeout') {
+        console.warn('💔 Ping timeout detected - connection will auto-reconnect');
+      } else if (reason === 'transport close' || reason === 'transport error') {
+        console.warn('🔌 Transport issue - connection will auto-reconnect');
       }
     });
 
     socket.on('connect_error', (err) => {
       console.error('❌ Socket connection error:', err.message);
+      
+      // Implement exponential backoff for connection errors
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      
+      reconnectTimeoutRef.current = setTimeout(() => {
+        if (!isCleanupRef.current && !socket.connected) {
+          console.log('🔄 Attempting manual reconnection...');
+          socket.connect();
+        }
+      }, 5000);
     });
 
     socket.on('reconnect', (attempt) => {
       console.log('🔄 Socket reconnected after', attempt, 'attempts');
+      lastPongRef.current = Date.now(); // Reset pong timer
       socket.emit('room:join', teamChatId);
     });
 
-    // --- Chat events ---
+    // Add pong handler to track connection health
+    socket.on('pong', (timestamp) => {
+      lastPongRef.current = Date.now();
+      const latency = Date.now() - timestamp;
+      if (latency > 5000) { // Log high latency
+        console.warn(`⚠️ High latency detected: ${latency}ms`);
+      }
+    });
+
+    // --- Chat events (unchanged) ---
     socket.on('session:loaded', (data) => {
       if (!data.messages?.length) return;
+      console.log('Session loaded', data.messages);
       const converted = data.messages
         .map((m: any) => convertMessage(m, teamChatId))
         .filter(Boolean)
@@ -236,19 +305,13 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
       removeMessage(teamChatId, id);
     });
 
+    // Manual connection start
     socket.connect();
 
-
-    // heartbeatRef.current = setInterval(() => {
-    //   if (socket.connected && !isCleanupRef.current) {
-    //     // Remove: socket.emit('ping');
-    //     socket.emit('presence:heartbeat', teamChatId);
-    //   }
-    // }, 20000);
     return cleanup;
-  }, [teamChatId, enabled, currentUser?.id, socketConfig, cleanup]);
+  }, [teamChatId, enabled, currentUser?.id, socketConfig, cleanup, startHeartbeat]);
 
-  // --- API methods ---
+  // --- API methods (enhanced) ---
   const api = useMemo(
     () => ({
       sendMessage: (
@@ -257,8 +320,14 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
         metadata?: any,
         messageId?: string,
       ) => {
-        if (!socketRef.current?.connected) return false;
-        socketRef.current.emit('message:send', {
+        const socket = socketRef.current;
+        if (!socket?.connected) {
+          console.warn('Socket not connected, cannot send message');
+          return false;
+        }
+        
+        console.log('Sending message to WebSocket', content, type, metadata, messageId);
+        socket.emit('message:send', {
           teamId: teamChatId,
           content,
           type,
@@ -267,26 +336,47 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
         return true;
       },
 
-      startTyping: () => socketRef.current?.emit('typing:start', teamChatId),
-      stopTyping: () => socketRef.current?.emit('typing:stop', teamChatId),
+      startTyping: () => {
+        const socket = socketRef.current;
+        if (socket?.connected) {
+          socket.emit('typing:start', teamChatId);
+        }
+      },
+      
+      stopTyping: () => {
+        const socket = socketRef.current;
+        if (socket?.connected) {
+          socket.emit('typing:stop', teamChatId);
+        }
+      },
 
-      updateReadReceipt: (lastReadMessageId: string) =>
-        socketRef.current?.emit('receipt:update', { teamId: teamChatId, lastReadMessageId }),
+      updateReadReceipt: (lastReadMessageId: string) => {
+        const socket = socketRef.current;
+        if (socket?.connected) {
+          socket.emit('receipt:update', { teamId: teamChatId, lastReadMessageId });
+        }
+      },
 
       isConnected: () => socketRef.current?.connected || false,
 
       forceReconnect: () => {
-        if (socketRef.current) {
-          socketRef.current.disconnect();
-          setTimeout(() => socketRef.current?.connect(), 1000);
+        const socket = socketRef.current;
+        if (socket) {
+          socket.disconnect();
+          setTimeout(() => socket.connect(), 1000);
         }
       },
 
-      getConnectionState: () => ({
-        connected: socketRef.current?.connected || false,
-        id: socketRef.current?.id,
-        transport: socketRef.current?.io?.engine?.transport?.name,
-      }),
+      getConnectionState: () => {
+        const socket = socketRef.current;
+        return {
+          connected: socket?.connected || false,
+          id: socket?.id,
+          transport: socket?.io?.engine?.transport?.name,
+          lastPong: new Date(lastPongRef.current).toISOString(),
+          timeSinceLastPong: Date.now() - lastPongRef.current,
+        };
+      },
     }),
     [teamChatId],
   );

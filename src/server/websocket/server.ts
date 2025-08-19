@@ -36,13 +36,11 @@ export class WebSocketServer {
       path: '/socket.io',
       transports: ['polling', 'websocket'],
       allowEIO3: true,
-      // Optimized timeout configurations to prevent ping timeout issues
-      pingTimeout: 120000, // 120 seconds - time to wait for pong response (reduced from 120s)
-      pingInterval: 60000, // 60 seconds - interval between pings (reduced from 60s)
-      upgradeTimeout: 10000, // 10 seconds - timeout for upgrade to WebSocket
-      maxHttpBufferSize: 1e6, // 1MB - max message size
-      // Connection settings
-      connectTimeout: 45000, // 45 seconds - connection timeout
+      pingTimeout: 60000,  // 60 seconds - time to wait for pong (reduced)
+      pingInterval: 25000, // 25 seconds - ping interval (reduced)
+      upgradeTimeout: 10000,
+      maxHttpBufferSize: 1e6,
+      connectTimeout: 45000,
       // Add connection state validation
       allowRequest: (req, callback) => {
         // Allow all requests but log them for debugging

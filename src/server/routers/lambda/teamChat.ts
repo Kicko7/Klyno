@@ -145,7 +145,8 @@ export const teamChatRouter = router({
               if (senderBalance >= creditsConsumed) {
                 payerUserId = ctx.userId;
               } else {
-                throw new Error('Insufficient credits');
+                // throw new Error('Insufficient credits');
+                alert('Insufficient credits');
               }
             }
 

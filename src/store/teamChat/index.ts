@@ -327,12 +327,12 @@ export const useTeamChatStore = create<TeamChatStore>()(
         messageId: string,
         updates: Partial<TeamChatMessageItem>,
       ) => {
-        console.log(`📝 updateMessage called for ${teamChatId}:`, {
-          messageId,
-          updates,
-          isLocalChange: (updates as any).isLocal !== undefined,
-          newIsLocalValue: (updates as any).isLocal,
-        });
+        // console.log(`📝 updateMessage called for ${teamChatId}:`, {
+        //   messageId,
+        //   updates,
+        //   isLocalChange: (updates as any).isLocal !== undefined,
+        //   newIsLocalValue: (updates as any).isLocal,
+        // });
 
         set((state) => {
           const existingMessages = state.messages[teamChatId] || [];
@@ -344,12 +344,12 @@ export const useTeamChatStore = create<TeamChatStore>()(
           }
 
           const existingMessage = existingMessages[messageIndex] as any;
-          console.log(`   📋 Existing message:`, {
-            id: existingMessage.id,
-            messageType: existingMessage.messageType,
-            currentIsLocal: existingMessage.isLocal,
-            newIsLocal: (updates as any).isLocal,
-          });
+          // console.log(`   📋 Existing message:`, {
+          //   id: existingMessage.id,
+          //   messageType: existingMessage.messageType,
+          //   currentIsLocal: existingMessage.isLocal,
+          //   newIsLocal: (updates as any).isLocal,
+          // });
 
           const updatedMessages = [...existingMessages];
           updatedMessages[messageIndex] = {
@@ -367,7 +367,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
         });
 
         // If the message is no longer local, check if it's an AI message and persist it to database
-        if ((updates as any).isLocal === false) {
+        if ((updates as any).metadata.isLocal === false) {
           console.log(`   🔄 Message is no longer local, checking if it's an AI message...`);
           const state = get();
           const existingMessages = state.messages[teamChatId] || [];
@@ -1294,7 +1294,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
           // Then persist to database in background
           let message;
           if (isServerMode) {
-            console.log('🚄 Using tRPC client to send message');
+            // console.log('🚄 Using tRPC client to send message');
             message = await lambdaClient.teamChat.addMessage.mutate({
               teamChatId,
               content,
@@ -1690,21 +1690,21 @@ export const useTeamChatStore = create<TeamChatStore>()(
         });
 
         // Persist to database in background (non-blocking)
-        if (!message.isLocal) {
-          console.log(`   Persisting message to database: ${messageId}`);
-          // Exclude isLocal from database persistence until migration is run
-          const { isLocal, ...dbMessageData } = messageData as any;
-          await get().persistMessageToDatabase(teamChatId, dbMessageData);
-        } else if (message.messageType === 'assistant') {
-          // For AI messages, persist immediately even if local to handle page reloads
-          console.log(
-            `   Persisting AI message to database immediately (isLocal: true): ${messageId}`,
-          );
-          const { isLocal, ...dbMessageData } = messageData as any;
-          await get().persistMessageToDatabase(teamChatId, dbMessageData);
-        } else {
-          console.log(`   Skipping database persistence (isLocal: true): ${messageId}`);
-        }
+        // if (!message.isLocal) {
+        //   console.log(`   Persisting message to database: ${messageId}`);
+        //   // Exclude isLocal from database persistence until migration is run
+        //   const { isLocal, ...dbMessageData } = messageData as any;
+        //   await get().persistMessageToDatabase(teamChatId, dbMessageData);
+        // } else if (message.messageType === 'assistant') {
+        //   // For AI messages, persist immediately even if local to handle page reloads
+        //   console.log(
+        //     `   Persisting AI message to database immediately (isLocal: true): ${messageId}`,
+        //   );
+        //   const { isLocal, ...dbMessageData } = messageData as any;
+        //   await get().persistMessageToDatabase(teamChatId, dbMessageData);
+        // } else {
+        //   console.log(`   Skipping database persistence (isLocal: true): ${messageId}`);
+        // }
 
         return messageId;
       },

@@ -8,14 +8,20 @@ import type { LambdaRouter } from '@/server/routers/lambda';
 
 import { ErrorResponse } from './types';
 
+
+function getBaseUrl() {
+  if (typeof window !== 'undefined') {
+    return ''; // relative for browser
+  }
+  return process.env.LAMBDA_API_URL ?? 'http://localhost:3000';
+}
+
 const links = [
   httpBatchLink({
     fetch: async (input, init) => {
       if (isDesktop) {
         const { desktopRemoteRPCFetch } = await import('./helpers/desktopRemoteRPCFetch');
-
         const res = await desktopRemoteRPCFetch(input as string, init);
-
         if (res) return res;
       }
 
@@ -46,22 +52,15 @@ const links = [
       return response;
     },
     headers: async () => {
-      // dynamic import to avoid circular dependency
       const { createHeaderWithAuth } = await import('@/services/_auth');
-
-      // TODO: we need to support provider select
       return createHeaderWithAuth({ provider: ModelProvider.OpenAI });
     },
     maxURLLength: 2083,
     transformer: superjson,
-    url: '/trpc/lambda',
+    url: `/trpc/lambda`, 
   }),
 ];
 
-export const lambdaClient = createTRPCClient<LambdaRouter>({
-  links,
-});
-
+export const lambdaClient = createTRPCClient<LambdaRouter>({ links });
 export const lambdaQuery = createTRPCReact<LambdaRouter>();
-
 export const lambdaQueryClient = lambdaQuery.createClient({ links });
