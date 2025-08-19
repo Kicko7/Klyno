@@ -367,38 +367,38 @@ export const useTeamChatStore = create<TeamChatStore>()(
         });
 
         // If the message is no longer local, check if it's an AI message and persist it to database
-        if ((updates as any).metadata.isLocal === false) {
-          console.log(`   🔄 Message is no longer local, checking if it's an AI message...`);
-          const state = get();
-          const existingMessages = state.messages[teamChatId] || [];
-          const message = existingMessages.find((m) => m.id === messageId);
+        // if ((updates as any).metadata.isLocal === false) {
+        //   console.log(`   🔄 Message is no longer local, checking if it's an AI message...`);
+        //   const state = get();
+        //   const existingMessages = state.messages[teamChatId] || [];
+        //   const message = existingMessages.find((m) => m.id === messageId);
 
-          if (message && message.messageType === 'assistant') {
-            console.log(`   💾 Persisting updated AI message to database: ${messageId}`);
-            console.log(`   📊 Message data:`, {
-              id: message.id,
-              content: message.content.substring(0, 100),
-              messageType: message.messageType,
-              metadata: message.metadata,
-            });
-            // Use the persistMessageToDatabase method to save the updated message
-            // Exclude isLocal from database persistence since it's not in the schema yet
-            const { isLocal, ...dbMessageData } = message as any;
-            await get().persistMessageToDatabase(teamChatId, dbMessageData);
-            console.log(`   ✅ AI message persisted successfully: ${messageId}`);
-          } else {
-            console.log(`   ℹ️ Message is not an AI message or not found:`, {
-              messageId,
-              messageType: message?.messageType,
-              isLocal: (message as any)?.isLocal,
-            });
-          }
-        } else {
-          console.log(`   ℹ️ Message is still local or isLocal not changed:`, {
-            messageId,
-            newIsLocal: (updates as any).isLocal,
-          });
-        }
+        //   if (message && message.messageType === 'assistant') {
+        //     console.log(`   💾 Persisting updated AI message to database: ${messageId}`);
+        //     console.log(`   📊 Message data:`, {
+        //       id: message.id,
+        //       content: message.content.substring(0, 100),
+        //       messageType: message.messageType,
+        //       metadata: message.metadata,
+        //     });
+        //     // Use the persistMessageToDatabase method to save the updated message
+        //     // Exclude isLocal from database persistence since it's not in the schema yet
+        //     const { isLocal, ...dbMessageData } = message as any;
+        //     await get().persistMessageToDatabase(teamChatId, dbMessageData);
+        //     console.log(`   ✅ AI message persisted successfully: ${messageId}`);
+        //   } else {
+        //     console.log(`   ℹ️ Message is not an AI message or not found:`, {
+        //       messageId,
+        //       messageType: message?.messageType,
+        //       isLocal: (message as any)?.isLocal,
+        //     });
+        //   }
+        // } else {
+        //   console.log(`   ℹ️ Message is still local or isLocal not changed:`, {
+        //     messageId,
+        //     newIsLocal: (updates as any).isLocal,
+        //   });
+        // }
       },
 
       // Remove a message by id
@@ -1711,19 +1711,19 @@ export const useTeamChatStore = create<TeamChatStore>()(
 
       // Batch update messages (for WebSocket reconciliation)
       batchUpdateMessages: (teamChatId: string, messages: TeamChatMessageItem[]) => {
-        console.log(
-          `🔄 batchUpdateMessages called for ${teamChatId} with ${messages.length} messages:`,
-          messages.map((m) => ({
-            id: m.id,
-            userId: m.userId,
-            contentPreview: m.content.substring(0, 50),
-            clientMessageId: m.metadata?.clientMessageId,
-          })),
-        );
+        // console.log(
+        //   `🔄 batchUpdateMessages called for ${teamChatId} with ${messages.length} messages:`,
+        //   messages.map((m) => ({
+        //     id: m.id,
+        //     userId: m.userId,
+        //     contentPreview: m.content.substring(0, 50),
+        //     clientMessageId: m.metadata?.clientMessageId,
+        //   })),
+        // );
 
         set((state) => {
           const existingMessages = state.messages[teamChatId] || [];
-          console.log(`   Existing messages in store: ${existingMessages.length}`);
+          // console.log(`   Existing messages in store: ${existingMessages.length}`);
 
           // Create a map for efficient lookup by ID
           const messageMap = new Map(existingMessages.map((m) => [m.id, m]));

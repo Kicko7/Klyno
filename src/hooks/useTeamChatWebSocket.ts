@@ -35,19 +35,13 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
   const socketConfig = useMemo(
     () => ({
       auth: { userId: currentUser?.id },
-      transports: ['polling', 'websocket'],
+      transports: ['polling'],
       upgrade: true,
       reconnection: true,
       reconnectionAttempts: 5, // Limit attempts instead of Infinity
       reconnectionDelay: 1000,
       reconnectionDelayMax: 10000,
-      timeout: 45000, // Reduced from 120000
-      autoConnect: false, // Manual connection control
-      forceNew: false,
-      closeOnBeforeunload: false,
-      // Add ping/pong settings
-      pingTimeout: 60000, // Match server or slightly less
-      pingInterval: 25000, // Shorter than server's 60s
+      timeout: 1200000, // Reduced from 120000
     }),
     [currentUser?.id],
   );
@@ -125,32 +119,7 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
     }
   }, [teamChatId, currentUser?.id, unsubscribeFromChat]);
 
-  // Enhanced heartbeat with ping/pong monitoring
-  const startHeartbeat = useCallback(() => {
-    if (heartbeatRef.current) {
-      clearInterval(heartbeatRef.current);
-    }
-
-    heartbeatRef.current = setInterval(() => {
-      const socket = socketRef.current;
-      if (!socket?.connected || isCleanupRef.current) return;
-
-      // Check if we've received a recent pong
-      const timeSinceLastPong = Date.now() - lastPongRef.current;
-      if (timeSinceLastPong > 90000) { // 90 seconds without pong
-        console.warn('⚠️ No pong received for 90s, forcing reconnection');
-        socket.disconnect();
-        return;
-      }
-
-      // Send heartbeat
-      socket.emit('presence:heartbeat', teamChatId);
-      
-      // Send ping to test connection
-      socket.volatile.emit('ping', Date.now());
-    }, 30000); // 30 second intervals
-  }, [teamChatId]);
-
+  
   useEffect(() => {
     isCleanupRef.current = false;
 
@@ -179,7 +148,6 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
       subscribeToChat(teamChatId, currentUser.id);
       
       // Start heartbeat only after connection
-      startHeartbeat();
     });
 
     socket.on('disconnect', (reason) => {
@@ -309,7 +277,7 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
     socket.connect();
 
     return cleanup;
-  }, [teamChatId, enabled, currentUser?.id, socketConfig, cleanup, startHeartbeat]);
+  }, [teamChatId, enabled, currentUser?.id, socketConfig, cleanup]);
 
   // --- API methods (enhanced) ---
   const api = useMemo(

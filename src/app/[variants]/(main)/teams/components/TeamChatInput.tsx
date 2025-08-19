@@ -116,11 +116,11 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
       setInputMessage(value);
 
       // Send typing indicators via WebSocket
-      if (value.length > 0) {
-        startTyping();
-      } else {
-        stopTyping();
-      }
+      // if (value.length > 0) {
+      //   startTyping();
+      // } else {
+      //   stopTyping();
+      // }
     },
     [startTyping, stopTyping],
   );
@@ -314,13 +314,12 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
       clientMessageId: assistantMessageId,
     };
 
-    console.log('Sending final message to WebSocket');
-    sendWebSocketMessage(finalMessage, 'assistant', { isThinking: false, clientMessageId: assistantMessageId }, assistantMessageId);
     await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
       content: finalMessage,
       metadata: { ...metadata, isThinking: false, isLocal: true },
     });
 
+    sendWebSocketMessage(finalMessage, 'assistant', { isThinking: false, clientMessageId: assistantMessageId }, assistantMessageId);
 
   };
 

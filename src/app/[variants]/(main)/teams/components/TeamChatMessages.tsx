@@ -42,24 +42,24 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
   const toggleMessageEditing = useTeamChatStore((state)=>state.toggleMessageEditing)
   const updateMessage = useTeamChatStore((state)=>state.updateMessage)
   // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    const container = messagesEndRef.current?.parentElement;
-    if (!container) return;
+  // useEffect(() => {
+  //   const container = messagesEndRef.current?.parentElement;
+  //   if (!container) return;
 
-    const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 8;
-    // If already at bottom (or very close), keep it sticky to bottom
-    if (atBottom) {
-      // Jump to bottom without smooth to avoid bounce stacking on rapid streams
-      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-      return;
-    }
+  //   const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 8;
+  //   // If already at bottom (or very close), keep it sticky to bottom
+  //   if (atBottom) {
+  //     // Jump to bottom without smooth to avoid bounce stacking on rapid streams
+  //     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+  //     return;
+  //   }
 
-    // If not at bottom, avoid auto-scrolling unless new message is from current user or assistant stream
-    const last = messages?.[messages.length - 1];
-    if (!last) return;
-    const isAssistant = last.messageType === 'assistant';
-    if (isAssistant) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  //   // If not at bottom, avoid auto-scrolling unless new message is from current user or assistant stream
+  //   const last = messages?.[messages.length - 1];
+  //   if (!last) return;
+  //   const isAssistant = last.messageType === 'assistant';
+  //   if (isAssistant) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // }, [messages]);
 
   if (isLoading) {
     return (
