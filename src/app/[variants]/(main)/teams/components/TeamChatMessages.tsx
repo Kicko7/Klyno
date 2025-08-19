@@ -91,6 +91,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
       }}
     >
       {messages.map((message, index) => {
+        console.log('message', message);
         const isAssistant = message.messageType === 'assistant';
         let isApiKeyError = false;
         let errorProvider = 'openai';
@@ -109,6 +110,9 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
           }
         }
 
+        if(message.content === 'Thinking...'){
+          actualMessage = '';
+        }
         // Get user information from message metadata or fallback to current user
         const userInfo = message.metadata?.userInfo;
         const isCurrentUser = currentUser && userInfo && userInfo.id === currentUser.id;
@@ -160,7 +164,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
             avatar={avatar}
             actions={<TeamChatActions id={message.id} index={index} />}
             editing={isMessageEditing.includes(message.id)}
-            loading={!message.content && isAssistant} // Show loading for empty assistant messages
+            loading={message?.content === 'Thinking...' ? true:false} // Show loading for empty assistant messages
             message={actualMessage || ''}
             placement={isAssistant ? 'left' : isCurrentUser ? 'right' : 'left'}
             primary={!isAssistant}
