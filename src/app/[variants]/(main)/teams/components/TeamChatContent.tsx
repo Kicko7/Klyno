@@ -131,11 +131,48 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
 
           const hasMore = messages.length === PAGE_SIZE;
 
+          // Apply consistent sorting logic for messages
+          const sortMessages = (messagesToSort: any[]) => {
+            return messagesToSort.sort((a, b) => {
+              // Parse timestamps to numbers for comparison
+              const getTimestamp = (msg: any): number => {
+                if (msg.createdAt instanceof Date) {
+                  return msg.createdAt.getTime();
+                }
+                if (typeof msg.createdAt === "string") {
+                  return new Date(msg.createdAt).getTime();
+                }
+                return 0;
+              };
+        
+              const tsA = getTimestamp(a);
+              const tsB = getTimestamp(b);
+        
+              // First priority: sort by timestamp
+              if (tsA !== tsB) {
+                return tsA - tsB;
+              }
+        
+              // Second priority: when timestamps are equal, user messages come first
+              if (a.userId !== b.userId) {
+                // User messages (userId !== "assistant") come before assistant messages
+                if (a.userId === "assistant") return 1;
+                if (b.userId === "assistant") return -1;
+              }
+        
+              // Third priority: if still equal, sort by ID for consistency
+              return a.id.localeCompare(b.id);
+            });
+          };
+
+          const sortedMessages = page === 1 
+            ? sortMessages(messages) 
+            : sortMessages([...(state.messages[teamChatId] || []), ...messages]);
+
           useTeamChatStore.setState((state) => ({
             messages: {
               ...state.messages,
-              [teamChatId]:
-                page === 1 ? messages : [...(state.messages[teamChatId] || []), ...messages],
+              [teamChatId]: sortedMessages,
             },
             activeChatStates: {
               ...(state.activeChatStates || {}),

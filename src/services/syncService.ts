@@ -1,8 +1,7 @@
-
 import { lambdaClient } from '@/libs/trpc/client';
 
-import { ChatSession, MessageData } from './sessionManager';
 import { ApiService } from './fetchService';
+import { ChatSession, MessageData } from './sessionManager';
 
 export class SyncService {
   private readonly BATCH_SIZE = 100;
@@ -58,19 +57,17 @@ export class SyncService {
    */
   private async syncBatch(teamChatId: string, batch: MessageData[]): Promise<void> {
     let lastError: Error | null = null;
-  
+
     for (let attempt = 1; attempt <= this.RETRY_ATTEMPTS; attempt++) {
       try {
         // Use Promise.all for parallel processing within batch
-        
         await Promise.all(
           batch.map(async (message) => {
-
-            const existingMessage = await this.checkMessageExists(teamChatId, message.id);
-            
-            if (!existingMessage) {
-              await lambdaClient.teamChat.addMessage.mutate({
+            if (message?.id) {
+              await this.apiService.addMessage({
+                id: message.id,
                 teamChatId,
+                userId: message.userId,
                 content: message.content,
                 messageType: message.type as 'user' | 'assistant' | 'system',
                 metadata: {
@@ -82,24 +79,25 @@ export class SyncService {
                 },
               });
             }
-            
-          })
+          }),
         );
-  
+
         console.log(`✅ Synced batch of ${batch.length} messages (attempt ${attempt})`);
         return; // Success, exit retry loop
       } catch (error) {
         lastError = error as Error;
         console.error(`Batch sync failed (attempt ${attempt}/${this.RETRY_ATTEMPTS}):`, error);
-        
+
         if (attempt < this.RETRY_ATTEMPTS) {
           await this.delay(this.RETRY_DELAY * attempt);
         }
       }
     }
-  
+
     // All retries failed
-    throw new Error(`Failed to sync batch after ${this.RETRY_ATTEMPTS} attempts: ${lastError?.message}`);
+    throw new Error(
+      `Failed to sync batch after ${this.RETRY_ATTEMPTS} attempts: ${lastError?.message}`,
+    );
   }
 
   /**
@@ -108,10 +106,10 @@ export class SyncService {
   async syncSessionToDb(session: ChatSession): Promise<void> {
     try {
       console.log(`🔄 Syncing session to DB: ${session.teamChatId}`);
-      
+
       // Filter unsynced messages
       const unsyncedMessages = session.messages.filter((m) => !m.syncedToDb);
-      
+
       if (unsyncedMessages.length === 0) {
         console.log('No unsynced messages to sync');
         return;
@@ -148,7 +146,7 @@ export class SyncService {
       messageCount: number;
       lastSessionId?: string;
       participantCount?: number;
-    }
+    },
   ): Promise<void> {
     try {
       await lambdaClient.teamChat.updateTeamChat.mutate({
@@ -230,9 +228,7 @@ export class SyncService {
         limit: 100,
       });
 
-      return recentMessages.some(
-        (msg) => msg.metadata?.redisMessageId === redisMessageId
-      );
+      return recentMessages.some((msg) => msg.metadata?.redisMessageId === redisMessageId);
     } catch (error) {
       console.error('Failed to check message existence:', error);
       return false; // Assume doesn't exist
@@ -259,7 +255,7 @@ export class SyncService {
   }> {
     try {
       const chat = await lambdaClient.teamChat.getTeamChatById.query({ id: teamChatId });
-      
+
       return {
         totalMessages: chat?.metadata?.totalMessageCount || 0,
         syncedMessages: chat?.metadata?.syncedMessageCount || 0,
@@ -292,7 +288,7 @@ export class SyncService {
     // Implementation would depend on your retention policy
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
-    
+
     console.log(`Cleaning up sessions older than ${cutoffDate.toISOString()}`);
     // TODO: Implement cleanup logic
   }

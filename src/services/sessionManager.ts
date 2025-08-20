@@ -86,10 +86,7 @@ export class SessionManager {
       console.log(`📥 Loading session from DB for team chat: ${teamChatId}`);
 
       // Load recent messages from database
-      const messages = await lambdaClient.teamChat.getMessages.query({
-        teamChatId,
-        limit: this.INITIAL_LOAD_SIZE,
-      });
+      const messages = await this.apiService.getMessages(teamChatId, this.INITIAL_LOAD_SIZE);
 
       if (!messages || messages.length === 0) {
         return null;

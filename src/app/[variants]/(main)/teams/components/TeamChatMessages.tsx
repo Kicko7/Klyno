@@ -90,7 +90,45 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
         gap: '16px',
       }}
     >
-      {messages.map((message, index) => {
+      {messages
+        .filter((message) => {
+          // Filter out invalid or unwanted messages
+          if (!message || !message.id) return false;
+          if (!message.content && message.content !== 'Thinking...') return false;
+          if (message.content === 'Thinking...' && message.messageType !== 'assistant') return false;
+          return true;
+        })
+        .sort((a, b) => {
+          // Sort by timestamp first, then ensure user messages come before assistant messages
+          const getTimestamp = (msg: any): number => {
+            if (msg.createdAt instanceof Date) {
+              return msg.createdAt.getTime();
+            }
+            if (typeof msg.createdAt === "string") {
+              return new Date(msg.createdAt).getTime();
+            }
+            return 0;
+          };
+    
+          const tsA = getTimestamp(a);
+          const tsB = getTimestamp(b);
+    
+          // First priority: sort by timestamp
+          if (tsA !== tsB) {
+            return tsA - tsB;
+          }
+    
+          // Second priority: when timestamps are equal, user messages come first
+          if (a.userId !== b.userId) {
+            // User messages (userId !== "assistant") come before assistant messages
+            if (a.userId === "assistant") return 1;
+            if (b.userId === "assistant") return -1;
+          }
+    
+          // Third priority: if still equal, sort by ID for consistency
+          return a.id.localeCompare(b.id);
+        })
+        .map((message, index) => {
         console.log('message', message);
         const isAssistant = message.messageType === 'assistant';
         let isApiKeyError = false;

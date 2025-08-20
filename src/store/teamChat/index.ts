@@ -351,17 +351,55 @@ export const useTeamChatStore = create<TeamChatStore>()(
           //   newIsLocal: (updates as any).isLocal,
           // });
 
-          const updatedMessages = [...existingMessages];
-          updatedMessages[messageIndex] = {
-            ...updatedMessages[messageIndex],
+          // Create updated message
+          const updatedMessage = {
+            ...existingMessage,
             ...updates,
             updatedAt: new Date(),
           } as any;
 
+          // Use the same deduplication and sorting logic as batchUpdateMessages
+          const messageMap = new Map(existingMessages.map((m) => [m.id, m]));
+          
+          // Update the specific message
+          messageMap.set(messageId, updatedMessage);
+
+          // Apply the same sorting logic for consistency
+          const sortedMessages = Array.from(messageMap.values()).sort((a, b) => {
+            // Parse timestamps to numbers for comparison
+            const getTimestamp = (msg: TeamChatMessageItem): number => {
+              if (msg.createdAt instanceof Date) {
+                return msg.createdAt.getTime();
+              }
+              if (typeof msg.createdAt === "string") {
+                return new Date(msg.createdAt).getTime();
+              }
+              return 0;
+            };
+      
+            const tsA = getTimestamp(a);
+            const tsB = getTimestamp(b);
+      
+            // First priority: sort by timestamp
+            if (tsA !== tsB) {
+              return tsA - tsB;
+            }
+      
+            // Second priority: when timestamps are equal, user messages come first
+            if (a.userId !== b.userId) {
+              // User messages (userId !== "assistant") come before assistant messages
+              if (a.userId === "assistant") return 1;
+              if (b.userId === "assistant") return -1;
+            }
+      
+            // Third priority: if still equal, sort by ID for consistency
+            return a.id.localeCompare(b.id);
+          });
+
           return {
             messages: {
               ...state.messages,
-              [teamChatId]: updatedMessages,
+              [teamChatId]: sortedMessages,
             },
           };
         });
@@ -406,10 +444,43 @@ export const useTeamChatStore = create<TeamChatStore>()(
         set((state) => {
           const existingMessages = state.messages[teamChatId] || [];
           const filteredMessages = existingMessages.filter((m: any) => m.id !== messageId);
+          
+          // Apply the same sorting logic for consistency
+          const sortedMessages = filteredMessages.sort((a, b) => {
+            // Parse timestamps to numbers for comparison
+            const getTimestamp = (msg: TeamChatMessageItem): number => {
+              if (msg.createdAt instanceof Date) {
+                return msg.createdAt.getTime();
+              }
+              if (typeof msg.createdAt === "string") {
+                return new Date(msg.createdAt).getTime();
+              }
+              return 0;
+            };
+      
+            const tsA = getTimestamp(a);
+            const tsB = getTimestamp(b);
+      
+            // First priority: sort by timestamp
+            if (tsA !== tsB) {
+              return tsA - tsB;
+            }
+      
+            // Second priority: when timestamps are equal, user messages come first
+            if (a.userId !== b.userId) {
+              // User messages (userId !== "assistant") come before assistant messages
+              if (a.userId === "assistant") return 1;
+              if (b.userId === "assistant") return -1;
+            }
+      
+            // Third priority: if still equal, sort by ID for consistency
+            return a.id.localeCompare(b.id);
+          });
+
           return {
             messages: {
               ...state.messages,
-              [teamChatId]: filteredMessages,
+              [teamChatId]: sortedMessages,
             },
           };
         });
@@ -1681,10 +1752,42 @@ export const useTeamChatStore = create<TeamChatStore>()(
           const updatedMessages = [...existingMessages, messageData as any];
           console.log(`   Messages after add: ${updatedMessages.length}`);
 
+          // Apply the same sorting logic for consistency
+          const sortedMessages = updatedMessages.sort((a, b) => {
+            // Parse timestamps to numbers for comparison
+            const getTimestamp = (msg: any): number => {
+              if (msg.createdAt instanceof Date) {
+                return msg.createdAt.getTime();
+              }
+              if (typeof msg.createdAt === "string") {
+                return new Date(msg.createdAt).getTime();
+              }
+              return 0;
+            };
+      
+            const tsA = getTimestamp(a);
+            const tsB = getTimestamp(b);
+      
+            // First priority: sort by timestamp
+            if (tsA !== tsB) {
+              return tsA - tsB;
+            }
+      
+            // Second priority: when timestamps are equal, user messages come first
+            if (a.userId !== b.userId) {
+              // User messages (userId !== "assistant") come before assistant messages
+              if (a.userId === "assistant") return 1;
+              if (b.userId === "assistant") return -1;
+            }
+      
+            // Third priority: if still equal, sort by ID for consistency
+            return a.id.localeCompare(b.id);
+          });
+
           return {
             messages: {
               ...state.messages,
-              [teamChatId]: updatedMessages,
+              [teamChatId]: sortedMessages,
             },
           };
         });
@@ -1759,30 +1862,35 @@ export const useTeamChatStore = create<TeamChatStore>()(
             messageMap.set(message.id, message);
           }
       
-          // ✅ Sort with rule: user comes before assistant if timestamps equal
+          // ✅ Sort by timestamp first, then ensure user messages come before assistant messages
           const updatedMessages = Array.from(messageMap.values()).sort((a, b) => {
-            const tsA =
-              a.createdAt instanceof Date
-                ? a.createdAt.getTime()
-                : typeof a.createdAt === "string"
-                ? new Date(a.createdAt).getTime()
-                : 0;
+            // Parse timestamps to numbers for comparison
+            const getTimestamp = (msg: TeamChatMessageItem): number => {
+              if (msg.createdAt instanceof Date) {
+                return msg.createdAt.getTime();
+              }
+              if (typeof msg.createdAt === "string") {
+                return new Date(msg.createdAt).getTime();
+              }
+              return 0;
+            };
       
-            const tsB =
-              b.createdAt instanceof Date
-                ? b.createdAt.getTime()
-                : typeof b.createdAt === "string"
-                ? new Date(b.createdAt).getTime()
-                : 0;
+            const tsA = getTimestamp(a);
+            const tsB = getTimestamp(b);
       
-            if (tsA !== tsB) return tsA - tsB;
+            // First priority: sort by timestamp
+            if (tsA !== tsB) {
+              return tsA - tsB;
+            }
       
-            // 🔑 Special rule: user messages first if same timestamp
+            // Second priority: when timestamps are equal, user messages come first
             if (a.userId !== b.userId) {
+              // User messages (userId !== "assistant") come before assistant messages
               if (a.userId === "assistant") return 1;
               if (b.userId === "assistant") return -1;
             }
       
+            // Third priority: if still equal, sort by ID for consistency
             return a.id.localeCompare(b.id);
           });
       
