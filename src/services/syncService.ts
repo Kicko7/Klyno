@@ -19,9 +19,9 @@ export class SyncService {
    */
   async syncSingleMessage(teamChatId: string, message: MessageData): Promise<void> {
     try {
-       await this.apiService.addMessage({
+      await lambdaClient.teamChat.addMessage.mutate({
         teamChatId,
-        userId: message.userId,
+        // userId: message.userId,
         content: message.content,
         messageType: message.type as 'user' | 'assistant' | 'system',
         metadata: {
@@ -62,14 +62,15 @@ export class SyncService {
     for (let attempt = 1; attempt <= this.RETRY_ATTEMPTS; attempt++) {
       try {
         // Use Promise.all for parallel processing within batch
+        
         await Promise.all(
           batch.map(async (message) => {
 
-            if(message?.id){
-              const result = await this.apiService.addMessage({
-                id: message?.id || '',
+            const existingMessage = await this.checkMessageExists(teamChatId, message.id);
+            
+            if (!existingMessage) {
+              await lambdaClient.teamChat.addMessage.mutate({
                 teamChatId,
-                userId: message.userId,
                 content: message.content,
                 messageType: message.type as 'user' | 'assistant' | 'system',
                 metadata: {
@@ -79,14 +80,9 @@ export class SyncService {
                   originalTimestamp: message.timestamp,
                   syncAttempt: attempt,
                 },
-              }); 
-            
-  
-              // ✅ Validate the result
-              if (!result.success) {
-                throw new Error(`Failed to add message ${message.id} to database`);
-              }
+              });
             }
+            
           })
         );
   

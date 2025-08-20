@@ -5,8 +5,8 @@ import { users, teamChatMessages } from '@/database/schemas';
 import { idGenerator } from '@/database/utils/idGenerator';
 
 export async function POST(req: NextRequest) {
+  const data = await req.json();
   try {
-    const data = await req.json();
     console.log('data', data);
     const { teamChatId, userId, ...messageData } = data;
 
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const messageId = data.id || idGenerator('team_chat_messages');
 
     const user = await db.query.users.findFirst({
-      where: eq(users.id, messageData.metadata.userId),
+      where: eq(users.id, messageData.metadata.userId || data.userId),
     });
 
     // Prepare metadata with user information
@@ -31,9 +31,6 @@ export async function POST(req: NextRequest) {
         username: user?.username ?? 'assistant',
         email: user?.email ?? 'assistant',
         fullName: user?.fullName ?? 'assistant',
-        // firstName: user.firstName ?? undefined,
-        // lastName: user.lastName ?? undefined,
-        // avatar: user.avatar ?? undefined,
       },
       isMultiUserChat: true,
     };
@@ -60,6 +57,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    console.log("Checking User",{
+      content: messageData.content,
+      messageType: messageData.messageType,
+      metadata: messageMetadata,
+      teamChatId,
+      userId: messageData?.metadata?.userId || data?.userId || '',
+      id: messageId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
     // Create new message
     const result = await db
       .insert(teamChatMessages)
@@ -68,7 +75,7 @@ export async function POST(req: NextRequest) {
         messageType: messageData.messageType,
         metadata: messageMetadata,
         teamChatId,
-        userId: messageData.metadata.userId || '',
+        userId: messageData?.metadata?.userId || data?.userId || '',
         id: messageId,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -79,6 +86,17 @@ export async function POST(req: NextRequest) {
 
   } catch (error) {
     console.error('Error adding message:', error);
+    console.log({
+      error: error,
+      content: data.content,
+      messageType: data.messageType,
+      metadata: data.metadata,
+      teamChatId:data.teamChatId,
+      userId: data.userId ,
+      id: data.id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
