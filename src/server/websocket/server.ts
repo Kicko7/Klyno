@@ -2,6 +2,7 @@ import { Server as HttpServer } from 'http';
 import { nanoid } from 'nanoid';
 import { Server } from 'socket.io';
 
+import { SubscriptionManager } from '@/server/services/subscriptions/subscriptionManager';
 import { RedisService } from '@/services/redisService';
 import { getRedisService } from '@/services/redisServiceFactory';
 import { MessageData, SessionManager } from '@/services/sessionManager';
@@ -18,6 +19,7 @@ export class WebSocketServer {
   private io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
   private redisService!: RedisService;
   private sessionManager!: SessionManager;
+  private subscriptionManager!: SubscriptionManager;
   private connectionStats = {
     totalConnections: 0,
     activeConnections: 0,
@@ -34,9 +36,9 @@ export class WebSocketServer {
         credentials: true,
       },
       path: '/socket.io',
-      transports: ['polling', 'websocket'],
-      allowEIO3: true,
-      pingTimeout: 60000,  // 60 seconds - time to wait for pong (reduced)
+      transports: ['polling'],
+      allowEIO3: false,
+      pingTimeout: 60000, // 60 seconds - time to wait for pong (reduced)
       pingInterval: 25000, // 25 seconds - ping interval (reduced)
       upgradeTimeout: 10000,
       maxHttpBufferSize: 1e6,
@@ -52,6 +54,7 @@ export class WebSocketServer {
   public async initialize() {
     this.redisService = await getRedisService();
     this.sessionManager = await getSessionManager();
+    this.subscriptionManager = new SubscriptionManager();
     this.setupMiddleware();
     this.setupEventHandlers();
     console.log('✅ WebSocket server initialized with Redis and SessionManager');
@@ -74,25 +77,20 @@ export class WebSocketServer {
   }
 
   private setupEventHandlers() {
-    this.io.on('connection', (socket) => {
+    this.io.on('connection', async (socket) => {
+      console.log('🔌 Socket connected:', socket.id);
       // Track connection time for debugging
       (socket.data as any).connectTime = Date.now();
-      
+
       // Update connection statistics
       this.connectionStats.totalConnections++;
       this.connectionStats.activeConnections++;
-      
-      console.log(`Socket connected: ${socket.id} (User: ${socket.data.userId})`);
-      console.log(`📊 Connection stats: Total: ${this.connectionStats.totalConnections}, Active: ${this.connectionStats.activeConnections}`);
 
       // Room Events
       socket.on('room:join', async (roomId) => {
         try {
-          console.log(`🚪 User ${socket.data.userId} attempting to join room: ${roomId}`);
-
           await socket.join(roomId);
           socket.data.activeRooms.add(roomId);
-          console.log(`✅ User ${socket.data.userId} successfully joined room: ${roomId}`);
 
           // Check if session exists in Redis or load from DB
           let session = await this.sessionManager.getSession(roomId);
@@ -121,18 +119,10 @@ export class WebSocketServer {
           // Send current presence list
           const presence = await this.redisService.getPresence(roomId);
           socket.emit('presence:list', presence);
-          console.log(
-            `📊 Sent presence list to user ${socket.data.userId} for room ${roomId}:`,
-            presence,
-          );
 
           // Send current read receipts
           const receipts = await this.redisService.getReadReceipts(roomId);
           socket.emit('receipt:list', receipts);
-          console.log(
-            `📖 Sent read receipts to user ${socket.data.userId} for room ${roomId}:`,
-            receipts,
-          );
 
           // Update user presence
           await this.redisService.updatePresence(roomId, {
@@ -151,9 +141,6 @@ export class WebSocketServer {
           // Get room information for debugging
           const room = this.io.sockets.adapter.rooms.get(roomId);
           const roomSize = room ? room.size : 0;
-          console.log(
-            `✅ User ${socket.data.userId} joined room ${roomId} with session ${session.sessionId}. Room size: ${roomSize}`,
-          );
         } catch (error) {
           console.error(`❌ Error joining room ${roomId}:`, error);
           socket.emit('room:error', 'Failed to join room');
@@ -188,15 +175,11 @@ export class WebSocketServer {
         'message:send',
         async (message: { teamId: string; content: string; type?: string; metadata?: any }) => {
           try {
+            console.log(message.metadata)
             const timestamp = new Date().toISOString();
 
-            // Use client-provided message ID if available, otherwise generate a new one
             const messageId =
               message.metadata?.clientMessageId || `msg_${Date.now()}_${nanoid(10)}`;
-
-            console.log(
-              `📨 Processing message: ${messageId} (client provided: ${!!message.metadata?.clientMessageId})`,
-            );
 
             // Create message data for session
             const messageData: MessageData = {
@@ -224,35 +207,8 @@ export class WebSocketServer {
               }
             }
 
-            // For AI messages, ensure immediate database persistence
-            // if (message.type === 'assistant') {
-            //   try {
-            //     // Use the lambda client to persist AI messages immediately
-            //     const { lambdaClient } = await import('@/libs/trpc/client/lambda');
-            //     await lambdaClient.teamChat.addMessage.mutate({
-            //       teamChatId: message.teamId,
-            //       content: message.content,
-            //       messageType: 'assistant',
-            //       metadata: {
-            //         ...message.metadata,
-            //         redisMessageId: messageId,
-            //         syncedFromWebSocket: true,
-            //       },
-            //     });
-            //     console.log(`✅ AI message immediately persisted to database: ${messageId}`);
-            //   } catch (persistError) {
-            //     console.error(
-            //       `❌ Failed to persist AI message to database: ${messageId}`,
-            //       persistError,
-            //     );
-            //     // Don't fail the WebSocket flow, but log the error
-            //   }
-            // }
-
             // Check if we need background sync (approaching 1000 message limit)
             if (await this.sessionManager.needsBackgroundSync(message.teamId)) {
-              console.log(`🔄 Triggering background sync for ${message.teamId}`);
-              // Don't await - let it run in background
               this.sessionManager.performBackgroundSync(message.teamId).catch((error) => {
                 console.error('Background sync failed:', error);
               });
@@ -272,38 +228,26 @@ export class WebSocketServer {
             // Add message to Redis stream for real-time delivery (non-blocking best-effort)
             try {
               await this.redisService.addToMessageStream(message.teamId, streamMessage);
+              if (message.type === 'assistant') {
+                const credits = await this.redisService.getUserCredits(socket.data.userId);
+                await this.redisService.setUserCredits(
+                  socket.data.userId,
+                  credits + message.metadata.totalTokens,
+                );
+              }
             } catch (streamErr) {
-              // Log but don't fail the send path; socket broadcast still proceeds
               console.error('Failed to add to message stream:', streamErr);
             }
 
             // Get room information for debugging
             const room = this.io.sockets.adapter.rooms.get(message.teamId);
             const roomSize = room ? room.size : 0;
-            console.log(
-              `📡 Broadcasting message ${messageId} to room ${message.teamId} (${roomSize} users)`,
-            );
 
             // Broadcast to all users in the room EXCEPT the sender (to prevent duplication)
             socket.broadcast.to(message.teamId).emit('message:new', streamMessage);
 
-            // Log broadcast details for debugging
-            console.log(`✅ Message ${messageId} broadcasted to room ${message.teamId}`, {
-              type: message.type,
-              userId: message.type === 'assistant' ? 'assistant' : socket.data.userId,
-              contentLength: message.content.length,
-              roomSize,
-              timestamp,
-              metadata: message.metadata,
-            });
-
             // Get session stats for monitoring
             const stats = await this.sessionManager.getSessionStats(message.teamId);
-            if (stats) {
-              console.log(
-                `📊 Session ${message.teamId}: ${stats.messageCount} messages, ${stats.unsyncedCount} unsynced`,
-              );
-            }
 
             // Refresh presence TTL for sender to keep them active
             try {
@@ -321,8 +265,14 @@ export class WebSocketServer {
               console.warn('Failed to refresh presence after message send:', e);
             }
 
+            const credits = await this.redisService.getUserCredits(socket.data.userId);
+            socket.emit('user:credits', {
+              userId: socket.data.userId,
+              credits: credits,
+              timestamp: new Date().toISOString(),
+            });
+
             // Note: Database persistence will happen during sync (either background sync or session expiry)
-            console.log(`📡 Message ${messageId} added to session and broadcasted`);
           } catch (error) {
             console.error('Error sending message:', error);
             socket.emit('room:error', 'Failed to send message. Please try again.');
@@ -400,15 +350,40 @@ export class WebSocketServer {
       // Read Receipt Events
       socket.on('receipt:update', async (data: { teamId: string; lastReadMessageId: string }) => {
         try {
-          const receipt = {
+          await this.redisService.updateReadReceipt(data.teamId, {
             userId: socket.data.userId,
-            timestamp: new Date().toISOString(),
             lastReadMessageId: data.lastReadMessageId,
-          };
-          await this.redisService.updateReadReceipt(data.teamId, receipt);
-          this.io.to(data.teamId).emit('receipt:update', { ...receipt, teamId: data.teamId });
+            timestamp: new Date().toISOString(),
+          });
+
+          // Broadcast to all users in the room
+          this.io.to(data.teamId).emit('receipt:update', {
+            userId: socket.data.userId,
+            lastReadMessageId: data.lastReadMessageId,
+            timestamp: new Date().toISOString(),
+            teamId: data.teamId,
+          });
         } catch (error) {
           console.error('Error updating read receipt:', error);
+        }
+      });
+
+      // Handle user credits refresh request
+      socket.on('user:credits:request', async () => {
+        try {
+          const credits = await this.redisService.getUserCredits(socket.data.userId);
+          socket.emit('user:credits', {
+            userId: socket.data.userId,
+            credits: credits,
+            timestamp: new Date().toISOString(),
+          });
+        } catch (error) {
+          console.error(`❌ Error refreshing user credits for ${socket.data.userId}:`, error);
+          socket.emit('user:credits', {
+            userId: socket.data.userId,
+            credits: 0,
+            timestamp: new Date().toISOString(),
+          });
         }
       });
 
@@ -431,7 +406,6 @@ export class WebSocketServer {
       });
 
       // Custom ping/pong handler to prevent timeout issues
- 
 
       // Handle connection errors
       socket.on('error', (error) => {
@@ -440,13 +414,20 @@ export class WebSocketServer {
 
       socket.on('disconnect', async (reason) => {
         const duration = Date.now() - ((socket.data as any).connectTime || Date.now());
-        
+
         // Update connection statistics
-        this.connectionStats.activeConnections = Math.max(0, this.connectionStats.activeConnections - 1);
+        this.connectionStats.activeConnections = Math.max(
+          0,
+          this.connectionStats.activeConnections - 1,
+        );
         this.connectionStats.totalDisconnections++;
-        
-        console.log(`Socket disconnected: ${socket.id} (User: ${socket.data.userId}) - Reason: ${reason} - Duration: ${duration}ms`);
-        console.log(`📊 Connection stats: Total: ${this.connectionStats.totalConnections}, Active: ${this.connectionStats.activeConnections}, Disconnections: ${this.connectionStats.totalDisconnections}`);
+
+        console.log(
+          `Socket disconnected: ${socket.id} (User: ${socket.data.userId}) - Reason: ${reason} - Duration: ${duration}ms`,
+        );
+        console.log(
+          `📊 Connection stats: Total: ${this.connectionStats.totalConnections}, Active: ${this.connectionStats.activeConnections}, Disconnections: ${this.connectionStats.totalDisconnections}`,
+        );
 
         // Update presence for all active rooms
         for (const roomId of socket.data.activeRooms) {
@@ -467,6 +448,8 @@ export class WebSocketServer {
           }
         }
       });
+
+      
     });
   }
 

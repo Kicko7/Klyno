@@ -72,7 +72,6 @@ const TeamChat = memo(() => {
 
     // Find the chat in current organization's chats
     const chat = teamChats.find((c) => c.id === chatId);
-
     // If we have chats loaded and can't find this chat, it might be invalid
     if (teamChats.length > 0 && !chat) {
       console.warn('⚠️ Chat not found in current organization:', chatId);
@@ -146,14 +145,7 @@ const TeamChat = memo(() => {
   // Presence is now handled by WebSocket in useTeamChatWebSocket hook
 
   // Debug logging
-  useEffect(() => {
-    console.log('🔍 TeamChat Debug:', {
-      currentOrganization: currentOrganization?.id,
-      teamChats: (teamChats || []).length,
-      activeTeamChatId,
-      isLoading,
-    });
-  }, [currentOrganization, teamChats, activeTeamChatId, isLoading]);
+ 
 
   // const theme = useTheme()
   return (
@@ -181,7 +173,7 @@ const TeamChat = memo(() => {
                 </div>
               </Flexbox>
             )}
-            <ModelSwitchPanel>
+            <ModelSwitchPanel sessionId={teamChats.find((chat) => chat.id === activeTeamChatId)?.metadata?.sessionId}>
               <ModelTag model={model} />
             </ModelSwitchPanel>
             {Object.keys(memoizedActiveUsers).length > 0 && !isLoading && (

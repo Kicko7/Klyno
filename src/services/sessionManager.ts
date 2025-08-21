@@ -31,8 +31,8 @@ export class SessionManager {
   private redisService: OptimizedRedisService;
   private syncService: SyncService;
   private apiService: ApiService;
-  private readonly SESSION_TTL = 1200; // 20 minutes in seconds
-  private readonly MAX_MESSAGES = 2;
+  private readonly SESSION_TTL = 12000; // 20 minutes in seconds
+  private readonly MAX_MESSAGES = 1000;
   private readonly INITIAL_LOAD_SIZE = 50;
 
   constructor(redisService: OptimizedRedisService, syncService: SyncService) {
@@ -93,22 +93,22 @@ export class SessionManager {
       }
 
       // Convert DB messages to session format
-      const messageData: MessageData[] = messages.map((msg) => ({
+      const messageData: MessageData[] = messages.map((msg:any) => ({
         id: msg.id,
         content: msg.content,
         userId: msg.userId,
-        timestamp: msg.createdAt.getTime(),
+        timestamp: msg.createdAt,
         type: msg.messageType as 'user' | 'assistant' | 'system',
         metadata: msg.metadata,
         syncedToDb: true, // These are already in DB
       }));
 
       // Get unique participants
-      const participants = [...new Set(messages.map((m) => m.userId))];
+      const participants = [...new Set(messages.map((m:any) => m.userId))];
 
       // Create session with loaded messages
       const now = Date.now();
-      const session: ChatSession = {
+      const session: any = {
         sessionId: `session_${teamChatId}_${nanoid()}`,
         teamChatId,
         participants,
@@ -135,18 +135,13 @@ export class SessionManager {
    */
   async appendMessage(teamChatId: string, message: MessageData): Promise<void> {
     try {
-      console.log(`📝 Adding message to session: ${teamChatId}`, {
-        messageId: message.id,
-        type: message.type,
-        contentLength: message.content.length,
-      });
+   
 
       // Check if session exists in Redis
       let session = await this.getSession(teamChatId);
 
       // If session doesn't exist, try to load from database first
       if (!session) {
-        console.log(`📥 Session not found in Redis, loading from DB: ${teamChatId}`);
         session = await this.loadSessionFromDb(teamChatId);
         if (!session) {
           // Create new session if none exists
@@ -154,12 +149,8 @@ export class SessionManager {
         }
       }
 
-      // Check if message with this ID already exists to prevent duplication
-      const existingMessageIndex = session.messages.findIndex((m) => m.id === message.id);
+      const existingMessageIndex = session.messages.findIndex((m:any) => m.id === message.id);
       if (existingMessageIndex !== -1) {
-        console.log(
-          `⚠️ Message with ID ${message.id} already exists in session, updating instead of duplicating`,
-        );
         // Update existing message instead of adding duplicate
         session.messages[existingMessageIndex] = {
           ...session.messages[existingMessageIndex],
@@ -173,7 +164,7 @@ export class SessionManager {
       }
 
       // Update session with new message
-      const updatedSession: ChatSession = {
+      const updatedSession: any = {
         ...session,
         messages: session.messages,
         lastActivityAt: Date.now(),
@@ -183,25 +174,6 @@ export class SessionManager {
       // Save to Redis
       await this.redisService.setSession(updatedSession);
 
-      // Immediately persist to database for critical messages (AI responses, system messages)
-      // if (message.type === 'assistant' || message.type === 'system') {
-      //   try {
-      //     await this.persistMessageToDatabase(teamChatId, message);
-      //     console.log(`✅ Critical message persisted to database: ${message.id}`);
-      //   } catch (error) {
-      //     console.error(`❌ Failed to persist critical message to database: ${message.id}`, error);
-      //     // Don't throw error to prevent blocking the session update
-      //   }
-      // }
-
-      console.log(
-        `✅ Message ${existingMessageIndex !== -1 ? 'updated' : 'added'} to session: ${teamChatId}`,
-        {
-          messageId: message.id,
-          totalMessages: updatedSession.messages.length,
-          wasUpdate: existingMessageIndex !== -1,
-        },
-      );
     } catch (error) {
       console.error(`❌ Failed to add message to session: ${teamChatId}`, error);
       throw error;
@@ -234,11 +206,11 @@ export class SessionManager {
   /**
    * Update session with multiple messages (batch operation)
    */
-  async updateSession(teamChatId: string, messages: MessageData[]): Promise<void> {
+    async updateSession(teamChatId: string, messages: any[]): Promise<void> {
     let session = await this.getSession(teamChatId);
 
     if (!session) {
-      const participants = [...new Set(messages.map((m) => m.userId))];
+      const participants = [...new Set(messages.map((m:any) => m.userId))];
       session = await this.createSession(teamChatId, participants);
     }
 
@@ -249,7 +221,7 @@ export class SessionManager {
       const removedMessages = session.messages.splice(0, toRemove);
 
       // Sync removed messages to DB
-      const unsyncedMessages = removedMessages.filter((m) => !m.syncedToDb);
+      const unsyncedMessages = removedMessages.filter((m:any) => !m.syncedToDb);
       if (unsyncedMessages.length > 0) {
         await this.syncService.batchSyncMessages(teamChatId, unsyncedMessages);
       }
@@ -259,8 +231,8 @@ export class SessionManager {
     session.messages.push(...messages);
 
     // Update participants
-    const newParticipants = [...new Set(messages.map((m) => m.userId))];
-    newParticipants.forEach((userId) => {
+    const newParticipants = [...new Set(messages.map((m:any) => m.userId))];
+    newParticipants.forEach((userId:any) => {
       if (!session.participants.includes(userId)) {
         session.participants.push(userId);
       }
@@ -293,14 +265,14 @@ export class SessionManager {
   /**
    * Get sessions that are about to expire (for background sync)
    */
-  async getExpiringSessions(): Promise<ChatSession[]> {
+  async getExpiringSessions(): Promise<any[]> {
     try {
       const allSessions = await this.redisService.getAllActiveSessions();
       const now = Date.now();
       const expiryThreshold = now + 60000; // Sessions expiring in next minute
 
-      return (allSessions as ChatSession[]).filter(
-        (session: ChatSession) =>
+      return (allSessions as any[]).filter(
+        (session: any) =>
           session.status === 'active' &&
           session.expiresAt <= expiryThreshold &&
           session.messages.some((m: MessageData) => !m.syncedToDb), // Only if has unsynced messages
@@ -314,10 +286,10 @@ export class SessionManager {
   /**
    * Get all active sessions currently stored in Redis
    */
-  async getAllActiveSessions(): Promise<ChatSession[]> {
+  async getAllActiveSessions(): Promise<any[]> {
     try {
-      const sessions = await this.redisService.getAllActiveSessions();
-      return (sessions || []) as ChatSession[];
+      const sessions:any = await this.redisService.getAllActiveSessions();
+      return (sessions || []) as any[];
     } catch (error) {
       console.error('Error getting all active sessions:', error);
       return [];
@@ -344,7 +316,7 @@ export class SessionManager {
       if (!session) return;
 
       // Ensure all messages are synced
-      const unsyncedMessages = session.messages.filter((m) => !m.syncedToDb);
+      const unsyncedMessages = session.messages.filter((m:any) => !m.syncedToDb);
       if (unsyncedMessages.length > 0) {
         await this.syncService.syncSessionToDb(session);
       }
@@ -374,7 +346,7 @@ export class SessionManager {
       messageCount: session.messages.length,
       participantCount: session.participants.length,
       duration: now - session.createdAt,
-      unsyncedCount: session.messages.filter((m) => !m.syncedToDb).length,
+      unsyncedCount: session.messages.filter((m:any) => !m.syncedToDb).length,
     };
   }
 
@@ -398,13 +370,13 @@ export class SessionManager {
 
     // Sync older half of messages
     const halfIndex = Math.floor(session.messages.length / 2);
-    const messagesToSync = session.messages.slice(0, halfIndex).filter((m) => !m.syncedToDb);
+    const messagesToSync = session.messages.slice(0, halfIndex).filter((m:any) => !m.syncedToDb);
 
     if (messagesToSync.length > 0) {
       await this.syncService.batchSyncMessages(teamChatId, messagesToSync);
 
       // Mark as synced in session
-      session.messages.forEach((msg, index) => {
+      session.messages.forEach((msg:any, index:any) => {
         if (index < halfIndex) {
           msg.syncedToDb = true;
         }

@@ -7,6 +7,8 @@ import { StateCreator } from 'zustand/vanilla';
 import { LOADING_FLAT, MESSAGE_CANCEL_FLAT } from '@/const/message';
 import { TraceEventType, TraceNameMap } from '@/const/trace';
 import { isServerMode } from '@/const/version';
+import { useUserSubscription } from '@/hooks/useUserSubscription';
+import { lambdaClient } from '@/libs/trpc/client';
 import { knowledgeBaseQAPrompts } from '@/prompts/knowledgeBaseQA';
 import { chatService } from '@/services/chat';
 import { messageService } from '@/services/message';
@@ -20,6 +22,7 @@ import { ChatStore } from '@/store/chat/store';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { getFileStoreState } from '@/store/file/store';
 import { useSessionStore } from '@/store/session';
+import { getUserStoreState } from '@/store/user';
 import { WebBrowsingManifest } from '@/tools/web-browsing';
 import { ChatMessage, CreateMessageParams, SendMessageParams } from '@/types/message';
 import { ChatImageItem } from '@/types/message/image';
@@ -509,7 +512,7 @@ export const generateAIChat: StateCreator<
     const chatConfig = agentChatConfigSelectors.currentChatConfig(getAgentStoreState());
 
     const compiler = template(chatConfig.inputTemplate, {
-      interpolate: /{{\s*(text)\s*}}/g
+      interpolate: /{{\s*(text)\s*}}/g,
     });
 
     // ================================== //
@@ -528,20 +531,20 @@ export const generateAIChat: StateCreator<
 
     // 2. replace inputMessage template
     preprocessMsgs = !chatConfig.inputTemplate
-    ? preprocessMsgs
-    : preprocessMsgs.map((m) => {
-        if (m.role === 'user') {
-          try {
-            return { ...m, content: compiler({ text: m.content }) };
-          } catch (error) {
-            console.error(error);
+      ? preprocessMsgs
+      : preprocessMsgs.map((m) => {
+          if (m.role === 'user') {
+            try {
+              return { ...m, content: compiler({ text: m.content }) };
+            } catch (error) {
+              console.error(error);
 
-            return m;
+              return m;
+            }
           }
-        }
 
-        return m;
-      });
+          return m;
+        });
 
     // 3. add systemRole
     if (agentConfig.systemRole) {
@@ -595,6 +598,18 @@ export const generateAIChat: StateCreator<
         content,
         { traceId, observationId, toolCalls, reasoning, grounding, usage, speed },
       ) => {
+        if (usage?.totalTokens && model !== 'gpt-4.1-mini') {
+          const currentUser = getUserStoreState().user?.id;
+          if (currentUser) {
+            const result = await lambdaClient.subscription.updateOrganizationSubscriptionInfo.mutate({
+              ownerId: currentUser,
+              creditsUsed: usage.totalTokens,
+            });
+            if (result.success) {
+              window.dispatchEvent(new CustomEvent('update-subscription-info', { detail: result.data }));
+            }
+          }
+        }
         // if there is traceId, update it
         if (traceId) {
           msgTraceId = traceId;

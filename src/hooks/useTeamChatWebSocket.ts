@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Socket, io } from 'socket.io-client';
 
 import { useTeamChatStore } from '@/store/teamChat';
@@ -11,12 +11,41 @@ interface UseTeamChatWebSocketProps {
   enabled?: boolean;
 }
 
+/**
+ * WebSocket hook for team chat functionality with real-time user credits
+ *
+ * This hook provides WebSocket connection management for team chat features including:
+ * - Real-time messaging
+ * - Presence tracking
+ * - Typing indicators
+ * - Read receipts
+ * - User credits synchronization
+ *
+ * @example
+ * ```tsx
+ * const { sendMessage, getUserCredits, refreshUserCredits } = useTeamChatWebSocket({
+ *   teamChatId: 'team-123',
+ *   enabled: true
+ * });
+ *
+ * // Get current user credits
+ * const credits = getUserCredits();
+ * console.log(`Current credits: ${credits}`);
+ *
+ * // Refresh credits from server
+ * refreshUserCredits();
+ *
+ * // Send a message
+ * sendMessage('Hello team!', 'user');
+ * ```
+ */
 export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChatWebSocketProps) => {
   const socketRef = useRef<Socket | null>(null);
   const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
   const isCleanupRef = useRef(false);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastPongRef = useRef<number>(Date.now());
+  const [userCredits, setUserCredits] = useState<number>(0);
 
   const currentUser = useUserStore(userProfileSelectors.userProfile);
 
@@ -35,13 +64,14 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
   const socketConfig = useMemo(
     () => ({
       auth: { userId: currentUser?.id },
-      transports: ['polling'],
-      upgrade: true,
+      transports: ['polling'], // ✅ Only websocket
+      upgrade: false,            // ✅ disable polling → ws upgrade
       reconnection: true,
-      reconnectionAttempts: 5, // Limit attempts instead of Infinity
+      reconnectionAttempts: 5,   // ✅ good
       reconnectionDelay: 1000,
       reconnectionDelayMax: 10000,
-      timeout: 1200000, // Reduced from 120000
+      timeout: 30000, 
+   
     }),
     [currentUser?.id],
   );
@@ -119,7 +149,6 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
     }
   }, [teamChatId, currentUser?.id, unsubscribeFromChat]);
 
-  
   useEffect(() => {
     isCleanupRef.current = false;
 
@@ -143,16 +172,16 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
     socket.on('connect', () => {
       console.log('✅ Socket connected:', socket.id);
       lastPongRef.current = Date.now(); // Reset pong timer
-      
+
       socket.emit('room:join', teamChatId);
       subscribeToChat(teamChatId, currentUser.id);
-      
+
       // Start heartbeat only after connection
     });
 
     socket.on('disconnect', (reason) => {
       console.warn('❌ Socket disconnected:', reason);
-      
+
       // Clear heartbeat on disconnect
       if (heartbeatRef.current) {
         clearInterval(heartbeatRef.current);
@@ -169,12 +198,12 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
 
     socket.on('connect_error', (err) => {
       console.error('❌ Socket connection error:', err.message);
-      
+
       // Implement exponential backoff for connection errors
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
-      
+
       reconnectTimeoutRef.current = setTimeout(() => {
         if (!isCleanupRef.current && !socket.connected) {
           console.log('🔄 Attempting manual reconnection...');
@@ -193,15 +222,22 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
     socket.on('pong', (timestamp) => {
       lastPongRef.current = Date.now();
       const latency = Date.now() - timestamp;
-      if (latency > 5000) { // Log high latency
+      if (latency > 5000) {
+        // Log high latency
         console.warn(`⚠️ High latency detected: ${latency}ms`);
       }
+    });
+
+    // Handle user credits received from server
+    socket.on('user:credits', (data: { userId: string; credits: number; timestamp: string }) => {
+      console.log(`💰 Received user credits: ${data.credits} credits for user ${data.userId}`);
+      setUserCredits(data.credits);
     });
 
     // --- Chat events (unchanged) ---
     socket.on('session:loaded', (data) => {
       if (!data.messages?.length) return;
-      console.log('Session loaded', data.messages);
+      // console.log('Session loaded', data.messages);
       const converted = data.messages
         .map((m: any) => convertMessage(m, teamChatId))
         .filter(Boolean)
@@ -247,8 +283,8 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
           message.userId === 'assistant'
             ? 'assistant'
             : message.type === 'message'
-            ? 'user'
-            : (message.type as 'user' | 'assistant' | 'system'),
+              ? 'user'
+              : (message.type as 'user' | 'assistant' | 'system'),
         teamChatId: message.teamId,
         userId: message.userId,
         metadata: message.metadata || {},
@@ -282,6 +318,14 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
   // --- API methods (enhanced) ---
   const api = useMemo(
     () => ({
+      /**
+       * Send a message to the team chat via WebSocket
+       * @param content - Message content
+       * @param type - Message type (user, assistant, system)
+       * @param metadata - Additional message metadata
+       * @param messageId - Optional client message ID for deduplication
+       * @returns true if message was sent, false if socket not connected
+       */
       sendMessage: (
         content: string,
         type: 'user' | 'assistant' | 'system' = 'user',
@@ -293,8 +337,7 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
           console.warn('Socket not connected, cannot send message');
           return false;
         }
-        
-        console.log('Sending message to WebSocket', content, type, metadata, messageId);
+
         socket.emit('message:send', {
           teamId: teamChatId,
           content,
@@ -304,13 +347,20 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
         return true;
       },
 
+      userCredits: userCredits,
+      /**
+       * Start typing indicator for the current user
+       */
       startTyping: () => {
         const socket = socketRef.current;
         if (socket?.connected) {
           socket.emit('typing:start', teamChatId);
         }
       },
-      
+
+      /**
+       * Stop typing indicator for the current user
+       */
       stopTyping: () => {
         const socket = socketRef.current;
         if (socket?.connected) {
@@ -318,6 +368,10 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
         }
       },
 
+      /**
+       * Update read receipt for the current user
+       * @param lastReadMessageId - ID of the last read message
+       */
       updateReadReceipt: (lastReadMessageId: string) => {
         const socket = socketRef.current;
         if (socket?.connected) {
@@ -325,8 +379,15 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
         }
       },
 
+      /**
+       * Check if the WebSocket is currently connected
+       * @returns true if connected, false otherwise
+       */
       isConnected: () => socketRef.current?.connected || false,
 
+      /**
+       * Force a reconnection of the WebSocket
+       */
       forceReconnect: () => {
         const socket = socketRef.current;
         if (socket) {
@@ -335,6 +396,10 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
         }
       },
 
+      /**
+       * Get detailed connection state information
+       * @returns Object containing connection details
+       */
       getConnectionState: () => {
         const socket = socketRef.current;
         return {
@@ -345,8 +410,27 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
           timeSinceLastPong: Date.now() - lastPongRef.current,
         };
       },
+
+      /**
+       * Get the current user credits received from WebSocket
+       * @returns Current user credits balance
+       */
+      getUserCredits: () => userCredits,
+
+      /**
+       * Request fresh user credits from the server
+       * This will trigger a 'user:credits' event with updated credit information
+       */
+      refreshUserCredits: () => {
+        const socket = socketRef.current;
+        if (socket?.connected) {
+          // Request fresh credits from server
+          socket.emit('user:credits:request');
+          console.log('🔄 Requested fresh user credits from server');
+        }
+      },
     }),
-    [teamChatId],
+    [teamChatId, userCredits],
   );
 
   return api;

@@ -93,7 +93,6 @@ export class RedisService {
     const validatedUsage = CreditUsageSchema.parse(usage);
     const key = RedisKeyBuilder[RedisKeyType.CREDITS](userId);
     await this.redis.hset(key, { [validatedUsage.messageId]: JSON.stringify(validatedUsage) });
-    await this.redis.expire(key, RedisTTL[RedisKeyType.CREDITS]);
   }
 
   async getUnsyncedCredits(userId: string): Promise<CreditUsage[]> {
@@ -131,6 +130,16 @@ export class RedisService {
     return messages.map((m: string) => MessageStreamSchema.parse(JSON.parse(m)));
   }
 
+  async setUserCredits(userId: string, credits: number): Promise<void> {
+    const key = `user:${userId}:credits`;
+    await this.redis.set(key, credits);
+  }
+
+  async getUserCredits(userId: string): Promise<number> {
+    const key = `user:${userId}:credits`;
+    const val = await this.redis.get<string>(key);
+    return val ? parseInt(val, 10) : 0;
+  }
   // Message Streaming
   async addToMessageStream(teamId: string, message: MessageStreamData): Promise<string> {
     const validatedMessage = MessageStreamSchema.parse(message);

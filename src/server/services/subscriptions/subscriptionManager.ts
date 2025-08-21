@@ -135,6 +135,7 @@ export class SubscriptionManager {
             interval: plan.interval,
             stripePriceId: stripePriceId,
             updatedAt: new Date(),
+            balance: plan.monthlyCredits - plan.monthlyCredits,
           })
           .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId));
       } else {
@@ -157,6 +158,7 @@ export class SubscriptionManager {
           vectorStorageLimit: plan.vectorStorageLimitMB,
           amount: plan.price,
           interval: plan.interval,
+          balance: plan.monthlyCredits,
         });
       }
 
@@ -194,6 +196,39 @@ export class SubscriptionManager {
 
       // Note: Credit allocation is now handled by webhook handlers to avoid duplicate allocation
       // and ensure proper sequencing
+    });
+  }
+
+  async updateOrganizationSubscriptionInfo(ownerId: string, creditsUsed: number) {
+    return db.transaction(async (tx) => {
+      // Perform atomic update with balance >= creditsUsed guard
+      const [updatedSubscription] = await tx
+        .update(userSubscriptions)
+        .set({
+          balance: sql`${userSubscriptions.balance} - ${creditsUsed}`,
+        })
+        .where(
+          and(
+            eq(userSubscriptions.userId, ownerId),
+            gte(userSubscriptions.balance, creditsUsed), 
+          ),
+        )
+        .returning();
+
+      // No row updated = insufficient credits or user not found
+      if (!updatedSubscription) {
+        return {
+          success: false,
+          message: 'Insufficient credits or subscription not found',
+          subscription: null,
+        };
+      }
+
+      return {
+        success: true,
+        message: 'Organization subscription info updated successfully',
+        subscription: updatedSubscription,
+      };
     });
   }
 
@@ -623,7 +658,7 @@ export class SubscriptionManager {
     return {
       subscription: subscription[0],
       usageQuota: usageQuota[0] || null,
-      currentCredits: userCreditsRecord[0]?.balance || 0,
+      currentCredits: subscription[0]?.balance || 0,
     };
   }
 

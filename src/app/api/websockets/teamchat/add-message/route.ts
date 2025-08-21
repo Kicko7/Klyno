@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
+import { NextRequest, NextResponse } from 'next/server';
+
 import { db } from '@/database';
-import { users, teamChatMessages } from '@/database/schemas';
+import { teamChatMessages, users } from '@/database/schemas';
 import { idGenerator } from '@/database/utils/idGenerator';
 
 export async function POST(req: NextRequest) {
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
     if (!data.teamChatId || !data.content || !data.messageType) {
       return NextResponse.json(
         { error: 'Missing required fields: teamChatId, userId, content, or messageType' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -23,14 +24,16 @@ export async function POST(req: NextRequest) {
       where: eq(users.id, messageData.metadata.userId || data.userId),
     });
 
-    // Prepare metadata with user information
     const messageMetadata = {
       ...(data.metadata || {}),
       userInfo: {
         id: userId,
-        username: user?.username ?? 'assistant',
+        username: user?.username ?? user?.email ?? 'assistant',
         email: user?.email ?? 'assistant',
-        fullName: user?.fullName ?? 'assistant',
+        fullName:
+          (user?.firstName && user?.lastName
+            ? `${user.firstName} ${user.lastName}`
+            : user?.firstName || user?.lastName) ?? 'assistant',
       },
       isMultiUserChat: true,
     };
@@ -56,17 +59,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(result[0]);
       }
     }
-
-    console.log("Checking User",{
-      content: messageData.content,
-      messageType: messageData.messageType,
-      metadata: messageMetadata,
-      teamChatId,
-      userId: messageData?.metadata?.userId || data?.userId || '',
-      id: messageId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
     // Create new message
     const result = await db
       .insert(teamChatMessages)
@@ -83,23 +75,18 @@ export async function POST(req: NextRequest) {
       .returning();
 
     return NextResponse.json(result[0]);
-
   } catch (error) {
-    console.error('Error adding message:', error);
     console.log({
       error: error,
       content: data.content,
       messageType: data.messageType,
       metadata: data.metadata,
-      teamChatId:data.teamChatId,
-      userId: data.userId ,
+      teamChatId: data.teamChatId,
+      userId: data.userId,
       id: data.id,
       createdAt: new Date(),
       updatedAt: new Date(),
-    })
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

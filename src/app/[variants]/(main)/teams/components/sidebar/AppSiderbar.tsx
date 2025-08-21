@@ -58,6 +58,7 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
   const router = useRouter();
   const { organizations, selectedOrganizationId } = useOrganizationStore();
   const currentOrganization = organizations.find((org) => org.id === selectedOrganizationId);
+  // console.log('🔍 currentOrganization', currentOrganization);
   const userState = useUserStore();
 
   // Use the team chat routing hook

@@ -19,7 +19,7 @@ export const userSubscriptions = pgTable('user_subscriptions', {
   stripePriceId: text('stripe_price_id'),
 
   // Subscription details
-  planId: text('plan_id').notNull(), // References the plan from Stripe product metadata
+  planId: text('plan_id').notNull(), 
   planName: text('plan_name').notNull(),
   status: text('status', {
     enum: [
@@ -45,6 +45,7 @@ export const userSubscriptions = pgTable('user_subscriptions', {
   monthlyCredits: integer('monthly_credits').notNull().default(0),
   fileStorageLimit: integer('file_storage_limit_gb').notNull().default(1), // in GB
   vectorStorageLimit: integer('vector_storage_limit_mb').notNull().default(50), // in MB
+  balance: integer('balance').notNull().default(0),
 
   // Billing information
   currency: text('currency').notNull().default('usd'),

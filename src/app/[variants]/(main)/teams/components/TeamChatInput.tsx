@@ -1,4 +1,5 @@
-import { DraggablePanel } from '@lobehub/ui';
+import { DraggablePanel, FluentEmoji } from '@lobehub/ui';
+import { notification } from 'antd';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
@@ -12,12 +13,14 @@ import Head from '@/features/ChatInput/Desktop/Header';
 import InputArea from '@/features/ChatInput/Desktop/InputArea';
 import { useTeamChatRoute } from '@/hooks/useTeamChatRoute';
 import { useTeamChatWebSocket } from '@/hooks/useTeamChatWebSocket';
+import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { chatService } from '@/services/chat';
 import { getAgentStoreState, useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
 import { fileChatSelectors, useFileStore } from '@/store/file';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
+import { useOrganizationStore } from '@/store/organization/store';
 import { useTeamChatStore } from '@/store/teamChat';
 import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
@@ -105,6 +108,7 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
     sendMessage: sendWebSocketMessage,
     startTyping,
     stopTyping,
+    userCredits,
   } = useTeamChatWebSocket({
     teamChatId,
     enabled: true,
@@ -126,17 +130,60 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
   );
 
   // Get agent configuration for AI
-  const agentConfig = useAgentStore(agentSelectors.currentAgentConfig);
 
   // Get file store for attachments
   const fileList = useFileStore(fileChatSelectors.chatUploadFileList);
   const clearChatUploadFileList = useFileStore((s) => s.clearChatUploadFileList);
   const isUploadingFiles = useFileStore(fileChatSelectors.isUploadingFiles);
 
+  const { organizations, selectedOrganizationId } = useOrganizationStore();
+  const currentOrganization = organizations.find((org) => org.id === selectedOrganizationId);
+
+  const { setOwnerId, ownerId, organizationSubscriptionInfo, updateOrganizationSubscriptionInfo } =
+    useUserSubscription();
+  useEffect(() => {
+    if (currentOrganization) {
+      setOwnerId(currentOrganization.ownerId);
+    }
+  }, [currentOrganization, ownerId]);
+
+  const teamChatsByOrg = useTeamChatStore((state) => state.teamChatsByOrg);
+
+  const teamChats = selectedOrganizationId ? teamChatsByOrg[selectedOrganizationId] || [] : [];
+  const activeTeamChatId = useTeamChatStore((state) => state.activeTeamChatId);
+  const activeTeamChat = teamChats.find((chat) => chat.id === activeTeamChatId);
+  const sessionId = activeTeamChat?.metadata?.sessionId;
+  const agentConfigSession = useAgentStore(agentSelectors.getAgentConfigBySessionId(sessionId));
+
   const handleSend = async () => {
     const messageToSend = inputMessage.trim();
     if (!messageToSend && fileList.length === 0) return;
     if (loading || isUploadingFiles) return;
+
+    // Check if user has remaining credits
+    if (
+      !organizationSubscriptionInfo ||
+      organizationSubscriptionInfo?.subscription?.planId == 'creator-pro' ||
+      organizationSubscriptionInfo?.subscription?.planId == 'starter'
+    ) {
+      notification.error({
+        message: 'Please upgrade to a team plan to continue using the team chat',
+        description: 'Contact your administrator to upgrade your plan',
+        duration: 0,
+        icon: <FluentEmoji emoji={'🫡'} size={24} />,
+      });
+      return;
+    }
+
+    if (organizationSubscriptionInfo?.currentCredits <= 0) {
+      notification.error({
+        message: 'You have no credits left',
+        description: 'Please upgrade to a paid plan to continue using the chat',
+        duration: 0,
+        icon: <FluentEmoji emoji={'🫡'} size={24} />,
+      });
+      return;
+    }
 
     // Clear input immediately for better UX
     setInputMessage('');
@@ -149,17 +196,22 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
         validateFiles(fileList);
       }
 
-      const fileMetadata = fileList.map((file) => ({
-        id: file.id,
-        name: file.file.name,
-        size: file.file.size,
-        type: file.file.type || 'application/octet-stream',
-        url: file.fileUrl || '',
-      }));
+      // Prepare file metadata efficiently
+      const fileMetadata =
+        fileList.length > 0
+          ? fileList.map((file) => ({
+              id: file.id,
+              name: file.file.name,
+              size: file.file.size,
+              type: file.file.type || 'application/octet-stream',
+              url: file.fileUrl || '',
+            }))
+          : [];
 
-      // Generate consistent message IDs
-      const userMessageId = `msg_${Date.now()}_${nanoid(10)}`;
-      const assistantMessageId = `assistant_${Date.now()}_${nanoid(10)}`;
+      // Generate consistent message IDs using a single timestamp
+      const currentTimestamp = Date.now();
+      const userMessageId = `msg_${currentTimestamp}_${nanoid(10)}`;
+      const assistantMessageId = `assistant_${currentTimestamp}_${nanoid(10)}`;
 
       // Prepare user metadata
       const userMetadata = currentUser
@@ -188,19 +240,21 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
         isLocal: true,
       });
 
-     await sendWebSocketMessage(messageToSend, 'user', userMetadata, userMessageId);
+      await sendWebSocketMessage(messageToSend, 'user', userMetadata, userMessageId);
       // Send message via WebSocket
       // console.log('Sending message to WebSocket');
 
       // Create temporary assistant message
-      await teamChatStore.addMessage(teamChatId, {
-        id: assistantMessageId,
-        content: 'Thinking...',
-        messageType: 'assistant',
-        userId: currentUser?.id || 'unknown',
-        metadata: { isThinking: true, clientMessageId: assistantMessageId, isLocal: true },
-        isLocal: true,
-      });
+      setTimeout(async () => {
+        await teamChatStore.addMessage(teamChatId, {
+          id: assistantMessageId,
+          content: 'Thinking...',
+          messageType: 'assistant',
+          userId: currentUser?.id || 'unknown',
+          metadata: { isThinking: true, clientMessageId: assistantMessageId, isLocal: true },
+          isLocal: true,
+        });
+      }, 1000);
 
       // Generate AI response
       await generateAIResponse(messageToSend, teamChatId, assistantMessageId);
@@ -214,10 +268,16 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
 
   // Helper functions
   const validateFiles = (files: any[]) => {
-    files.forEach((file) => {
-      if (!file.file.name) throw new Error('File is missing required name');
-      if (!file.file.size) throw new Error(`File ${file.file.name} is missing required size`);
-    });
+    if (!files.length) return;
+
+    for (const file of files) {
+      if (!file?.file?.name) {
+        throw new Error('File is missing required name');
+      }
+      if (!file?.file?.size) {
+        throw new Error(`File ${file.file.name} is missing required size`);
+      }
+    }
   };
 
   const generateAIResponse = async (
@@ -226,20 +286,17 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
     assistantMessageId: string,
   ) => {
     try {
-      const agentConfig = agentSelectors.currentAgentConfig(agentState);
-      if (!agentConfig) throw new Error('No agent configuration found');
-
       const chatHistory = await gatherChatHistory(teamChatId, MAX_HISTORY_MESSAGES);
-      const messages = buildMessageArray(chatHistory, userMessage, agentConfig);
+      const messages = buildMessageArray(chatHistory, userMessage, agentConfigSession);
 
       let aiResponse = '';
       await chatService.createAssistantMessageStream({
         params: {
           messages: messages as any,
-          model: agentConfig.model,
-          provider: agentConfig.provider,
-          ...agentConfig.params,
-          plugins: agentConfig.plugins,
+          model: agentConfigSession.model,
+          provider: agentConfigSession.provider,
+          ...agentConfigSession.params,
+          plugins: agentConfigSession.plugins,
         },
         onMessageHandle: async (chunk) => {
           aiResponse = await handleAIChunk(chunk, aiResponse, teamChatId, assistantMessageId);
@@ -249,7 +306,7 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
             finalContent,
             aiResponse,
             context,
-            agentConfig,
+            agentConfigSession,
             teamChatId,
             assistantMessageId,
           );
@@ -273,8 +330,13 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
       { role: 'user', content: userMessage, sessionId: teamChatId },
     ];
 
-    if (agentConfig.systemRole) {
-      messages.unshift({ role: 'system', content: agentConfig.systemRole, sessionId: teamChatId });
+    // Add system role at the beginning if it exists
+    if (agentConfig?.systemRole) {
+      messages.unshift({
+        role: 'system',
+        content: agentConfig.systemRole,
+        sessionId: teamChatId,
+      });
     }
 
     return messages;
@@ -286,14 +348,18 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
     teamChatId: string,
     assistantMessageId: string,
   ) => {
-    if (chunk.type === 'text' || ('text' in chunk && chunk.text)) {
-      const newResponse = aiResponse + (chunk.text || '');
+    // Check if chunk contains text content
+    const chunkText = chunk?.text || (chunk?.type === 'text' ? chunk.text : '');
+
+    if (chunkText) {
+      const newResponse = aiResponse + chunkText;
       await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
         content: newResponse,
         metadata: { isThinking: false, clientMessageId: assistantMessageId },
       });
       return newResponse;
     }
+
     return aiResponse;
   };
 
@@ -306,26 +372,44 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
     assistantMessageId: string,
   ) => {
     const finalMessage = finalContent || aiResponse || 'No response generated';
-    const metadata = {
+
+    // Prepare metadata once to avoid duplication
+    const baseMetadata = {
       ...context?.usage,
-      model: agentConfig.model,
-      provider: agentConfig.provider,
+      model: agentConfig?.model,
+      provider: agentConfig?.provider,
       totalTokens: context?.usage?.totalTokens || 0,
       clientMessageId: assistantMessageId,
     };
 
+
+    // Update local store
     await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
       content: finalMessage,
-      metadata: { ...metadata, isThinking: false, isLocal: true },
+      metadata: { ...baseMetadata, isThinking: false, isLocal: true },
     });
 
-    sendWebSocketMessage(finalMessage, 'assistant', { isThinking: false, clientMessageId: assistantMessageId,userId:currentUser?.id || 'assistant' }, assistantMessageId);
+    // Send via WebSocket
+    sendWebSocketMessage(
+      finalMessage,
+      'assistant',
+      {
+        ...baseMetadata,
+        isThinking: false,
+        userId: currentUser?.id || 'assistant',
+      },
+      assistantMessageId,
+    );
 
+    if (context?.usage?.totalTokens) {
+      await updateOrganizationSubscriptionInfo(context.usage.totalTokens);
+    }
   };
 
   const handleAIError = async (error: any, teamChatId: string, assistantMessageId: string) => {
     console.error('AI generation error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
     await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
       content: `Sorry, I encountered an error: ${errorMessage}`,
       metadata: { isError: true, isThinking: false, clientMessageId: assistantMessageId },
@@ -334,6 +418,7 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
 
   const showErrorMessage = async (error: any) => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
     await teamChatStore.addMessage(teamChatId, {
       content: `Sorry, I encountered an error processing your request: ${errorMessage}`,
       messageType: 'assistant',

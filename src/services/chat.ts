@@ -316,6 +316,7 @@ class ChatService {
     // ===================================================== //
     let model = res.model || DEFAULT_AGENT_CONFIG.model;
 
+
     // if the provider is Azure, get the deployment name as the request model
     const providersWithDeploymentName = [
       ModelProvider.Azure,

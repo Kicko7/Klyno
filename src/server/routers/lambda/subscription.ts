@@ -37,4 +37,18 @@ export const subscriptionRouter = router({
         };
       }
     }),
+  updateOrganizationSubscriptionInfo: authedProcedure
+    .input(z.object({
+      ownerId: z.string().min(1),
+      creditsUsed: z.number().min(0),
+    }))
+    .mutation(async ({ input }) => {
+      const subscriptionManager = new SubscriptionManager();
+      const result = await subscriptionManager.updateOrganizationSubscriptionInfo(input.ownerId, input.creditsUsed);
+      return {
+        success: result.success,
+        data: result.subscription,
+        message: result.message,
+      };
+    }),
 });

@@ -25,6 +25,7 @@ export interface ServerToClientEvents {
     error: string;
     timestamp: string;
   }) => void;
+  'user:credits': (data: { userId: string; credits: number; timestamp: string }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -42,6 +43,7 @@ export interface ClientToServerEvents {
   'typing:stop': (teamId: string) => void;
   'receipt:update': (data: { teamId: string; lastReadMessageId: string }) => void;
   'presence:heartbeat': (teamId: string) => void;
+  'user:credits:request': () => void;
 }
 
 export interface InterServerEvents {

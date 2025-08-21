@@ -122,7 +122,27 @@ export const useSharedFolderStore = create<SharedFolderStore>()(
           set({ loading: true });
 
           // Step 1: Create the chat in backend
-          const newChat = await lambdaClient.teamChat.createTeamChat.mutate(data);
+          const sessionResult = await lambdaClient.session.createSession.mutate({
+            config: {
+              model: 'gpt-4',
+              provider: 'openai',
+              systemRole: 'You are a helpful AI assistant for team collaboration.',
+            },
+            session: {
+              title: data.title || 'Team Chat',
+              type: 'agent',
+            },
+            type: 'agent',
+          });
+
+          
+          const newChat = await lambdaClient.teamChat.createTeamChat.mutate({
+            ...data,
+            metadata: {
+              sessionId: sessionResult, // Pass the session ID
+            },
+          });
+
 
           // Step 2: Link chat to subfolder in backend
           await lambdaClient.sharedFolder.createChatInSubFolder.mutate({

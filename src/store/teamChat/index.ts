@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid';
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
+import { DEFAULT_AGENT_CONFIG } from '@/const/settings';
 import { isServerMode } from '@/const/version';
 import { TeamChatItem, TeamChatMessageItem } from '@/database/schemas/teamChat';
 import { convertUsage } from '@/libs/model-runtime/utils/usageConverter';
@@ -355,12 +356,11 @@ export const useTeamChatStore = create<TeamChatStore>()(
           const updatedMessage = {
             ...existingMessage,
             ...updates,
-            updatedAt: new Date(),
           } as any;
 
           // Use the same deduplication and sorting logic as batchUpdateMessages
           const messageMap = new Map(existingMessages.map((m) => [m.id, m]));
-          
+
           // Update the specific message
           messageMap.set(messageId, updatedMessage);
 
@@ -371,27 +371,27 @@ export const useTeamChatStore = create<TeamChatStore>()(
               if (msg.createdAt instanceof Date) {
                 return msg.createdAt.getTime();
               }
-              if (typeof msg.createdAt === "string") {
+              if (typeof msg.createdAt === 'string') {
                 return new Date(msg.createdAt).getTime();
               }
               return 0;
             };
-      
+
             const tsA = getTimestamp(a);
             const tsB = getTimestamp(b);
-      
+
             // First priority: sort by timestamp
             if (tsA !== tsB) {
               return tsA - tsB;
             }
-      
+
             // Second priority: when timestamps are equal, user messages come first
             if (a.userId !== b.userId) {
               // User messages (userId !== "assistant") come before assistant messages
-              if (a.userId === "assistant") return 1;
-              if (b.userId === "assistant") return -1;
+              if (a.userId === 'assistant') return 1;
+              if (b.userId === 'assistant') return -1;
             }
-      
+
             // Third priority: if still equal, sort by ID for consistency
             return a.id.localeCompare(b.id);
           });
@@ -444,7 +444,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
         set((state) => {
           const existingMessages = state.messages[teamChatId] || [];
           const filteredMessages = existingMessages.filter((m: any) => m.id !== messageId);
-          
+
           // Apply the same sorting logic for consistency
           const sortedMessages = filteredMessages.sort((a, b) => {
             // Parse timestamps to numbers for comparison
@@ -452,27 +452,27 @@ export const useTeamChatStore = create<TeamChatStore>()(
               if (msg.createdAt instanceof Date) {
                 return msg.createdAt.getTime();
               }
-              if (typeof msg.createdAt === "string") {
+              if (typeof msg.createdAt === 'string') {
                 return new Date(msg.createdAt).getTime();
               }
               return 0;
             };
-      
+
             const tsA = getTimestamp(a);
             const tsB = getTimestamp(b);
-      
+
             // First priority: sort by timestamp
             if (tsA !== tsB) {
               return tsA - tsB;
             }
-      
+
             // Second priority: when timestamps are equal, user messages come first
             if (a.userId !== b.userId) {
               // User messages (userId !== "assistant") come before assistant messages
-              if (a.userId === "assistant") return 1;
-              if (b.userId === "assistant") return -1;
+              if (a.userId === 'assistant') return 1;
+              if (b.userId === 'assistant') return -1;
             }
-      
+
             // Third priority: if still equal, sort by ID for consistency
             return a.id.localeCompare(b.id);
           });
@@ -833,6 +833,21 @@ export const useTeamChatStore = create<TeamChatStore>()(
 
           if (isServerMode) {
             console.log('🚄 Using tRPC client for server mode');
+
+            const sessionResult = await lambdaClient.session.createSession.mutate({
+              config: {
+                model: DEFAULT_AGENT_CONFIG.model,
+                provider: DEFAULT_AGENT_CONFIG.provider,
+                systemRole: DEFAULT_AGENT_CONFIG.systemRole,
+                params: DEFAULT_AGENT_CONFIG.params as any,
+              },
+              session: {
+                title: title,
+                type: 'agent',
+              },
+              type: 'agent',
+            });
+
             const chat = await lambdaClient.teamChat.createTeamChat.mutate({
               organizationId,
               title,
@@ -846,6 +861,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
                     addedBy: userId,
                   },
                 ],
+                sessionId: sessionResult,
               },
             });
 
@@ -1759,27 +1775,27 @@ export const useTeamChatStore = create<TeamChatStore>()(
               if (msg.createdAt instanceof Date) {
                 return msg.createdAt.getTime();
               }
-              if (typeof msg.createdAt === "string") {
+              if (typeof msg.createdAt === 'string') {
                 return new Date(msg.createdAt).getTime();
               }
               return 0;
             };
-      
+
             const tsA = getTimestamp(a);
             const tsB = getTimestamp(b);
-      
+
             // First priority: sort by timestamp
             if (tsA !== tsB) {
               return tsA - tsB;
             }
-      
+
             // Second priority: when timestamps are equal, user messages come first
             if (a.userId !== b.userId) {
               // User messages (userId !== "assistant") come before assistant messages
-              if (a.userId === "assistant") return 1;
-              if (b.userId === "assistant") return -1;
+              if (a.userId === 'assistant') return 1;
+              if (b.userId === 'assistant') return -1;
             }
-      
+
             // Third priority: if still equal, sort by ID for consistency
             return a.id.localeCompare(b.id);
           });
@@ -1816,52 +1832,52 @@ export const useTeamChatStore = create<TeamChatStore>()(
       batchUpdateMessages: (teamChatId: string, messages: TeamChatMessageItem[]) => {
         set((state) => {
           const existingMessages = state.messages[teamChatId] || [];
-      
+
           // Master map
           const messageMap = new Map(existingMessages.map((m) => [m.id, m]));
-      
+
           // Deduplication maps for assistant messages
           const aiByClientId = new Map<string, string>();
           const aiByContent = new Map<string, string>();
-      
+
           for (const msg of existingMessages) {
-            if (msg.userId === "assistant") {
+            if (msg.userId === 'assistant') {
               if (msg.metadata?.clientMessageId) {
                 aiByClientId.set(msg.metadata.clientMessageId, msg.id);
               }
               aiByContent.set(msg.content.substring(0, 100), msg.id);
             }
           }
-      
+
           for (const message of messages) {
             if (messageMap.has(message.id)) {
               messageMap.set(message.id, message);
               continue;
             }
-      
-            if (message.userId === "assistant") {
+
+            if (message.userId === 'assistant') {
               let existingId: string | undefined;
-      
+
               if (message.metadata?.clientMessageId) {
                 existingId = aiByClientId.get(message.metadata.clientMessageId);
               }
               if (!existingId && message.content.length > 10) {
                 existingId = aiByContent.get(message.content.substring(0, 100));
               }
-      
+
               if (existingId) {
                 messageMap.delete(existingId);
               }
-      
+
               if (message.metadata?.clientMessageId) {
                 aiByClientId.set(message.metadata.clientMessageId, message.id);
               }
               aiByContent.set(message.content.substring(0, 100), message.id);
             }
-      
+
             messageMap.set(message.id, message);
           }
-      
+
           // ✅ Sort by timestamp first, then ensure user messages come before assistant messages
           const updatedMessages = Array.from(messageMap.values()).sort((a, b) => {
             // Parse timestamps to numbers for comparison
@@ -1869,31 +1885,31 @@ export const useTeamChatStore = create<TeamChatStore>()(
               if (msg.createdAt instanceof Date) {
                 return msg.createdAt.getTime();
               }
-              if (typeof msg.createdAt === "string") {
+              if (typeof msg.createdAt === 'string') {
                 return new Date(msg.createdAt).getTime();
               }
               return 0;
             };
-      
+
             const tsA = getTimestamp(a);
             const tsB = getTimestamp(b);
-      
+
             // First priority: sort by timestamp
             if (tsA !== tsB) {
               return tsA - tsB;
             }
-      
+
             // Second priority: when timestamps are equal, user messages come first
             if (a.userId !== b.userId) {
               // User messages (userId !== "assistant") come before assistant messages
-              if (a.userId === "assistant") return 1;
-              if (b.userId === "assistant") return -1;
+              if (a.userId === 'assistant') return 1;
+              if (b.userId === 'assistant') return -1;
             }
-      
+
             // Third priority: if still equal, sort by ID for consistency
             return a.id.localeCompare(b.id);
           });
-      
+
           return {
             messages: {
               ...state.messages,
@@ -1902,8 +1918,6 @@ export const useTeamChatStore = create<TeamChatStore>()(
           };
         });
       },
-      
-      
 
       // Method to persist message to database
       persistMessageToDatabase: async (teamChatId: string, messageData: any) => {

@@ -166,7 +166,10 @@ const PricingPage = () => {
     subscriptionInfo?.subscription?.monthlyCredits ??
     0;
   const creditsUsedRaw = subscriptionInfo?.usageQuota?.creditsUsed ?? 0;
-  const creditsUsed = Math.min(Math.max(creditsUsedRaw, 0), creditsLimit);
+  // const creditsUsed = Math.min(Math.max(creditsUsedRaw, 0), creditsLimit);
+  const creditsUsed = (subscriptionInfo?.subscription?.monthlyCredits ?? 0) - (subscriptionInfo?.subscription?.balance ?? 0);
+
+  
   const creditsRemaining = Math.max(creditsLimit - creditsUsed, 0);
 
   const fileUsedMBRaw = subscriptionInfo?.usageQuota?.fileStorageUsed ?? 0; // quotas store MB
@@ -189,24 +192,24 @@ const PricingPage = () => {
   const vectorRemainingMB = Math.max(vectorLimitMB - vectorUsedMB, 0);
 
   // Debug logging to see what data we're getting
-  console.log('Subscription Info:', {
-    usageQuota: subscriptionInfo?.usageQuota,
-    subscription: subscriptionInfo?.subscription,
-    currentCredits: subscriptionInfo?.currentCredits,
-  });
+  // console.log('Subscription Info:', {
+  //   usageQuota: subscriptionInfo?.usageQuota,
+  //   subscription: subscriptionInfo?.subscription,
+  //   currentCredits: subscriptionInfo?.currentCredits,
+  // });
 
-  console.log('Calculated Usage:', {
-    creditsUsed,
-    creditsLimit,
-    creditsRemaining,
-    fileUsedMB,
-    fileUsedGB,
-    fileLimitGB,
-    fileRemainingGB,
-    vectorUsedMB,
-    vectorLimitMB,
-    vectorRemainingMB,
-  });
+  // console.log('Calculated Usage:', {
+  //   creditsUsed,
+  //   creditsLimit,
+  //   creditsRemaining,
+  //   fileUsedMB,
+  //   fileUsedGB,
+  //   fileLimitGB,
+  //   fileRemainingGB,
+  //   vectorUsedMB,
+  //   vectorLimitMB,
+  //   vectorRemainingMB,
+  // });
 
   // Additional debug for credit calculation
   if (
