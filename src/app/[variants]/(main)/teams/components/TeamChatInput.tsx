@@ -1,6 +1,6 @@
 import { DraggablePanel, FluentEmoji } from '@lobehub/ui';
 import { notification } from 'antd';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
 import { CHAT_TEXTAREA_HEIGHT } from '@/const/layoutTokens';
@@ -10,7 +10,7 @@ import InputArea from '@/features/ChatInput/Desktop/InputArea';
 import { useTeamChatWebSocket } from '@/hooks/useTeamChatWebSocket';
 import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { chatService } from '@/services/chat';
-import {  useAgentStore } from '@/store/agent';
+import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
 import { fileChatSelectors, useFileStore } from '@/store/file';
 import { useGlobalStore } from '@/store/global';
@@ -93,10 +93,14 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
 
   // Get team chat store methods and routing
   const {
-    sendMessage: sendTeamMessage,
     createNewTeamChatWithTopic,
     activeTopicId,
   } = useTeamChatStore();
+
+  const storeFunctions = useMemo(() => ({
+    createNewTeamChatWithTopic,
+    activeTopicId,
+  }), []);
 
   // Use WebSocket for real-time messaging
   const {
@@ -109,20 +113,9 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     enabled: true,
   });
 
-  // Handle input changes with typing indicators
-  const handleInputChange = useCallback(
-    (value: string) => {
-      setInputMessage(value);
-
-      // Send typing indicators via WebSocket
-      // if (value.length > 0) {
-      //   startTyping();
-      // } else {
-      //   stopTyping();
-      // }
-    },
-    [startTyping, stopTyping],
-  );
+  const handleInputChange = (value: string) => {
+    setInputMessage(value);
+  };
 
   // Get agent configuration for AI
 

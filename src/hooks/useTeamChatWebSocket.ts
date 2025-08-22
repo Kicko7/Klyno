@@ -64,14 +64,13 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
   const socketConfig = useMemo(
     () => ({
       auth: { userId: currentUser?.id },
-      transports: ['polling'], // ✅ Only websocket
-      upgrade: false,            // ✅ disable polling → ws upgrade
+      transports: ['websocket'], // ✅ Only websocket
+      upgrade: false, // ✅ disable polling → ws upgrade
       reconnection: true,
-      reconnectionAttempts: 5,   // ✅ good
+      reconnectionAttempts: 5, // ✅ good
       reconnectionDelay: 1000,
       reconnectionDelayMax: 10000,
-      timeout: 30000, 
-   
+      timeout: 30000,
     }),
     [currentUser?.id],
   );
@@ -99,21 +98,14 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
   }, []);
 
   const isDuplicateMessage = useCallback((message: MessageStreamData, existingMessages: any[]) => {
-    if (existingMessages.some((existing) => existing.id === message.id)) return true;
-    if (message.metadata?.clientMessageId) {
-      return existingMessages.some(
-        (existing) => existing.metadata?.clientMessageId === message?.metadata?.clientMessageId,
-      );
-    }
-    if (message.userId === 'assistant') {
-      const messageTime = new Date(message.timestamp).getTime();
-      return existingMessages.some((existing) => {
-        if (existing.userId !== 'assistant') return false;
-        const existingTime = existing.createdAt.getTime();
-        return Math.abs(messageTime - existingTime) < 1000 && existing.content === message.content;
-      });
-    }
-    return false;
+    if (!message.id) return false;
+    
+    return existingMessages.some(existing => 
+      existing.id === message.id || 
+      (existing.content === message.content && 
+       existing.userId === message.userId && 
+       Math.abs(existing.createdAt.getTime() - new Date(message.timestamp).getTime()) < 1000)
+    );
   }, []);
 
   // Enhanced cleanup with better error handling
@@ -428,6 +420,40 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
           socket.emit('user:credits:request');
           console.log('🔄 Requested fresh user credits from server');
         }
+      },
+      /**
+       * Edit a message in the team chat
+       * @param messageId - ID of the message to edit
+       * @param content - New message content
+       * @returns true if edit request was sent, false if socket not connected
+       */
+      editMessage: (messageId: string, content: string) => {
+        const socket = socketRef.current;
+        if (!socket?.connected) {
+          console.warn('Socket not connected, cannot edit message');
+          return false;
+        }
+
+        socket.emit('message:edit', messageId, content);
+        console.log(`✏️ Edit request sent for message: ${messageId}`);
+        return true;
+      },
+
+      /**
+       * Delete a message from the team chat
+       * @param messageId - ID of the message to delete
+       * @returns true if delete request was sent, false if socket not connected
+       */
+      deleteMessage: (messageId: string) => {
+        const socket = socketRef.current;
+        if (!socket?.connected) {
+          console.warn('Socket not connected, cannot delete message');
+          return false;
+        }
+
+        socket.emit('message:delete', messageId);
+        console.log(`🗑️ Delete request sent for message: ${messageId}`);
+        return true;
       },
     }),
     [teamChatId, userCredits],

@@ -56,6 +56,7 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
     startTyping,
     stopTyping,
     isConnected,
+    deleteMessage: deleteWebSocketMessage,
   } = useTeamChatWebSocket({
     teamChatId: messageInfo?.teamChatId || '',
     enabled: !!messageInfo?.teamChatId,
@@ -146,6 +147,7 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
           removeMessage(messageInfo.teamChatId, id);
 
           // Send delete action to Redis for real-time sync across all users
+          deleteWebSocketMessage(id);
           sendRedisEvent('message:delete', {
             messageId: id,
             teamChatId: messageInfo.teamChatId,
@@ -269,6 +271,7 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
       startTyping,
       stopTyping,
       sendRedisEvent,
+      deleteWebSocketMessage,
     ],
   );
 

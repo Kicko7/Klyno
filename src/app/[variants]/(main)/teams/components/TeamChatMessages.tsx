@@ -31,10 +31,6 @@ interface TeamChatMessagesProps {
 const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLoading }) => {
   const userAvatar = useUserStore(userProfileSelectors.userAvatar);
   const currentUser = useUserStore(userProfileSelectors.userProfile);
-  const [agentMeta, currentSession] = useSessionStore(
-    (s) => [sessionMetaSelectors.currentAgentMeta(s), sessionSelectors.currentSession(s)],
-    isEqual,
-  );
   const theme = useTheme();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -42,31 +38,31 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
   const toggleMessageEditing = useTeamChatStore((state) => state.toggleMessageEditing);
   const updateMessage = useTeamChatStore((state) => state.updateMessage);
   // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (!messagesEndRef.current) return;
+  // useEffect(() => {
+  //   if (!messagesEndRef.current) return;
 
-    // Get the scrollable parent container
-    let scrollContainer = messagesEndRef.current.parentElement;
+  //   // Get the scrollable parent container
+  //   let scrollContainer = messagesEndRef.current.parentElement;
     
-    // Find the actual scrollable container by going up the DOM tree
-    while (scrollContainer && !scrollContainer.classList.contains('messagesContainer')) {
-      scrollContainer = scrollContainer.parentElement;
-    }
+  //   // Find the actual scrollable container by going up the DOM tree
+  //   while (scrollContainer && !scrollContainer.classList.contains('messagesContainer')) {
+  //     scrollContainer = scrollContainer.parentElement;
+  //   }
 
-    if (!scrollContainer) {
-      // Fallback: just scroll the element into view
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-      return;
-    }
+  //   if (!scrollContainer) {
+  //     // Fallback: just scroll the element into view
+  //     messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  //     return;
+  //   }
 
-    // Check if we're at the bottom
-    const atBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 20;
+  //   // Check if we're at the bottom
+  //   const atBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 20;
     
-    if (atBottom) {
-      // Smooth scroll to bottom
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth',block: 'end' });
-    }
-  }, [messages]);
+  //   if (atBottom) {
+  //     // Smooth scroll to bottom
+  //     messagesEndRef.current.scrollIntoView({ behavior: 'smooth',block: 'end' });
+  //   }
+  // }, [messages.length]);
 
   if (isLoading) {
     return (

@@ -4,7 +4,6 @@ import { nanoid } from 'nanoid';
 import { ApiService } from './fetchService';
 import { OptimizedRedisService } from './optimized-redis-service';
 import { SyncService } from './syncService';
-import { lambdaClient } from '@/libs/trpc/client';
 
 export interface ChatSession {
   sessionId: string;
@@ -388,4 +387,88 @@ export class SessionManager {
       );
     }
   }
+
+  async getSessionByMessageId(messageId: string): Promise<any> {
+    try {
+      // Get all active sessions from Redis
+      const sessions = await this.redisService.getAllSessions();
+      
+      console.log('sessions', sessions);
+      for (const session of sessions) {
+        const message = session.messages?.find((msg: any) => msg.id === messageId);
+        if (message) {
+          return session;
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error finding session by message ID:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update message in session
+   */
+  async updateMessage(sessionId: string, messageId: string, updates: any): Promise<boolean> {
+    try {
+      const session = await this.getSession(sessionId);
+      if (!session) {
+        throw new Error(`Session ${sessionId} not found`);
+      }
+
+      // Find and update the message
+      const messageIndex = session.messages.findIndex((msg: any) => msg.id === messageId);
+      if (messageIndex === -1) {
+        throw new Error(`Message ${messageId} not found in session ${sessionId}`);
+      }
+
+      // Update the message
+      session.messages[messageIndex] = {
+        ...session.messages[messageIndex],
+        ...updates,
+      };
+
+      // Save updated session back to Redis
+      await this.redisService.setSession(session);
+      
+      console.log(`✅ Message ${messageId} updated in session ${sessionId}`);
+      return true;
+    } catch (error) {
+      console.error('Error updating message in session:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Delete message from session
+   */
+  async deleteMessage(sessionId: string, messageId: string): Promise<boolean> {
+    try {
+      const session = await this.getSession(sessionId);
+      if (!session) {
+        throw new Error(`Session ${sessionId} not found`);
+      }
+
+      // Find and remove the message
+      const messageIndex = session.messages.findIndex((msg: any) => msg.id === messageId);
+      if (messageIndex === -1) {
+        throw new Error(`Message ${messageId} not found in session ${sessionId}`);
+      }
+
+      // Remove the message
+      session.messages.splice(messageIndex, 1);
+
+      // Save updated session back to Redis
+      await this.redisService.setSession(session);
+      
+      console.log(`✅ Message ${messageId} deleted from session ${sessionId}`);
+      return true;
+    } catch (error) {
+      console.error('Error deleting message from session:', error);
+      return false;
+    }
+  }
+
 }

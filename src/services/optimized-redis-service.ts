@@ -603,17 +603,20 @@ export class OptimizedRedisService extends EventEmitter {
   async setSession(session: ChatSession): Promise<void> {
     const key = `chat:${session.teamChatId}:session`;
     const messagesKey = `chat:${session.teamChatId}:messages`;
-    
+
     await this.executeWithRetry(async () => {
       const pipeline = this.redis.pipeline();
-      
+
       // Store session metadata
-      pipeline.set(key, JSON.stringify({
-        ...session,
-        messages: undefined, // Don't store messages in metadata
-      }));
+      pipeline.set(
+        key,
+        JSON.stringify({
+          ...session,
+          messages: undefined, // Don't store messages in metadata
+        }),
+      );
       pipeline.expire(key, 1200); // 20 minutes
-      
+
       // Store messages separately in a list for efficiency
       if (session.messages && session.messages.length > 0) {
         pipeline.del(messagesKey); // Clear existing messages
@@ -622,7 +625,7 @@ export class OptimizedRedisService extends EventEmitter {
         }
         pipeline.expire(messagesKey, 1200);
       }
-      
+
       await pipeline.exec();
     });
   }
@@ -633,11 +636,11 @@ export class OptimizedRedisService extends EventEmitter {
   async getSession(teamChatId: string): Promise<ChatSession | null> {
     const key = `chat:${teamChatId}:session`;
     const messagesKey = `chat:${teamChatId}:messages`;
-    
+
     return await this.executeWithRetry(async () => {
       const sessionData = await this.redis.get(key);
       if (!sessionData) return null;
-      
+
       let session: ChatSession;
       try {
         // Handle both string and object data from Redis
@@ -653,7 +656,7 @@ export class OptimizedRedisService extends EventEmitter {
         console.warn(`Failed to parse session data for ${teamChatId}:`, error);
         return null;
       }
-      
+
       // Get messages with error handling
       try {
         const messages = await this.redis.lrange(messagesKey, 0, -1);
@@ -676,7 +679,7 @@ export class OptimizedRedisService extends EventEmitter {
         console.warn(`Failed to get messages for ${teamChatId}:`, error);
         session.messages = [];
       }
-      
+
       return session;
     });
   }
@@ -686,7 +689,7 @@ export class OptimizedRedisService extends EventEmitter {
    */
   async appendMessage(teamChatId: string, message: ChatMessage): Promise<void> {
     const messagesKey = `chat:${teamChatId}:messages`;
-    
+
     await this.executeWithRetry(async () => {
       await this.redis.rpush(messagesKey, JSON.stringify(message));
       await this.redis.expire(messagesKey, 1200); // Reset expiry
@@ -701,7 +704,10 @@ export class OptimizedRedisService extends EventEmitter {
       const pattern = 'chat:*:session';
       const keys = await this.scanKeys(pattern);
       const sessions: ChatSession[] = [];
+      console.log('keys', keys);
+      console.log('pattern', pattern);
       
+
       for (const key of keys) {
         const teamChatId = key.split(':')[1];
         if (teamChatId) {
@@ -711,7 +717,7 @@ export class OptimizedRedisService extends EventEmitter {
           }
         }
       }
-      
+
       return sessions;
     });
   }
@@ -723,7 +729,7 @@ export class OptimizedRedisService extends EventEmitter {
     const key = `chat:${teamChatId}:session`;
     const messagesKey = `chat:${teamChatId}:messages`;
     const metaKey = `chat:${teamChatId}:meta`;
-    
+
     await this.executeWithRetry(async () => {
       await this.redis.del(key, messagesKey, metaKey);
     });
@@ -735,7 +741,7 @@ export class OptimizedRedisService extends EventEmitter {
   async refreshExpiry(teamChatId: string, ttl: number): Promise<void> {
     const key = `chat:${teamChatId}:session`;
     const messagesKey = `chat:${teamChatId}:messages`;
-    
+
     await this.executeWithRetry(async () => {
       const pipeline = this.redis.pipeline();
       pipeline.expire(key, ttl);
@@ -749,7 +755,7 @@ export class OptimizedRedisService extends EventEmitter {
    */
   async getMessageCount(teamChatId: string): Promise<number> {
     const messagesKey = `chat:${teamChatId}:messages`;
-    
+
     return await this.executeWithRetry(async () => {
       return await this.redis.llen(messagesKey);
     });
@@ -760,7 +766,7 @@ export class OptimizedRedisService extends EventEmitter {
    */
   async trimMessages(teamChatId: string, maxMessages: number): Promise<void> {
     const messagesKey = `chat:${teamChatId}:messages`;
-    
+
     await this.executeWithRetry(async () => {
       const count = await this.redis.llen(messagesKey);
       if (count > maxMessages) {
@@ -769,4 +775,109 @@ export class OptimizedRedisService extends EventEmitter {
       }
     });
   }
+
+  private flattenObject(obj: any): string[] {
+    const result: string[] = [];
+    for (const [key, value] of Object.entries(obj)) {
+      result.push(key, String(value));
+    }
+    return result;
+  }
+
+  async getAllSessions(): Promise<any[]> {
+    try {
+      const sessionKeys = await this.redis.keys('session:*');
+      const sessions = [];
+
+      for (const key of sessionKeys) {
+        const session = await this.redis.get(key);
+        if (session && typeof session === 'string') {
+          sessions.push(JSON.parse(session));
+        }
+      }
+
+      return sessions;
+    } catch (error) {
+      console.error('Error getting all sessions:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Update message in Redis message stream
+   */
+
+  async updateMessageInStream(messageId: string, updates: any): Promise<boolean> {
+    try {
+      const streamKey = 'message_stream';
+      const messages = await this.redis.xrange(streamKey, '-', '+');
+
+      // Convert to array format for iteration
+      const messageEntries = Object.entries(messages);
+
+      for (const [id, fields] of messageEntries) {
+        const messageData = this.parseStreamFields(fields as any);
+        if (messageData.id === messageId) {
+          const updatedFields = {
+            ...messageData,
+            ...updates,
+          };
+
+          await this.redis.xdel(streamKey, id);
+          await this.redis.xadd(streamKey, '*', updatedFields);
+
+          console.log(`✅ Message ${messageId} updated in Redis stream`);
+          return true;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error updating message in stream:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Remove message from Redis message stream
+   */
+  async removeMessageFromStream(messageId: string): Promise<boolean> {
+    try {
+      const streamKey = 'message_stream';
+      const messages = await this.redis.xrange(streamKey, '-', '+');
+
+      // Convert to array format for iteration
+      const messageEntries = Object.entries(messages);
+
+      for (const [id, fields] of messageEntries) {
+        const messageData = this.parseStreamFields(fields as any);
+        if (messageData.id === messageId) {
+          // Remove the message from stream
+          await this.redis.xdel(streamKey, id);
+          console.log(`✅ Message ${messageId} removed from Redis stream`);
+          return true;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error removing message from stream:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Helper: Parse Redis stream fields to object
+   */
+  private parseStreamFields(fields: string[]): any {
+    const result: any = {};
+    for (let i = 0; i < fields.length; i += 2) {
+      result[fields[i]] = fields[i + 1];
+    }
+    return result;
+  }
+
+  /**
+   * Helper: Flatten object for Redis stream
+   */
 }

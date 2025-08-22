@@ -31,12 +31,13 @@ export class WebSocketServer {
     this.io = new Server(httpServer, {
       cors: {
         // Allow the frontend origin, not the socket server URL
-        origin: process.env.APP_URL || 'http://localhost:3000',
+        // origin: process.env.APP_URL || 'http://localhost:3000',
+        origin: 'http://localhost:3000',
         methods: ['GET', 'POST'],
         credentials: true,
       },
       path: '/socket.io',
-      transports: ['polling'],
+      transports: ['websocket'],
       allowEIO3: false,
       pingTimeout: 60000, // 60 seconds - time to wait for pong (reduced)
       pingInterval: 25000, // 25 seconds - ping interval (reduced)
@@ -291,33 +292,146 @@ export class WebSocketServer {
 
       socket.on('message:edit', async (messageId, content) => {
         try {
-          // Update message in database
-          const { lambdaClient } = await import('@/libs/trpc/client/lambda');
-          // Note: You'll need to add an editMessage mutation to the tRPC router
-          // await lambdaClient.teamChat.editMessage.mutate({ messageId, content });
+          console.log(`✏️ Message edit request: ${messageId} by user ${socket.data.userId}`);
 
-          // Broadcast edit to all rooms the user is in
-          for (const roomId of socket.data.activeRooms) {
-            this.io.to(roomId).emit('message:update', { id: messageId, content });
+          // First, check if message exists in Redis session
+          const session = await this.sessionManager.getSessionByMessageId(messageId);
+
+          if (session) {
+            // Message is in Redis session - update it there
+            await this.sessionManager.updateMessage(session.sessionId, messageId, {
+              content,
+              editedAt: new Date().toISOString(),
+              editedBy: socket.data.userId,
+            });
+
+            // Broadcast edit to all rooms the user is in
+            for (const roomId of socket.data.activeRooms) {
+              this.io.to(roomId).emit('message:update', {
+                id: messageId,
+                content,
+                editedAt: new Date().toISOString(),
+                editedBy: socket.data.userId,
+              });
+            }
+
+            console.log(`✅ Message ${messageId} updated in Redis session ${session.sessionId}`);
+          } else {
+            // Message not in Redis - check database and update there
+            try {
+              const { lambdaClient } = await import('@/libs/trpc/client/lambda');
+
+              // Update message in database
+              await lambdaClient.teamChat.editMessage.mutate({
+                messageId,
+                content,
+                editedBy: socket.data.userId,
+              });
+
+              // Broadcast edit to all rooms the user is in
+              for (const roomId of socket.data.activeRooms) {
+                this.io.to(roomId).emit('message:update', {
+                  id: messageId,
+                  content,
+                  editedAt: new Date().toISOString(),
+                  editedBy: socket.data.userId,
+                });
+              }
+
+              console.log(`✅ Message ${messageId} updated in database`);
+            } catch (dbError) {
+              console.error('❌ Failed to update message in database:', dbError);
+              socket.emit('message:error', {
+                messageId,
+                error: 'Failed to update message in database',
+                timestamp: new Date().toISOString(),
+              });
+              return;
+            }
+          }
+
+          // Update Redis message stream if message exists there
+          try {
+            await this.redisService.updateMessageInStream(messageId, {
+              content,
+              editedAt: new Date().toISOString(),
+              editedBy: socket.data.userId,
+            });
+          } catch (streamError) {
+            console.warn('⚠️ Failed to update message in Redis stream:', streamError);
           }
         } catch (error) {
-          console.error('Error editing message:', error);
+          console.error('❌ Error editing message:', error);
+          socket.emit('message:error', {
+            messageId,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            timestamp: new Date().toISOString(),
+          });
         }
       });
 
       socket.on('message:delete', async (messageId) => {
         try {
-          // Delete message from database
-          const { lambdaClient } = await import('@/libs/trpc/client/lambda');
-          // Note: You'll need to add a deleteMessage mutation to the tRPC router
-          // await lambdaClient.teamChat.deleteMessage.mutate({ messageId });
+          console.log(`🗑️ Message delete request: ${messageId} by user ${socket.data.userId}`);
 
-          // Broadcast deletion to all rooms the user is in
-          for (const roomId of socket.data.activeRooms) {
-            this.io.to(roomId).emit('message:delete', messageId);
+          // First, check if message exists in Redis session
+          const session = await this.sessionManager.getSessionByMessageId(messageId);
+
+          if (session) {
+            // Message is in Redis session - delete it there
+            await this.sessionManager.deleteMessage(session.sessionId, messageId);
+
+            // Broadcast deletion to all rooms the user is in
+            for (const roomId of socket.data.activeRooms) {
+              this.io.to(roomId).emit('message:delete', messageId);
+            }
+
+            console.log(`✅ Message ${messageId} deleted from Redis session ${session.sessionId}`);
+          } else {
+            // Message not in Redis - check database and delete there
+            try {
+              const { lambdaClient } = await import('@/libs/trpc/client/lambda');
+
+              // Delete message from database
+              await lambdaClient.teamChat.deleteMessage.mutate({
+                messageId,
+                deletedBy: socket.data.userId,
+              });
+
+              // Broadcast deletion to all rooms the user is in
+              for (const roomId of socket.data.activeRooms) {
+                this.io.to(roomId).emit('message:delete', {
+                  messageId,
+                  deletedBy: socket.data.userId,
+                  deletedAt: new Date().toISOString(),
+                });
+              }
+
+              console.log(`✅ Message ${messageId} deleted from database`);
+            } catch (dbError) {
+              console.error('❌ Failed to delete message from database:', dbError);
+              socket.emit('message:error', {
+                messageId,
+                error: 'Failed to delete message from database',
+                timestamp: new Date().toISOString(),
+              });
+              return;
+            }
+          }
+
+          // Remove message from Redis message stream if it exists there
+          try {
+            await this.redisService.removeMessageFromStream(messageId);
+          } catch (streamError) {
+            console.warn('⚠️ Failed to remove message from Redis stream:', streamError);
           }
         } catch (error) {
-          console.error('Error deleting message:', error);
+          console.error('❌ Error deleting message:', error);
+          socket.emit('message:error', {
+            messageId,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            timestamp: new Date().toISOString(),
+          });
         }
       });
 
