@@ -67,51 +67,51 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
   }
 
   // Filter and sort messages
-  // const filteredAndSortedMessages = useMemo(() => {
-  //   return messages
-  //     .filter((message) => {
-  //       // Filter out invalid or unwanted messages
-  //       if (!message || !message.id) return false;
-  //       if (!message.content && message.content !== 'Thinking...') return false;
-  //       if (message.content === 'Thinking...' && message.messageType !== 'assistant') return false;
-  //       return true;
-  //     })
-  //     .sort((a, b) => {
-  //       // Sort by timestamp first, then ensure user messages come before assistant messages
-  //       const getTimestamp = (msg: any): number => {
-  //         if (msg.createdAt instanceof Date) {
-  //           return msg.createdAt.getTime();
-  //         }
-  //         if (typeof msg.createdAt === 'string') {
-  //           return new Date(msg.createdAt).getTime();
-  //         }
-  //         return 0;
-  //       };
+  const filteredAndSortedMessages = useMemo(() => {
+    return messages
+      .filter((message) => {
+        // Filter out invalid or unwanted messages
+        if (!message || !message.id) return false;
+        if (!message.content && message.content !== 'Thinking...') return false;
+        if (message.content === 'Thinking...' && message.messageType !== 'assistant') return false;
+        return true;
+      })
+      .sort((a, b) => {
+        // Sort by timestamp first, then ensure user messages come before assistant messages
+        const getTimestamp = (msg: any): number => {
+          if (msg.createdAt instanceof Date) {
+            return msg.createdAt.getTime();
+          }
+          if (typeof msg.createdAt === 'string') {
+            return new Date(msg.createdAt).getTime();
+          }
+          return 0;
+        };
 
-  //       const tsA = getTimestamp(a);
-  //       const tsB = getTimestamp(b);
+        const tsA = getTimestamp(a);
+        const tsB = getTimestamp(b);
 
-  //       // First priority: sort by timestamp
-  //       if (tsA !== tsB) {
-  //         return tsA - tsB;
-  //       }
+        // First priority: sort by timestamp
+        if (tsA !== tsB) {
+          return tsA - tsB;
+        }
 
-  //       // Second priority: when timestamps are equal, user messages come first
-  //       if (a.userId !== b.userId) {
-  //         // User messages (userId !== "assistant") come before assistant messages
-  //         if (a.userId === 'assistant') return 1;
-  //         if (b.userId === 'assistant') return -1;
-  //       }
+        // Second priority: when timestamps are equal, user messages come first
+        if (a.userId !== b.userId) {
+          // User messages (userId !== "assistant") come before assistant messages
+          if (a.userId === 'assistant') return 1;
+          if (b.userId === 'assistant') return -1;
+        }
 
-  //       // Third priority: if still equal, sort by ID for consistency
-  //       return a.id.localeCompare(b.id);
-  //     });
-  // }, [messages]);
+        // Third priority: if still equal, sort by ID for consistency
+        return a.id.localeCompare(b.id);
+      });
+  }, [messages]);
 
   // Memoized message renderer for better performance
   const MessageRenderer = useCallback(
     ({ index }: { index: number }) => {
-      const message = messages[index];
+      const message = filteredAndSortedMessages[index];
       if (!message) return null;
 
       const isAssistant = message.messageType === 'assistant';
@@ -274,7 +274,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
       );
     },
     [
-      messages,
+      filteredAndSortedMessages,
       currentUser,
       userAvatar,
       theme,
@@ -296,7 +296,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
     >
       <Virtuoso
         ref={virtuosoRef}
-        data={messages}
+        data={filteredAndSortedMessages}
         itemContent={(index) => MessageRenderer({ index })}
         height={500}
         style={{
@@ -305,7 +305,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
         }}
         followOutput={true}
         alignToBottom={true}
-        initialTopMostItemIndex={messages.length - 1}
+        initialTopMostItemIndex={filteredAndSortedMessages.length - 1}
         overscan={5}
         increaseViewportBy={{ top: 100, bottom: 100 }}
         components={{
