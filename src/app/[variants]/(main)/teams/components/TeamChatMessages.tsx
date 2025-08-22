@@ -42,24 +42,31 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
   const toggleMessageEditing = useTeamChatStore((state) => state.toggleMessageEditing);
   const updateMessage = useTeamChatStore((state) => state.updateMessage);
   // Auto-scroll to bottom when new messages arrive
-  // useEffect(() => {
-  //   const container = messagesEndRef.current?.parentElement;
-  //   if (!container) return;
+  useEffect(() => {
+    if (!messagesEndRef.current) return;
 
-  //   const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 8;
-  //   // If already at bottom (or very close), keep it sticky to bottom
-  //   if (atBottom) {
-  //     // Jump to bottom without smooth to avoid bounce stacking on rapid streams
-  //     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-  //     return;
-  //   }
+    // Get the scrollable parent container
+    let scrollContainer = messagesEndRef.current.parentElement;
+    
+    // Find the actual scrollable container by going up the DOM tree
+    while (scrollContainer && !scrollContainer.classList.contains('messagesContainer')) {
+      scrollContainer = scrollContainer.parentElement;
+    }
 
-  //   // If not at bottom, avoid auto-scrolling unless new message is from current user or assistant stream
-  //   const last = messages?.[messages.length - 1];
-  //   if (!last) return;
-  //   const isAssistant = last.messageType === 'assistant';
-  //   if (isAssistant) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  // }, [messages]);
+    if (!scrollContainer) {
+      // Fallback: just scroll the element into view
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    // Check if we're at the bottom
+    const atBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 20;
+    
+    if (atBottom) {
+      // Smooth scroll to bottom
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth',block: 'end' });
+    }
+  }, [messages]);
 
   if (isLoading) {
     return (
@@ -72,10 +79,6 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
   if (!messages || messages.length === 0) {
     return <TeamChatWelcome />;
   }
-
-  const MemoizedActionsBar = React.memo(({ id, index }: { id: any; index: number }) => {
-    return <ActionsBar id={id} index={index} />;
-  });
 
   return (
     <div

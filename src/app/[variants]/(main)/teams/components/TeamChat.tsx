@@ -174,19 +174,19 @@ const TeamChat = memo(() => {
                     gap: '8px',
                   }}
                 >
-                  {teamChats.find((chat) => chat.id === activeTeamChatId)?.title ||
-                    'Loading chat...'}
+                  {/* {teamChats.find((chat) => chat.id === activeTeamChatId)?.title ||
+                    'Loading chat...'} */}
                   {isLoading && <span className="animate-pulse">•••</span>}
                 </div>
               </Flexbox>
             )}
-            <ModelSwitchPanel
+            {/* <ModelSwitchPanel
               sessionId={
                 teamChats.find((chat) => chat.id === activeTeamChatId)?.metadata?.sessionId
               }
             >
               <ModelTag model={model} />
-            </ModelSwitchPanel>
+            </ModelSwitchPanel> */}
             {Object.keys(memoizedActiveUsers).length > 0 && !isLoading && (
               <Flexbox gap={8} horizontal style={{ marginLeft: 12 }}>
                 {Object.entries(memoizedActiveUsers)

@@ -34,7 +34,7 @@ const useStyles = createStyles(({ css, token }) => ({
     flex-shrink: 0;
     background: ${token.colorBgContainer};
     border-top: 1px solid ${token.colorBorder};
-    padding: 4px 8px;
+    // padding: 4px 8px;
     max-height: 150px;
     overflow-y: auto;
   `,

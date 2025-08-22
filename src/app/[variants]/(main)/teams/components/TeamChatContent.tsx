@@ -169,7 +169,7 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
 
           const sortedMessages = page === 1 
             ? sortMessages(messages) 
-            : sortMessages([...(state.messages[teamChatId] || []), ...messages]);
+            : sortMessages([...(useTeamChatStore.getState().messages[teamChatId] || []), ...messages]);
 
           useTeamChatStore.setState((state) => ({
             messages: {
@@ -403,7 +403,7 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
         <TeamChatLayout
           teamChatId={teamChatId}
           mobile={mobile}
-          onLoadMore={handleLoadMore}
+          // onLoadMore={handleLoadMore}
           hasMore={chatState.hasMoreMessages}
           isLoading={isLoading}
           isTransitioning={switchState.isPending}

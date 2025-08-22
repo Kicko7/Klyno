@@ -3,7 +3,6 @@ import { notification } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
-import Footer from '@/app/[variants]/(main)/chat/(workspace)/@conversation/features/ChatInput/Desktop/Footer';
 import { CHAT_TEXTAREA_HEIGHT } from '@/const/layoutTokens';
 import { ActionKeys } from '@/features/ChatInput/ActionBar/config';
 import Head from '@/features/ChatInput/Desktop/Header';
@@ -11,7 +10,7 @@ import InputArea from '@/features/ChatInput/Desktop/InputArea';
 import { useTeamChatWebSocket } from '@/hooks/useTeamChatWebSocket';
 import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { chatService } from '@/services/chat';
-import { getAgentStoreState, useAgentStore } from '@/store/agent';
+import {  useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
 import { fileChatSelectors, useFileStore } from '@/store/file';
 import { useGlobalStore } from '@/store/global';
@@ -23,6 +22,8 @@ import { userProfileSelectors } from '@/store/user/selectors';
 import { MessageRoleType } from '@/types/message';
 import { CreateMessageParams } from '@/types/message';
 import { nanoid } from '@/utils/uuid';
+
+import TeamChatInputFooter from './TeamChatInputFooter';
 
 const leftActions = [
   'model',
@@ -79,7 +80,7 @@ export const gatherChatHistory = async (
   });
 };
 
-const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
+const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   // Get team chat store
   const teamChatStore = useTeamChatStore();
   const currentUser = useUserStore(userProfileSelectors.userProfile);
@@ -376,7 +377,6 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
       clientMessageId: assistantMessageId,
     };
 
-
     // Update local store
     await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
       content: finalMessage,
@@ -453,7 +453,11 @@ const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
           onSend={handleSend}
           value={inputMessage}
         />
-        <Footer expand={false} onExpandChange={() => {}} />
+        <TeamChatInputFooter
+          isLoading={loading}
+          inputMessage={inputMessage}
+          handleSend={handleSend}
+        />
       </Flexbox>
     </DraggablePanel>
   );
