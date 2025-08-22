@@ -1,7 +1,8 @@
 {
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "corepack enable && corepack prepare pnpm@10.10.0 --activate && pnpm install --no-frozen-lockfile"
+    "installCommand": "corepack enable && corepack prepare pnpm@10.10.0 --activate && pnpm install --no-frozen-lockfile",
+    "buildCommand": "echo 'No build step required'"
   },
   "deploy": {
     "startCommand": "pnpm run dev:server"
