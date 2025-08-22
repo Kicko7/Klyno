@@ -1,5 +1,3 @@
-# nixpacks.toml
-
 [phases.setup]
 nixPkgs = ["nodejs_22", "pnpm-9_x"]
 
@@ -10,7 +8,9 @@ cmds = [
 ]
 
 [phases.build]
-cmds = ["echo 'No build step required'"]
+cmds = [
+  "pnpm run build" # this runs next build
+]
 
 [start]
-cmd = "pnpm run dev:server"
+cmd = "pnpm run start" # runs next start in prod
