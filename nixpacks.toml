@@ -1,0 +1,16 @@
+# nixpacks.toml
+
+[phases.setup]
+nixPkgs = ["nodejs_22", "pnpm-9_x"]
+
+[phases.install]
+cmds = [
+  "npm install -g corepack@0.24.1 && corepack enable",
+  "pnpm install --no-frozen-lockfile"
+]
+
+[phases.build]
+cmds = ["echo 'No build step required'"]
+
+[start]
+cmd = "pnpm run dev:server"
