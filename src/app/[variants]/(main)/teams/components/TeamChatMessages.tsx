@@ -3,7 +3,7 @@
 import { ModelTag } from '@lobehub/icons';
 import { useTheme } from 'antd-style';
 import isEqual from 'lodash/isEqual';
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { memo, useEffect, useRef } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
@@ -37,32 +37,14 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
   const isMessageEditing = useTeamChatStore((state) => state.messageEditingIds);
   const toggleMessageEditing = useTeamChatStore((state) => state.toggleMessageEditing);
   const updateMessage = useTeamChatStore((state) => state.updateMessage);
-  // Auto-scroll to bottom when new messages arrive
-  // useEffect(() => {
-  //   if (!messagesEndRef.current) return;
-
-  //   // Get the scrollable parent container
-  //   let scrollContainer = messagesEndRef.current.parentElement;
-    
-  //   // Find the actual scrollable container by going up the DOM tree
-  //   while (scrollContainer && !scrollContainer.classList.contains('messagesContainer')) {
-  //     scrollContainer = scrollContainer.parentElement;
-  //   }
-
-  //   if (!scrollContainer) {
-  //     // Fallback: just scroll the element into view
-  //     messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-  //     return;
-  //   }
-
-  //   // Check if we're at the bottom
-  //   const atBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 20;
-    
-  //   if (atBottom) {
-  //     // Smooth scroll to bottom
-  //     messagesEndRef.current.scrollIntoView({ behavior: 'smooth',block: 'end' });
-  //   }
-  // }, [messages.length]);
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, []);
+  
+  useEffect(() => {
+    const id = requestAnimationFrame(scrollToBottom);
+    return () => cancelAnimationFrame(id);
+  }, [messages.length, scrollToBottom]);
 
   if (isLoading) {
     return (

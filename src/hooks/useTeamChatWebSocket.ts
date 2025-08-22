@@ -64,7 +64,7 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
   const socketConfig = useMemo(
     () => ({
       auth: { userId: currentUser?.id },
-      transports: ['websocket'], // ✅ Only websocket
+      transports: ['polling'], // ✅ Only websocket
       upgrade: false, // ✅ disable polling → ws upgrade
       reconnection: true,
       reconnectionAttempts: 5, // ✅ good

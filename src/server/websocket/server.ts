@@ -37,7 +37,7 @@ export class WebSocketServer {
         credentials: true,
       },
       path: '/socket.io',
-      transports: ['websocket'],
+      transports: ['polling'],
       allowEIO3: false,
       pingTimeout: 60000, // 60 seconds - time to wait for pong (reduced)
       pingInterval: 25000, // 25 seconds - ping interval (reduced)
