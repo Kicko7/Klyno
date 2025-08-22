@@ -50,7 +50,7 @@ const TeamChat = memo(() => {
   } = useTeamChatStore();
 
   // Get chats for current organization
-  const teamChats = currentOrganization?.id ? teamChatsByOrg[currentOrganization.id] || [] : [];
+  const teamChats = selectedOrganizationId ? teamChatsByOrg[selectedOrganizationId] || [] : [];
 
   // Get current model for the model switcher
   const [model, provider] = useAgentStore((s) => [
@@ -85,7 +85,7 @@ const TeamChat = memo(() => {
       console.log('🔍 Setting active chat from URL:', chatId);
       setActiveTeamChat(chatId);
     }
-  }, [chatId, currentOrganization?.id, isLoading, activeTeamChatId, teamChats, router]);
+  }, [chatId, currentOrganization?.id, isLoading, activeTeamChatId, teamChats, router,selectedOrganizationId]);
 
   // Only create first team chat if welcome page is shown and no chats exist
   useEffect(() => {
