@@ -59,7 +59,7 @@ export class WebSocketServer {
     this.setupEventHandlers();
     console.log('✅ WebSocket server initialized with Redis and SessionManager');
     console.log('🔌 WebSocket server listening on port:', process.env.PORT || '3001');
-    console.log('🌐 CORS origin:', process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:3000');
+    console.log('🌐 CORS origin:', process.env.APP_URL || 'http://localhost:3000');
   }
 
   private setupMiddleware() {
