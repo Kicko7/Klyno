@@ -74,6 +74,7 @@ const Clerk = memo(({ children }: PropsWithChildren) => {
       appearance={updatedAppearance}
       localization={localization}
       signUpUrl={!enableClerkSignUp ? '/login' : '/signup'} // Redirect sign-up to sign-in if disabled
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
     >
       {children}
       <UserUpdater />
