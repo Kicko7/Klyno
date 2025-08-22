@@ -3,6 +3,7 @@
 import { ClerkProvider } from '@clerk/nextjs';
 import { PropsWithChildren, memo, useEffect, useMemo, useState, useTransition } from 'react';
 import { useTranslation } from 'react-i18next';
+import { authEnv } from '@/config/auth';
 
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
 
@@ -69,12 +70,16 @@ const Clerk = memo(({ children }: PropsWithChildren) => {
     [appearance, enableClerkSignUp],
   );
 
+  if (!authEnv.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+    throw new Error('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is not set');
+  }
+
   return (
     <ClerkProvider
       appearance={updatedAppearance}
       localization={localization}
       signUpUrl={!enableClerkSignUp ? '/login' : '/signup'} // Redirect sign-up to sign-in if disabled
-      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      publishableKey={authEnv.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
     >
       {children}
       <UserUpdater />
