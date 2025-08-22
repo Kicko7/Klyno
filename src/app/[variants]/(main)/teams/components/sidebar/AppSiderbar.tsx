@@ -5,7 +5,6 @@ import {
   ChevronDown,
   ChevronRight,
   FileText,
-  FolderOpen,
   ImageIcon,
   MessageCircle,
   Plus,
@@ -29,9 +28,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarRail,
 } from '@/components/ui/sidebar';
 import { useTeamChatRoute } from '@/hooks/useTeamChatRoute';
@@ -96,32 +92,32 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
   //   },
   // });
 
-  // Handle organization switching - load chats and clear active chat
-  React.useEffect(() => {
-    if (currentOrganization?.id && userState.isSignedIn && userState.user?.id) {
-      console.log('🔍 Organization changed in sidebar:', currentOrganization.id);
+  // React.useEffect(() => {
+  //   if (currentOrganization?.id && userState.isSignedIn && userState.user?.id) {
+  //     // Only update if the organization ID is actually different
+  //     if (currentOrganizationId !== currentOrganization.id) {
+  //       console.log('🔍 Organization changed in sidebar:', currentOrganization.id);
 
-      // Synchronize organization ID in team chat store
-      setCurrentOrganizationId(currentOrganization.id);
+  //       // Synchronize organization ID in team chat store
+  //       setCurrentOrganizationId(currentOrganization.id);
 
-      // Clear active chat when organization changes
-      setActiveTeamChat(null);
+  //       // Clear active chat when organization changes
+  //       setActiveTeamChat(null);
 
-      // Load team chats for the new organization
-      refreshTeamChats();
-
-      // Reset URL to teams page
-      // router.push('/teams');
-    }
-  }, [
-    currentOrganization?.id,
-    setActiveTeamChat,
-    setCurrentOrganizationId,
-    router,
-    refreshTeamChats,
-    userState.isSignedIn,
-    userState.user?.id,
-  ]);
+  //       // Load team chats for the new organization
+  //       refreshTeamChats();
+  //     }
+  //   }
+  // }, [
+  //   currentOrganization?.id, // Add this back
+  //   currentOrganizationId,
+  //   userState.isSignedIn,
+  //   userState.user?.id,
+  //   // Remove these from dependencies - they are stable Zustand store functions
+  //   // setActiveTeamChat,
+  //   // setCurrentOrganizationId,
+  //   // refreshTeamChats,
+  // ]);
 
   // Initial load when component mounts and organization is already selected
   React.useEffect(() => {
@@ -142,11 +138,13 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
   }, [
     currentOrganization?.id,
     currentOrganizationId,
-    setCurrentOrganizationId,
-    refreshTeamChats,
     userState.isSignedIn,
     userState.user?.id,
+    // Remove these from dependencies - they are stable Zustand store functions
+    // setCurrentOrganizationId,
+    // refreshTeamChats,
   ]);
+
 
   const [openSections, setOpenSections] = React.useState({
     recent: true,

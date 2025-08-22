@@ -985,7 +985,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
           }
 
           set({ isLoading: true, error: null });
-          console.log('📥 Loading team chats for organization:', organizationId);
+          console.log('�� Loading team chats for organization:', organizationId);
 
           let chats: TeamChatItem[];
 
@@ -1009,12 +1009,16 @@ export const useTeamChatStore = create<TeamChatStore>()(
           console.log(`✅ Loaded ${chats.length} accessible team chats for user ${userId}`);
 
           // Update chats for this organization and set it as current
+          // Only update currentOrganizationId if it's different to prevent infinite loops
+          const currentState = get();
           set((state) => ({
             teamChatsByOrg: {
               ...state.teamChatsByOrg,
               [organizationId]: chats,
             },
-            currentOrganizationId: organizationId,
+            currentOrganizationId: currentState.currentOrganizationId === organizationId 
+              ? currentState.currentOrganizationId 
+              : organizationId,
             isLoading: false,
           }));
         } catch (error) {
@@ -1575,13 +1579,21 @@ export const useTeamChatStore = create<TeamChatStore>()(
 
       // Refresh team chats for current organization
       refreshTeamChats: async () => {
-        const { currentOrganizationId } = get();
+        const { currentOrganizationId, isLoading } = get();
+        
+        // Prevent duplicate calls if already loading
+        if (isLoading) {
+          console.log('⚠️ Already loading team chats, skipping duplicate call');
+          return;
+        }
+        
         if (currentOrganizationId) {
           await get().loadTeamChats(currentOrganizationId);
         } else {
           console.warn('⚠️ No current organization ID set, cannot refresh team chats');
         }
       },
+
 
       // Set current organization ID (for synchronization with organization store)
       setCurrentOrganizationId: (organizationId: string | null) => {

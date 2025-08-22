@@ -50,7 +50,7 @@ const TeamChat = memo(() => {
   } = useTeamChatStore();
 
   // Get chats for current organization
-  const teamChats = selectedOrganizationId ? teamChatsByOrg[selectedOrganizationId] || [] : [];
+  const teamChats = currentOrganization?.id ? teamChatsByOrg[currentOrganization.id] || [] : [];
 
   // Get current model for the model switcher
   const [model, provider] = useAgentStore((s) => [
@@ -58,22 +58,23 @@ const TeamChat = memo(() => {
     agentSelectors.currentAgentModelProvider(s),
   ]);
 
-  // Load team chats when organization changes
   useEffect(() => {
     if (currentOrganization?.id && currentOrganization.id !== currentOrganizationId) {
       console.log('🔄 Organization changed, loading team chats:', currentOrganization.id);
       refreshTeamChats();
     }
-  }, [currentOrganization?.id, currentOrganizationId, refreshTeamChats]);
+  }, [currentOrganization?.id, currentOrganizationId]); // Remove refreshTeamChats
 
   // Validate chat access and sync with URL
   useEffect(() => {
-    if (!chatId || !currentOrganization?.id || isLoading) return;
+    // Wait for everything to be loaded before validating
+    if (!chatId || !currentOrganization?.id || isLoading || teamChats.length === 0) return;
 
     // Find the chat in current organization's chats
     const chat = teamChats.find((c) => c.id === chatId);
+    
     // If we have chats loaded and can't find this chat, it might be invalid
-    if (teamChats.length > 0 && !chat) {
+    if (!chat) {
       console.warn('⚠️ Chat not found in current organization:', chatId);
       setActiveTeamChat(null);
       router.push('/teams');
@@ -81,12 +82,19 @@ const TeamChat = memo(() => {
     }
 
     // If we found the chat and it's not already active, set it
-    if (chat && activeTeamChatId !== chatId) {
+    if (activeTeamChatId !== chatId) {
       console.log('🔍 Setting active chat from URL:', chatId);
       setActiveTeamChat(chatId);
     }
-  }, [chatId, currentOrganization?.id, isLoading, activeTeamChatId, teamChats, router,selectedOrganizationId]);
-
+  }, [
+    chatId,
+    currentOrganization?.id,
+    isLoading,
+    activeTeamChatId,
+    teamChats.length, // Only depend on length, not the full array
+    router,
+    selectedOrganizationId,
+  ]);
   // Only create first team chat if welcome page is shown and no chats exist
   useEffect(() => {
     if (
@@ -145,11 +153,10 @@ const TeamChat = memo(() => {
   // Presence is now handled by WebSocket in useTeamChatWebSocket hook
 
   // Debug logging
- 
 
-  // const theme = useTheme()
+  const theme = useTheme()
   return (
-    <div className="flex flex-col h-full w-full bg-black relative">
+    <div className={`flex flex-col h-full w-full ${theme.appearance === "dark" ? "bg-black" : "bg-white"} relative`}>
       {/* Team Chat Header */}
       <ChatHeader
         left={
@@ -173,7 +180,11 @@ const TeamChat = memo(() => {
                 </div>
               </Flexbox>
             )}
-            <ModelSwitchPanel sessionId={teamChats.find((chat) => chat.id === activeTeamChatId)?.metadata?.sessionId}>
+            <ModelSwitchPanel
+              sessionId={
+                teamChats.find((chat) => chat.id === activeTeamChatId)?.metadata?.sessionId
+              }
+            >
               <ModelTag model={model} />
             </ModelSwitchPanel>
             {Object.keys(memoizedActiveUsers).length > 0 && !isLoading && (

@@ -1,17 +1,13 @@
 import { DraggablePanel, FluentEmoji } from '@lobehub/ui';
 import { notification } from 'antd';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
 import Footer from '@/app/[variants]/(main)/chat/(workspace)/@conversation/features/ChatInput/Desktop/Footer';
-import { chainAnswerWithContext } from '@/chains/answerWithContext';
-import { chainRewriteQuery } from '@/chains/rewriteQuery';
 import { CHAT_TEXTAREA_HEIGHT } from '@/const/layoutTokens';
-import { TeamChatMessageItem } from '@/database/schemas/teamChat';
 import { ActionKeys } from '@/features/ChatInput/ActionBar/config';
 import Head from '@/features/ChatInput/Desktop/Header';
 import InputArea from '@/features/ChatInput/Desktop/InputArea';
-import { useTeamChatRoute } from '@/hooks/useTeamChatRoute';
 import { useTeamChatWebSocket } from '@/hooks/useTeamChatWebSocket';
 import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { chatService } from '@/services/chat';
@@ -25,8 +21,7 @@ import { useTeamChatStore } from '@/store/teamChat';
 import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
 import { MessageRoleType } from '@/types/message';
-import { ChatMessage, CreateMessageParams } from '@/types/message';
-import { clientEncodeAsync } from '@/utils/tokenizer/client';
+import { CreateMessageParams } from '@/types/message';
 import { nanoid } from '@/utils/uuid';
 
 const leftActions = [
@@ -87,7 +82,6 @@ export const gatherChatHistory = async (
 const TeamChatInput = ({ teamChatId, organizationId }: TeamChatInputProps) => {
   // Get team chat store
   const teamChatStore = useTeamChatStore();
-  const agentState = getAgentStoreState();
   const currentUser = useUserStore(userProfileSelectors.userProfile);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
