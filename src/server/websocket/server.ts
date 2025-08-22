@@ -31,7 +31,7 @@ export class WebSocketServer {
     this.io = new Server(httpServer, {
       cors: {
         // Allow the frontend origin, not the socket server URL
-        origin: process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:3000',
+        origin: process.env.APP_URL || 'http://localhost:3000',
         methods: ['GET', 'POST'],
         credentials: true,
       },
@@ -175,7 +175,7 @@ export class WebSocketServer {
         'message:send',
         async (message: { teamId: string; content: string; type?: string; metadata?: any }) => {
           try {
-            console.log(message.metadata)
+            console.log(message.metadata);
             const timestamp = new Date().toISOString();
 
             const messageId =
@@ -448,8 +448,6 @@ export class WebSocketServer {
           }
         }
       });
-
-      
     });
   }
 
