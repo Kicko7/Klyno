@@ -9,7 +9,7 @@ export class SyncService {
   private readonly RETRY_DELAY = 1000; // ms
   private apiService: ApiService;
 
-  constructor(apiService: ApiService) {
+  constructor() {
     this.apiService = new ApiService();
   }
 

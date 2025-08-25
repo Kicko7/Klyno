@@ -2,11 +2,13 @@
 
 import { createStyles } from 'antd-style';
 import { Suspense, useMemo } from 'react';
+
+import FileList from '@/features/ChatInput/Desktop/FilePreview/FileList';
 import { SkeletonList } from '@/features/Conversation';
 import { useTeamChatStore } from '@/store/teamChat';
+
 import TeamChatInput from '../TeamChatInput';
 import TeamChatMessages from '../TeamChatMessages';
-import FileList from '@/features/ChatInput/Desktop/FilePreview/FileList';
 import TeamChatHeader from './TeamChatHeader';
 
 const useStyles = createStyles(({ css, token }) => ({
@@ -34,7 +36,7 @@ const useStyles = createStyles(({ css, token }) => ({
     flex-shrink: 0;
     background: ${token.colorBgContainer};
     border-top: 1px solid ${token.colorBorder};
-    // padding: 4px 8px;
+    padding: 4px 8px;
     max-height: 150px;
     overflow-y: auto;
   `,
@@ -74,7 +76,7 @@ const TeamChatLayout = ({
       </div>
 
       {/* Messages */}
-      <div className={styles.messagesContainer} id="chat-scroll-container">
+      <div className={styles.messagesContainer}>
         <Suspense fallback={<SkeletonList mobile={mobile} />}>
           <TeamChatMessages messages={memoizedMessages} isLoading={isLoadingState} />
         </Suspense>

@@ -72,7 +72,7 @@ const TeamChat = memo(() => {
 
     // Find the chat in current organization's chats
     const chat = teamChats.find((c) => c.id === chatId);
-    
+
     // If we have chats loaded and can't find this chat, it might be invalid
     if (!chat) {
       console.warn('⚠️ Chat not found in current organization:', chatId);
@@ -146,17 +146,19 @@ const TeamChat = memo(() => {
   });
 
   // Memoize active users to prevent infinite re-renders
-  const memoizedActiveUsers = useMemo(() => {
-    return activeUsers || {};
-  }, [activeUsers]);
+  // const memoizedActiveUsers = useMemo(() => {
+  //   return activeUsers || {};
+  // }, [activeUsers]);
 
   // Presence is now handled by WebSocket in useTeamChatWebSocket hook
 
   // Debug logging
 
-  const theme = useTheme()
+  const theme = useTheme();
   return (
-    <div className={`flex flex-col h-full w-full ${theme.appearance === "dark" ? "bg-black" : "bg-white"} relative`}>
+    <div
+      className={`flex flex-col h-full w-full ${theme.appearance === 'dark' ? 'bg-black' : 'bg-white'} relative`}
+    >
       {/* Team Chat Header */}
       <ChatHeader
         left={
@@ -187,7 +189,7 @@ const TeamChat = memo(() => {
             >
               <ModelTag model={model} />
             </ModelSwitchPanel> */}
-            {Object.keys(memoizedActiveUsers).length > 0 && !isLoading && (
+            {/* {Object.keys(memoizedActiveUsers).length > 0 && !isLoading && (
               <Flexbox gap={8} horizontal style={{ marginLeft: 12 }}>
                 {Object.entries(memoizedActiveUsers)
                   .slice(0, 3)
@@ -211,7 +213,7 @@ const TeamChat = memo(() => {
                   <Tag>+{Object.keys(memoizedActiveUsers).length - 3} active</Tag>
                 )}
               </Flexbox>
-            )}
+            )} */}
           </Flexbox>
         }
         right={

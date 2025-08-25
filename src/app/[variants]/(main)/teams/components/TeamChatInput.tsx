@@ -103,12 +103,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   }), []);
 
   // Use WebSocket for real-time messaging
-  const {
-    sendMessage: sendWebSocketMessage,
-    startTyping,
-    stopTyping,
-    userCredits,
-  } = useTeamChatWebSocket({
+  const { sendMessage: sendWebSocketMessage } = useTeamChatWebSocket({
     teamChatId,
     enabled: true,
   });

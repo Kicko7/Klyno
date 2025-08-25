@@ -77,6 +77,8 @@ export class SessionManager {
     }
   }
 
+  
+
   /**
    * Load session from database if not in Redis
    */
@@ -391,7 +393,7 @@ export class SessionManager {
   async getSessionByMessageId(messageId: string): Promise<any> {
     try {
       // Get all active sessions from Redis
-      const sessions = await this.redisService.getAllSessions();
+      const sessions = await this.redisService.getAllActiveSessions();
       
       console.log('sessions', sessions);
       for (const session of sessions) {
@@ -446,7 +448,7 @@ export class SessionManager {
    */
   async deleteMessage(sessionId: string, messageId: string): Promise<boolean> {
     try {
-      const session = await this.getSession(sessionId);
+      const session = await this.getSessionByMessageId(messageId);
       if (!session) {
         throw new Error(`Session ${sessionId} not found`);
       }

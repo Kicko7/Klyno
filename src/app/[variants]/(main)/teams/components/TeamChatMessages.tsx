@@ -1,7 +1,7 @@
 'use client';
 
 import { useTheme } from 'antd-style';
-import React, { memo, useEffect, useMemo, useRef, useCallback, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 
 import { DEFAULT_USER_AVATAR } from '@/const/meta';
@@ -45,8 +45,8 @@ const APIKeyErrorMessage = memo<{
       🔑 API Key Required
     </div>
     <div style={{ color: '#6b7280', fontSize: '14px', marginBottom: '12px' }}>
-      To continue chatting with the AI, please configure your{' '}
-      {errorProvider.toUpperCase()} API key below:
+      To continue chatting with the AI, please configure your {errorProvider.toUpperCase()} API key
+      below:
     </div>
     <TeamAPIKeyForm id={messageId} provider={errorProvider} />
   </div>
@@ -113,22 +113,24 @@ const UserExtra = memo<{
       flexDirection: 'column',
     }}
   >
-    {Array.isArray(files) && files.length > 0 && (() => {
-      const firstImage = files.find(file => file.type?.startsWith('image/'));
-      return firstImage ? (
-        <img
-          src={firstImage.url}
-          alt={firstImage.name}
-          style={{
-            maxWidth: '150px',
-            borderRadius: '8px',
-            maxHeight: '150px',
-            objectFit: 'contain',
-          }}
-          loading="lazy"
-        />
-      ) : null;
-    })()}
+    {Array.isArray(files) &&
+      files.length > 0 &&
+      (() => {
+        const firstImage = files.find((file) => file.type?.startsWith('image/'));
+        return firstImage ? (
+          <img
+            src={firstImage.url}
+            alt={firstImage.name}
+            style={{
+              maxWidth: '150px',
+              borderRadius: '8px',
+              maxHeight: '150px',
+              objectFit: 'contain',
+            }}
+            loading="lazy"
+          />
+        ) : null;
+      })()}
     {userInfo?.email && <span>{userInfo.email}</span>}
   </div>
 ));
@@ -168,15 +170,17 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
 
   // Zustand store selectors with stability
   const isMessageEditing = useTeamChatStore(useCallback((state) => state.messageEditingIds, []));
-  const toggleMessageEditing = useTeamChatStore(useCallback((state) => state.toggleMessageEditing, []));
+  const toggleMessageEditing = useTeamChatStore(
+    useCallback((state) => state.toggleMessageEditing, []),
+  );
   const updateMessage = useTeamChatStore(useCallback((state) => state.updateMessage, []));
 
   // Memoized processed messages for better performance
   const processedMessages = useMemo(() => {
     if (!messages || !Array.isArray(messages)) return [];
-    
+
     return messages
-      .filter(msg => msg && msg.id && (msg.content || msg.content === 'Thinking...'))
+      .filter((msg) => msg && msg.id && (msg.content || msg.content === 'Thinking...'))
       .sort((a, b) => {
         const tsA = getMessageTimestamp(a.createdAt);
         const tsB = getMessageTimestamp(b.createdAt);
@@ -201,28 +205,31 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
   useEffect(() => {
     const currentCount = processedMessages.length;
     const previousCount = lastMessageCountRef.current;
-    
+
     // Only scroll if new messages were added and user is at bottom
     if (currentCount > previousCount && isAtBottom) {
       scrollToBottom();
     }
-    
+
     lastMessageCountRef.current = currentCount;
   }, [processedMessages.length, isAtBottom, scrollToBottom]);
 
   // Memoized avatar generator
-  const getAvatar = useCallback((message: TeamChatMessageItem) => {
-    const isAssistant = message.messageType === 'assistant';
-    if (isAssistant) {
-      return { avatar: '🤖', title: 'AI Assistant' };
-    }
+  const getAvatar = useCallback(
+    (message: TeamChatMessageItem) => {
+      const isAssistant = message.messageType === 'assistant';
+      if (isAssistant) {
+        return { avatar: '🤖', title: 'AI Assistant' };
+      }
 
-    const userInfo = message.metadata?.userInfo;
-    return {
-      avatar: userInfo?.avatar || userAvatar || DEFAULT_USER_AVATAR,
-      title: userInfo?.fullName || userInfo?.username || userInfo?.email || 'Unknown User',
-    };
-  }, [userAvatar]);
+      const userInfo = message.metadata?.userInfo;
+      return {
+        avatar: userInfo?.avatar || userAvatar || DEFAULT_USER_AVATAR,
+        title: userInfo?.fullName || userInfo?.username || userInfo?.email || 'Unknown User',
+      };
+    },
+    [userAvatar],
+  );
 
   // Highly optimized message renderer
   const MessageRenderer = useCallback(
@@ -233,7 +240,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
       const isAssistant = message.messageType === 'assistant';
       const userInfo = message.metadata?.userInfo;
       const isCurrentUser = currentUser?.id === userInfo?.id;
-      
+
       // Parse error and content
       let actualMessage = message.content;
       let isApiKeyError = false;
@@ -272,20 +279,16 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
               placement={isAssistant ? 'left' : isCurrentUser ? 'right' : 'left'}
               primary={!isAssistant}
               time={messageTime}
-              onChange={(value: string) =>
-                updateMessage(message.teamChatId, message.id, value)
-              }
-              onEditingChange={(editing: boolean) =>
-                toggleMessageEditing(message.id, editing)
-              }
+              onChange={(value: string) => updateMessage(message.teamChatId, message.id, value)}
+              onEditingChange={(editing: boolean) => toggleMessageEditing(message.id, editing)}
               messageExtra={
                 isAssistant ? (
                   <AssistantExtra metadata={message.metadata} theme={theme} />
                 ) : userInfo ? (
-                  <UserExtra 
-                    userInfo={userInfo} 
-                    files={message.metadata?.files || []} 
-                    theme={theme} 
+                  <UserExtra
+                    userInfo={userInfo}
+                    files={message.metadata?.files || []}
+                    theme={theme}
                   />
                 ) : undefined
               }
@@ -303,7 +306,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
       getAvatar,
       toggleMessageEditing,
       updateMessage,
-    ]
+    ],
   );
 
   // Virtuoso callbacks for scroll management
@@ -312,12 +315,14 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
   }, []);
 
   // Memoized components - Fix for few messages
-  const components = useMemo(() => ({
-    Footer: () => <div style={{ height: '16px' }} />,
-    Header: () => processedMessages.length <= 5 ? (
-      <div style={{ height: '20px', flexShrink: 0 }} />
-    ) : null,
-  }), [processedMessages.length]);
+  const components = useMemo(
+    () => ({
+      Footer: () => <div style={{ height: '16px' }} />,
+      Header: () =>
+        processedMessages.length <= 5 ? <div style={{ height: '20px', flexShrink: 0 }} /> : null,
+    }),
+    [processedMessages.length],
+  );
 
   // CONDITIONAL RETURNS AFTER ALL HOOKS
   if (isLoading) {
@@ -330,41 +335,43 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
 
   // Determine Virtuoso configuration based on message count
   const shouldUseVirtualization = processedMessages.length > 10;
-  const virtuosoProps = shouldUseVirtualization ? {
-    followOutput: "smooth" as const,
-    alignToBottom: true,
-    initialTopMostItemIndex: Math.max(0, processedMessages.length - 1),
-    overscan: 10,
-    increaseViewportBy: { top: 200, bottom: 200 },
-  } : {
-    // For few messages, don't use aggressive bottom alignment
-    followOutput: false as const,
-    alignToBottom: false,
-    initialTopMostItemIndex: 0,
-    overscan: 2,
-  };
+  const virtuosoProps = shouldUseVirtualization
+    ? {
+        followOutput: 'smooth' as const,
+        alignToBottom: true,
+        initialTopMostItemIndex: Math.max(0, processedMessages.length - 1),
+        overscan: 10,
+        increaseViewportBy: { top: 200, bottom: 200 },
+      }
+    : {
+        // For few messages, don't use aggressive bottom alignment
+        followOutput: false as const,
+        alignToBottom: false,
+        initialTopMostItemIndex: 0,
+        overscan: 2,
+      };
 
   return (
-    <div 
-      style={{ 
-        width: '100%', 
-        height: '100%', 
-        display: 'flex', 
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
         flexDirection: 'column',
-        minHeight: '500px' 
+        minHeight: '500px',
       }}
     >
       <Virtuoso
         ref={virtuosoRef}
         data={processedMessages}
         itemContent={(index) => MessageRenderer({ index })}
-        style={{ 
+        style={{
           height: '100%',
           minHeight: '500px',
           // Fix for few messages - prevent empty space at top
           ...(processedMessages.length <= 5 && {
-            justifyContent: 'flex-start'
-          })
+            justifyContent: 'flex-start',
+          }),
         }}
         components={components}
         atBottomStateChange={handleAtBottomStateChange}

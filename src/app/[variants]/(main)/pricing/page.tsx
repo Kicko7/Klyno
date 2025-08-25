@@ -17,12 +17,13 @@ import {
   Users,
   Zap,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Center, Flexbox } from 'react-layout-kit';
 
 import { useStripePlans } from '@/hooks/useStripePlans';
 import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { lambdaClient } from '@/libs/trpc/client';
+import { useOrganizationStore } from '@/store/organization/store';
 
 // Subscription data will be fetched from the hook
 
@@ -42,6 +43,15 @@ const PricingPage = () => {
     currentPlan,
     nextBillingDate,
   } = useUserSubscription();
+
+  console.log('subscriptionInfo', subscriptionInfo);
+
+  // const selectedOrganizationId = useOrganizationStore((state) => state.selectedOrganizationId);
+  const { organizations, fetchOrganizations } = useOrganizationStore();
+  useEffect(() => {
+    fetchOrganizations();
+  }, []);
+  console.log('organizations', organizations);
 
   // Handle checkout for a specific plan
   const handleCheckout = async (plan: any) => {
@@ -167,9 +177,10 @@ const PricingPage = () => {
     0;
   const creditsUsedRaw = subscriptionInfo?.usageQuota?.creditsUsed ?? 0;
   // const creditsUsed = Math.min(Math.max(creditsUsedRaw, 0), creditsLimit);
-  const creditsUsed = (subscriptionInfo?.subscription?.monthlyCredits ?? 0) - (subscriptionInfo?.subscription?.balance ?? 0);
+  const creditsUsed =
+    (subscriptionInfo?.subscription?.monthlyCredits ?? 0) -
+    (subscriptionInfo?.subscription?.balance ?? 0);
 
-  
   const creditsRemaining = Math.max(creditsLimit - creditsUsed, 0);
 
   const fileUsedMBRaw = subscriptionInfo?.usageQuota?.fileStorageUsed ?? 0; // quotas store MB

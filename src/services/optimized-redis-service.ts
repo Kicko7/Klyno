@@ -704,12 +704,13 @@ export class OptimizedRedisService extends EventEmitter {
       const pattern = 'chat:*:session';
       const keys = await this.scanKeys(pattern);
       const sessions: ChatSession[] = [];
-      console.log('keys', keys);
-      console.log('pattern', pattern);
+      // console.log('keys', keys);
+      // console.log('pattern', pattern);
       
 
       for (const key of keys) {
         const teamChatId = key.split(':')[1];
+        // console.log('teamChatId', teamChatId);
         if (teamChatId) {
           const session = await this.getSession(teamChatId);
           if (session) {
@@ -718,6 +719,7 @@ export class OptimizedRedisService extends EventEmitter {
         }
       }
 
+      // console.log('sessions', sessions);
       return sessions;
     });
   }

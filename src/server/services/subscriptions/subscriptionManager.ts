@@ -135,10 +135,11 @@ export class SubscriptionManager {
             interval: plan.interval,
             stripePriceId: stripePriceId,
             updatedAt: new Date(),
-            balance: plan.monthlyCredits - plan.monthlyCredits,
+            balance: plan.monthlyCredits,
           })
           .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId));
       } else {
+        console.log('Creating new subscription');
         // Create new subscription
         await tx.insert(userSubscriptions).values({
           id: `sub_${userId}_${Date.now()}`,

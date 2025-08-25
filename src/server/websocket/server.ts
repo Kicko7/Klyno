@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid';
 import { Server } from 'socket.io';
 
 import { SubscriptionManager } from '@/server/services/subscriptions/subscriptionManager';
+import { ApiService } from '@/services/fetchService';
 import { RedisService } from '@/services/redisService';
 import { getRedisService } from '@/services/redisServiceFactory';
 import { MessageData, SessionManager } from '@/services/sessionManager';
@@ -20,6 +21,7 @@ export class WebSocketServer {
   private redisService!: RedisService;
   private sessionManager!: SessionManager;
   private subscriptionManager!: SubscriptionManager;
+  private apiService!: ApiService;
   private connectionStats = {
     totalConnections: 0,
     activeConnections: 0,
@@ -56,6 +58,7 @@ export class WebSocketServer {
     this.redisService = await getRedisService();
     this.sessionManager = await getSessionManager();
     this.subscriptionManager = new SubscriptionManager();
+    this.apiService = new ApiService();
     this.setupMiddleware();
     this.setupEventHandlers();
     console.log('✅ WebSocket server initialized with Redis and SessionManager');
@@ -229,13 +232,6 @@ export class WebSocketServer {
             // Add message to Redis stream for real-time delivery (non-blocking best-effort)
             try {
               await this.redisService.addToMessageStream(message.teamId, streamMessage);
-              if (message.type === 'assistant') {
-                const credits = await this.redisService.getUserCredits(socket.data.userId);
-                await this.redisService.setUserCredits(
-                  socket.data.userId,
-                  credits + message.metadata.totalTokens,
-                );
-              }
             } catch (streamErr) {
               console.error('Failed to add to message stream:', streamErr);
             }
@@ -265,15 +261,6 @@ export class WebSocketServer {
             } catch (e) {
               console.warn('Failed to refresh presence after message send:', e);
             }
-
-            const credits = await this.redisService.getUserCredits(socket.data.userId);
-            socket.emit('user:credits', {
-              userId: socket.data.userId,
-              credits: credits,
-              timestamp: new Date().toISOString(),
-            });
-
-            // Note: Database persistence will happen during sync (either background sync or session expiry)
           } catch (error) {
             console.error('Error sending message:', error);
             socket.emit('room:error', 'Failed to send message. Please try again.');
@@ -306,67 +293,28 @@ export class WebSocketServer {
             });
 
             // Broadcast edit to all rooms the user is in
-            for (const roomId of socket.data.activeRooms) {
-              this.io.to(roomId).emit('message:update', {
-                id: messageId,
-                content,
-                editedAt: new Date().toISOString(),
-                editedBy: socket.data.userId,
-              });
-            }
+            // for (const roomId of socket.data.activeRooms) {
+            //   this.io.to(roomId).emit('message:update', {
+            //     id: messageId,
+            //     content,
+            //     editedAt: new Date().toISOString(),
+            //     editedBy: socket.data.userId,
+            //   });
+            // }
 
             console.log(`✅ Message ${messageId} updated in Redis session ${session.sessionId}`);
           } else {
             // Message not in Redis - check database and update there
             try {
-              const { lambdaClient } = await import('@/libs/trpc/client/lambda');
-
-              // Update message in database
-              await lambdaClient.teamChat.editMessage.mutate({
-                messageId,
-                content,
-                editedBy: socket.data.userId,
-              });
-
-              // Broadcast edit to all rooms the user is in
-              for (const roomId of socket.data.activeRooms) {
-                this.io.to(roomId).emit('message:update', {
-                  id: messageId,
-                  content,
-                  editedAt: new Date().toISOString(),
-                  editedBy: socket.data.userId,
-                });
-              }
-
               console.log(`✅ Message ${messageId} updated in database`);
             } catch (dbError) {
               console.error('❌ Failed to update message in database:', dbError);
-              socket.emit('message:error', {
-                messageId,
-                error: 'Failed to update message in database',
-                timestamp: new Date().toISOString(),
-              });
+
               return;
             }
           }
-
-          // Update Redis message stream if message exists there
-          try {
-            await this.redisService.updateMessageInStream(messageId, {
-              content,
-              editedAt: new Date().toISOString(),
-              editedBy: socket.data.userId,
-            });
-          } catch (streamError) {
-            console.warn('⚠️ Failed to update message in Redis stream:', streamError);
-          }
         } catch (error) {
           console.error('❌ Error editing message:', error);
-          socket.emit('message:error', {
-            messageId,
-            error: error instanceof Error ? error.message : 'Unknown error',
-            timestamp: new Date().toISOString(),
-          });
         }
       });
 
@@ -388,50 +336,15 @@ export class WebSocketServer {
 
             console.log(`✅ Message ${messageId} deleted from Redis session ${session.sessionId}`);
           } else {
-            // Message not in Redis - check database and delete there
             try {
-              const { lambdaClient } = await import('@/libs/trpc/client/lambda');
-
-              // Delete message from database
-              await lambdaClient.teamChat.deleteMessage.mutate({
-                messageId,
-                deletedBy: socket.data.userId,
-              });
-
-              // Broadcast deletion to all rooms the user is in
-              for (const roomId of socket.data.activeRooms) {
-                this.io.to(roomId).emit('message:delete', {
-                  messageId,
-                  deletedBy: socket.data.userId,
-                  deletedAt: new Date().toISOString(),
-                });
-              }
-
+              await this.apiService.deleteMessage(messageId);
               console.log(`✅ Message ${messageId} deleted from database`);
-            } catch (dbError) {
-              console.error('❌ Failed to delete message from database:', dbError);
-              socket.emit('message:error', {
-                messageId,
-                error: 'Failed to delete message from database',
-                timestamp: new Date().toISOString(),
-              });
-              return;
+            } catch (error) {
+              console.error('❌ Error deleting message:', error);
             }
-          }
-
-          // Remove message from Redis message stream if it exists there
-          try {
-            await this.redisService.removeMessageFromStream(messageId);
-          } catch (streamError) {
-            console.warn('⚠️ Failed to remove message from Redis stream:', streamError);
           }
         } catch (error) {
           console.error('❌ Error deleting message:', error);
-          socket.emit('message:error', {
-            messageId,
-            error: error instanceof Error ? error.message : 'Unknown error',
-            timestamp: new Date().toISOString(),
-          });
         }
       });
 
@@ -479,25 +392,6 @@ export class WebSocketServer {
           });
         } catch (error) {
           console.error('Error updating read receipt:', error);
-        }
-      });
-
-      // Handle user credits refresh request
-      socket.on('user:credits:request', async () => {
-        try {
-          const credits = await this.redisService.getUserCredits(socket.data.userId);
-          socket.emit('user:credits', {
-            userId: socket.data.userId,
-            credits: credits,
-            timestamp: new Date().toISOString(),
-          });
-        } catch (error) {
-          console.error(`❌ Error refreshing user credits for ${socket.data.userId}:`, error);
-          socket.emit('user:credits', {
-            userId: socket.data.userId,
-            credits: 0,
-            timestamp: new Date().toISOString(),
-          });
         }
       });
 

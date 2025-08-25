@@ -99,12 +99,13 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
 
   const isDuplicateMessage = useCallback((message: MessageStreamData, existingMessages: any[]) => {
     if (!message.id) return false;
-    
-    return existingMessages.some(existing => 
-      existing.id === message.id || 
-      (existing.content === message.content && 
-       existing.userId === message.userId && 
-       Math.abs(existing.createdAt.getTime() - new Date(message.timestamp).getTime()) < 1000)
+
+    return existingMessages.some(
+      (existing) =>
+        existing.id === message.id ||
+        (existing.content === message.content &&
+          existing.userId === message.userId &&
+          Math.abs(existing.createdAt.getTime() - new Date(message.timestamp).getTime()) < 1000),
     );
   }, []);
 
@@ -154,7 +155,7 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
       return;
     }
 
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+    const socketUrl = 'http://localhost:3001';
     console.log('🔌 Connecting socket to:', socketUrl);
 
     const socket = io(socketUrl, socketConfig);

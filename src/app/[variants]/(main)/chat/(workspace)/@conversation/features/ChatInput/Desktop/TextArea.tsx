@@ -20,29 +20,30 @@ const TextArea = memo<{ onSend?: () => void }>(({ onSend }) => {
   const { subscriptionInfo } = useUserSubscription();
 
   const currentAgent = useAgentStore(agentSelectors.currentAgentConfig);
+  console.log('subscriptionInfo', subscriptionInfo);
 
   return (
     <InputArea
       loading={loading}
       onChange={updateInputMessage}
       onSend={() => {
-        if (currentAgent.model !== 'gpt-4.1-mini') {
-          if (!subscriptionInfo || subscriptionInfo.currentCredits === 0) {
-            notification.error({
-              message: "You don't have enough credits to use this model",
-              description:
-                'Please upgrade to a paid plan to continue using this model or use the gpt-4.1-mini model',
-              duration: 3,
-              placement: 'topRight',
-            });
-          } else {
-            sendMessage();
-            onSend?.();
-          }
-        } else {
-          sendMessage();
-          onSend?.();
-        }
+        // if (currentAgent.model !== 'gpt-4.1-mini') {
+        //   if (!subscriptionInfo || subscriptionInfo.currentCredits === 0) {
+        //     notification.error({
+        //       message: "You don't have enough credits to use this model",
+        //       description:
+        //         'Please upgrade to a paid plan to continue using this model or use the gpt-4.1-mini model',
+        //       duration: 3,
+        //       placement: 'topRight',
+        //     });
+        //   } else {
+        //     sendMessage();
+        //     onSend?.();
+        //   }
+        // } else {
+        sendMessage();
+        onSend?.();
+        // }
       }}
       value={value}
     />
