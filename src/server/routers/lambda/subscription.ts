@@ -51,4 +51,16 @@ export const subscriptionRouter = router({
         message: result.message,
       };
     }),
+    updateSubscriptionFileLimit: authedProcedure.input(z.object({
+      userId: z.string().min(1),
+      fileSize: z.number().min(0),
+    })).mutation(async ({ input }) => {
+      const subscriptionManager = new SubscriptionManager();
+      const result = await subscriptionManager.updateSubscriptionFileLimit(input.userId, input.fileSize);
+      return {
+        success: result.success,
+        data: result.subscription,
+        message: result.message,
+      };
+    }),
 });

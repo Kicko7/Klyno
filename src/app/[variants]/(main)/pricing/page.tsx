@@ -44,13 +44,11 @@ const PricingPage = () => {
     nextBillingDate,
   } = useUserSubscription();
 
-
   // const selectedOrganizationId = useOrganizationStore((state) => state.selectedOrganizationId);
-  const { organizations, fetchOrganizations } = useOrganizationStore();
-  useEffect(() => {
-    fetchOrganizations();
-  }, []);
-  console.log('organizations', organizations);
+  // const { organizations, fetchOrganizations } = useOrganizationStore();
+  // useEffect(() => {
+  //   fetchOrganizations();
+  // }, []);
 
   // Handle checkout for a specific plan
   const handleCheckout = async (plan: any) => {
@@ -188,10 +186,12 @@ const PricingPage = () => {
     (subscriptionInfo?.subscription?.fileStorageLimit
       ? subscriptionInfo.subscription.fileStorageLimit * 1024
       : 0);
-  const fileUsedMB = Math.min(Math.max(fileUsedMBRaw, 0), fileLimitMBRaw);
+  const fileUsedMB = subscriptionInfo?.subscription?.fileStorageUsed ?? 0;
   const fileUsedGB = fileLimitMBRaw > 0 ? fileUsedMB / 1024 : 0;
   const fileLimitGB = fileLimitMBRaw / 1024;
-  const fileRemainingGB = Math.max(fileLimitGB - fileUsedGB, 0);
+  const fileRemainingGB = (
+    (subscriptionInfo?.subscription?.fileStorageRemaining ?? 0) / 1024
+  ).toFixed(2);
 
   const vectorUsedMBRaw = subscriptionInfo?.usageQuota?.vectorStorageUsed ?? 0;
   const vectorLimitMB =

@@ -135,11 +135,12 @@ export class SubscriptionManager {
             interval: plan.interval,
             stripePriceId: stripePriceId,
             updatedAt: new Date(),
-            balance: plan.monthlyCredits,
+            // balance: plan.monthlyCredits,
+            // fileStorageRemaining: plan.fileStorageLimitGB,
+            // fileStorageUsed: 0,
           })
           .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId));
       } else {
-        console.log('Creating new subscription');
         // Create new subscription
         await tx.insert(userSubscriptions).values({
           id: `sub_${userId}_${Date.now()}`,
@@ -160,6 +161,8 @@ export class SubscriptionManager {
           amount: plan.price,
           interval: plan.interval,
           balance: plan.monthlyCredits,
+          fileStorageRemaining: plan.fileStorageLimitGB * 1024,
+          fileStorageUsed: 0,
         });
       }
 
@@ -202,28 +205,48 @@ export class SubscriptionManager {
 
   async updateOrganizationSubscriptionInfo(ownerId: string, creditsUsed: number) {
     return db.transaction(async (tx) => {
-      // Perform atomic update with balance >= creditsUsed guard
+      // First check current balance
+      const currentSubscription = await tx
+        .select()
+        .from(userSubscriptions)
+        .where(eq(userSubscriptions.userId, ownerId))
+        .limit(1);
+
+      if (!currentSubscription.length) {
+        return {
+          success: false,
+          message: 'Subscription not found',
+          subscription: null,
+        };
+      }
+
+      const currentBalance = currentSubscription[0].balance;
+
+      // If insufficient credits, set balance to 0
+      if (currentBalance < creditsUsed) {
+        const [updatedSubscription] = await tx
+          .update(userSubscriptions)
+          .set({
+            balance: 0,
+          })
+          .where(eq(userSubscriptions.userId, ownerId))
+          .returning();
+
+        return {
+          success: true,
+          message: `Insufficient credits. Balance set to 0. Used ${currentBalance} out of ${creditsUsed} requested.`,
+          subscription: updatedSubscription,
+        };
+      }
+
+      // Sufficient credits - perform normal deduction
       const [updatedSubscription] = await tx
         .update(userSubscriptions)
         .set({
           balance: sql`${userSubscriptions.balance} - ${creditsUsed}`,
         })
-        .where(
-          and(
-            eq(userSubscriptions.userId, ownerId),
-            gte(userSubscriptions.balance, creditsUsed), 
-          ),
-        )
+        .where(eq(userSubscriptions.userId, ownerId))
         .returning();
-
-      // No row updated = insufficient credits or user not found
-      if (!updatedSubscription) {
-        return {
-          success: false,
-          message: 'Insufficient credits or subscription not found',
-          subscription: null,
-        };
-      }
 
       return {
         success: true,
@@ -233,6 +256,31 @@ export class SubscriptionManager {
     });
   }
 
+  async updateSubscriptionFileLimit(userId: string, fileSize: number) {
+    return db.transaction(async (tx) => {
+      const currentSubscription = await tx
+        .select()
+        .from(userSubscriptions)
+        .where(eq(userSubscriptions.userId, userId))
+        .limit(1);
+      if (!currentSubscription.length) {
+        return { success: false, message: 'Subscription not found' };
+      }
+      const updatedSubscription = await tx
+        .update(userSubscriptions)
+        .set({
+          fileStorageRemaining: sql`${userSubscriptions.fileStorageRemaining} - ${fileSize}`,
+          fileStorageUsed: sql`${userSubscriptions.fileStorageUsed} + ${fileSize}`,
+        })
+        .where(eq(userSubscriptions.userId, userId))
+        .returning();
+      return {
+        success: true,
+        message: 'Subscription file limit updated successfully',
+        subscription: updatedSubscription,
+      };
+    });
+  }
   /**
    * Create or update usage quota for a billing period
    */

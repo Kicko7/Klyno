@@ -4,8 +4,11 @@ import { StateCreator } from 'zustand/vanilla';
 
 import { message } from '@/components/AntdStaticMethods';
 import { LOBE_CHAT_CLOUD } from '@/const/branding';
+import { useUserSubscription } from '@/hooks/useUserSubscription';
+import { lambdaClient } from '@/libs/trpc/client';
 import { fileService } from '@/services/file';
 import { uploadService } from '@/services/upload';
+import { useUserStore } from '@/store/user';
 import { FileMetadata, UploadFileItem } from '@/types/files';
 
 import { FileStore } from '../../store';
@@ -33,6 +36,10 @@ interface UploadWithProgressParams {
    * Default is `false`, which means file type checks will be performed.
    */
   skipCheckFileType?: boolean;
+  /**
+   * Optional context to identify the source of upload (e.g., 'teamChat', 'regular')
+   */
+  context?: string;
 }
 
 interface UploadWithProgressResult {
@@ -73,7 +80,65 @@ export const createFileUploadSlice: StateCreator<
     });
     return { ...res, filename: metadata.filename };
   },
-  uploadWithProgress: async ({ file, onStatusUpdate, knowledgeBaseId, skipCheckFileType }) => {
+  uploadWithProgress: async ({
+    file,
+    onStatusUpdate,
+    knowledgeBaseId,
+    skipCheckFileType,
+    context,
+  }) => {
+    const user = useUserStore.getState().user;
+
+    if (!user?.id) {
+      message.error('User not found');
+      return;
+    }
+    // Check and display file size at the beginning
+    const fileSizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+    console.log(`File size: ${fileSizeInMB} MB`);
+
+    // Auto-detect context if not provided
+    let uploadContext = context;
+    if (!uploadContext) {
+      try {
+        const { useTeamChatStore } = await import('@/store/teamChat');
+        const teamChatState = useTeamChatStore.getState();
+        uploadContext = teamChatState.activeTeamChatId ? 'teamChat' : 'regularChat';
+      } catch (error) {
+        // Fallback to regular chat if team chat store is not available
+        uploadContext = 'regularChat';
+      }
+    }
+
+    // Show different notifications based on context
+    if (uploadContext === 'teamChat') {
+      message.info(`Team Chat: File "${file.name}" size: ${fileSizeInMB} MB`);
+    } else {
+      // FIXED: Removed await from hook usage
+      try {
+        const result = await lambdaClient.subscription.getUserSubscriptionInfo.query({
+          userId: user.id,
+        });
+        if (!result?.data?.subscription) {
+          message.error('You need to subscribe to upload files');
+          // Remove file from UI when subscription check fails
+          onStatusUpdate?.({ id: file.name, type: 'removeFile' });
+          return;
+        }
+        if (result?.data?.subscription?.fileStorageRemaining < Number(fileSizeInMB)) {
+          message.error('Your Plan does not have enough storage to upload this file');
+          // Remove file from UI when subscription check fails
+          onStatusUpdate?.({ id: file.name, type: 'removeFile' });
+          return;
+        }
+      } catch (error) {
+        console.log('Could not get subscription info:', error);
+        // Remove file from UI when subscription check fails
+        onStatusUpdate?.({ id: file.name, type: 'removeFile' });
+        return;
+      }
+    }
+
     const fileArrayBuffer = await file.arrayBuffer();
 
     // 1. check file hash
@@ -114,7 +179,9 @@ export const createFileUploadSlice: StateCreator<
         },
         skipCheckFileType,
       });
-      if (!success) return;
+
+      // FIXED: Explicit return
+      if (!success) return undefined;
 
       metadata = data;
     }
@@ -141,6 +208,17 @@ export const createFileUploadSlice: StateCreator<
       },
       knowledgeBaseId,
     );
+
+    // Log when file is successfully uploaded
+
+    // Show notification that file has been uploaded
+
+    const result = await lambdaClient.subscription.updateSubscriptionFileLimit.mutate({
+      userId: user.id,
+      fileSize: Number(fileSizeInMB),
+    });
+    console.log(result, 'result');
+    message.success(`File "${file.name}" uploaded successfully!`);
 
     onStatusUpdate?.({
       id: file.name,
