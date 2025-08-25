@@ -5,28 +5,46 @@ import {
   ChatCompletionErrorPayload,
 } from '@/libs/model-runtime';
 import { createTraceOptions, initAgentRuntimeWithUserPayload } from '@/server/modules/AgentRuntime';
+import { SubscriptionManager } from '@/server/services/subscriptions/subscriptionManager';
 import { ChatErrorType } from '@/types/fetch';
 import { ChatStreamPayload } from '@/types/openai/chat';
 import { createErrorResponse } from '@/utils/errorResponse';
 import { getTracePayload } from '@/utils/trace';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export const POST = checkAuth(async (req: Request, { params, jwtPayload, createRuntime }) => {
   const { provider } = await params;
 
   try {
+    // Now you can use your customField here
+
+    // const subscriptionManager = new SubscriptionManager();
+    // const user = jwtPayload.userId;
+    // const subscription = await subscriptionManager.getUserSubscriptionInfo(user as string);
+
     // ============  1. init chat model   ============ //
+
+    const data = (await req.json()) as ChatStreamPayload;
+    console.log('🔍 Complete request body received:', JSON.stringify(data, null, 2));
+
+    const subscriptionInfo = (data as any).subscription;
+    console.log('🔍 Subscription field received:', subscriptionInfo);
+
     let agentRuntime: AgentRuntime;
     if (createRuntime) {
       agentRuntime = createRuntime(jwtPayload);
     } else {
-      agentRuntime = await initAgentRuntimeWithUserPayload(provider, jwtPayload);
+      agentRuntime = await initAgentRuntimeWithUserPayload(
+        provider,
+        jwtPayload,
+        {},
+        subscriptionInfo,
+      );
     }
 
-    // ============  2. create chat completion   ============ //
-
-    const data = (await req.json()) as ChatStreamPayload;
+    // ============  2. create chat completion   ============
 
     const tracePayload = getTracePayload(req);
 
@@ -36,7 +54,11 @@ export const POST = checkAuth(async (req: Request, { params, jwtPayload, createR
       traceOptions = createTraceOptions(data, { provider, trace: tracePayload });
     }
 
-    return await agentRuntime.chat(data, {
+    // Create clean data for AI provider (without subscription field)
+    const cleanData = { ...data };
+    delete (cleanData as any).subscription;
+
+    return await agentRuntime.chat(cleanData, {
       user: jwtPayload.userId,
       ...traceOptions,
       signal: req.signal,

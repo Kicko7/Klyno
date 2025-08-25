@@ -92,15 +92,15 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   ]);
 
   // Get team chat store methods and routing
-  const {
-    createNewTeamChatWithTopic,
-    activeTopicId,
-  } = useTeamChatStore();
+  const { createNewTeamChatWithTopic, activeTopicId } = useTeamChatStore();
 
-  const storeFunctions = useMemo(() => ({
-    createNewTeamChatWithTopic,
-    activeTopicId,
-  }), []);
+  const storeFunctions = useMemo(
+    () => ({
+      createNewTeamChatWithTopic,
+      activeTopicId,
+    }),
+    [],
+  );
 
   // Use WebSocket for real-time messaging
   const { sendMessage: sendWebSocketMessage } = useTeamChatWebSocket({
@@ -280,6 +280,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
           provider: agentConfigSession.provider,
           ...agentConfigSession.params,
           plugins: agentConfigSession.plugins,
+          subscription: organizationSubscriptionInfo,
         },
         onMessageHandle: async (chunk) => {
           aiResponse = await handleAIChunk(chunk, aiResponse, teamChatId, assistantMessageId);
@@ -297,6 +298,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         onErrorHandle: async (error) => {
           await handleAIError(error, teamChatId, assistantMessageId);
         },
+        subscription: organizationSubscriptionInfo,
       });
     } catch (error) {
       await handleAIError(error, teamChatId, assistantMessageId);

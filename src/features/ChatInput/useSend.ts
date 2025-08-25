@@ -28,7 +28,8 @@ export const useSendMessage = () => {
 
   const canSend = !isUploadingFiles && !isSendButtonDisabledByMessage;
 
-  const send = useCallback((params: UseSendMessageParams = {}) => {
+  const send = useCallback((params: UseSendMessageParams = {}, subscription?: any) => {
+    console.log(subscription,'[SUBSCRIPTION IN SEND MESSAGE]')
     const store = useChatStore.getState();
     if (chatSelectors.isAIGenerating(store)) return;
 
@@ -48,6 +49,7 @@ export const useSendMessage = () => {
     sendMessage({
       files: fileList,
       message: store.inputMessage,
+      subscription:subscription || {},
       ...params,
     });
 

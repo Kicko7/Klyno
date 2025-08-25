@@ -54,14 +54,14 @@ export const useUserSubscription = () => {
       setSubscriptionInfo(null);
     } finally {
       setIsLoading(false);
-    }
+    }``
   }, [isSignedIn, user?.id]);
 
   useEffect(() => {
     fetchSubscriptionInfo();
     
     const handleSubscriptionUpdate = () => {
-      console.log('🔄 Subscription update event received, refetching...');
+      console.log('🔄 Subscription update event received, refetching...',subscriptionInfo);
       fetchSubscriptionInfo();
     };
     

@@ -44,7 +44,6 @@ const PricingPage = () => {
     nextBillingDate,
   } = useUserSubscription();
 
-  console.log('subscriptionInfo', subscriptionInfo);
 
   // const selectedOrganizationId = useOrganizationStore((state) => state.selectedOrganizationId);
   const { organizations, fetchOrganizations } = useOrganizationStore();
