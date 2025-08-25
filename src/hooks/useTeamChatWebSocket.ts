@@ -222,10 +222,6 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
     });
 
     // Handle user credits received from server
-    socket.on('user:credits', (data: { userId: string; credits: number; timestamp: string }) => {
-      console.log(`💰 Received user credits: ${data.credits} credits for user ${data.userId}`);
-      setUserCredits(data.credits);
-    });
 
     // --- Chat events (unchanged) ---
     socket.on('session:loaded', (data) => {

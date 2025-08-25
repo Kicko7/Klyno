@@ -15,6 +15,7 @@ import { userProfileSelectors } from '@/store/user/selectors';
 import TeamChatActions from '../[teamId]/components/TeamChatActions';
 import TeamAPIKeyForm from './TeamAPIKeyForm';
 import TeamChatWelcome from './TeamChatWelcome';
+import { useTeamChatWebSocket } from '@/hooks/useTeamChatWebSocket';
 
 interface TeamChatMessagesProps {
   messages: TeamChatMessageItem[];
@@ -160,6 +161,8 @@ const getMessageTimestamp = (createdAt: any): number => {
 };
 
 const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLoading }) => {
+  const teamChatId = useTeamChatStore(useCallback((state) => state.activeTeamChatId, []));
+  const { editMessage } = useTeamChatWebSocket({ teamChatId: teamChatId || '' });
   // ALL HOOKS AT THE TOP
   const userAvatar = useUserStore(userProfileSelectors.userAvatar);
   const currentUser = useUserStore(userProfileSelectors.userProfile);
@@ -173,7 +176,12 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
   const toggleMessageEditing = useTeamChatStore(
     useCallback((state) => state.toggleMessageEditing, []),
   );
+
   const updateMessage = useTeamChatStore(useCallback((state) => state.updateMessage, []));
+  const handleUpdateMessage = async (teamChatId: string, messageId: string, content: string) => {
+    await updateMessage(teamChatId, messageId, content);
+    await editMessage(messageId, content);
+  };
 
   // Memoized processed messages for better performance
   const processedMessages = useMemo(() => {
@@ -279,7 +287,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
               placement={isAssistant ? 'left' : isCurrentUser ? 'right' : 'left'}
               primary={!isAssistant}
               time={messageTime}
-              onChange={(value: string) => updateMessage(message.teamChatId, message.id, value)}
+              onChange={(value: string) => handleUpdateMessage(message.teamChatId, message.id, value)}
               onEditingChange={(editing: boolean) => toggleMessageEditing(message.id, editing)}
               messageExtra={
                 isAssistant ? (

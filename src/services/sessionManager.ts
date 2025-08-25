@@ -415,7 +415,7 @@ export class SessionManager {
    */
   async updateMessage(sessionId: string, messageId: string, updates: any): Promise<boolean> {
     try {
-      const session = await this.getSession(sessionId);
+      const session = await this.getSessionByMessageId(messageId);
       if (!session) {
         throw new Error(`Session ${sessionId} not found`);
       }
