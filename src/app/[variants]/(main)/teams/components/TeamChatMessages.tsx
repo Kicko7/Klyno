@@ -8,6 +8,7 @@ import { DEFAULT_USER_AVATAR } from '@/const/meta';
 import { TeamChatMessageItem } from '@/database/schemas/teamChat';
 import ChatItem from '@/features/ChatItem';
 import Usage from '@/features/Conversation/Extras/Usage';
+import { useTeamChatWebSocket } from '@/hooks/useTeamChatWebSocket';
 import { useTeamChatStore } from '@/store/teamChat';
 import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
@@ -15,7 +16,6 @@ import { userProfileSelectors } from '@/store/user/selectors';
 import TeamChatActions from '../[teamId]/components/TeamChatActions';
 import TeamAPIKeyForm from './TeamAPIKeyForm';
 import TeamChatWelcome from './TeamChatWelcome';
-import { useTeamChatWebSocket } from '@/hooks/useTeamChatWebSocket';
 
 interface TeamChatMessagesProps {
   messages: TeamChatMessageItem[];
@@ -287,7 +287,9 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
               placement={isAssistant ? 'left' : isCurrentUser ? 'right' : 'left'}
               primary={!isAssistant}
               time={messageTime}
-              onChange={(value: string) => handleUpdateMessage(message.teamChatId, message.id, value)}
+              onChange={(value: string) =>
+                handleUpdateMessage(message.teamChatId, message.id, value)
+              }
               onEditingChange={(editing: boolean) => toggleMessageEditing(message.id, editing)}
               messageExtra={
                 isAssistant ? (

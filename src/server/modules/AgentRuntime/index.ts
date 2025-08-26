@@ -16,13 +16,13 @@ export * from './trace';
  */
 const getParamsFromPayload = (provider: string, payload: JWTPayload, params: any) => {
   const llmConfig = getLLMConfig() as Record<string, any>;
-  console.log(params)
+  // console.log(params)
 
   // ✅ Universal subscription check
   const hasValidSubscription =
     params?.subscription && params?.currentCredits > 0;
 
-  console.log(hasValidSubscription, 'has valid subscription');
+  // console.log(hasValidSubscription, 'has valid subscription');
   switch (provider) {
     default: {
       let upperProvider = provider.toUpperCase();

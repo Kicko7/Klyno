@@ -58,6 +58,8 @@ export const POST = checkAuth(async (req: Request, { params, jwtPayload, createR
     const cleanData = { ...data };
     delete (cleanData as any).subscription;
 
+    // Note: Usage data is handled automatically by the model runtime factory
+    // The factory will exclude usage for ChatGPT models and other models that don't support it
     return await agentRuntime.chat(cleanData, {
       user: jwtPayload.userId,
       ...traceOptions,
@@ -73,7 +75,6 @@ export const POST = checkAuth(async (req: Request, { params, jwtPayload, createR
     const error = errorContent || e;
 
     const logMethod = AGENT_RUNTIME_ERROR_SET.has(errorType as string) ? 'warn' : 'error';
-    // track the error at server side
     console[logMethod](`Route: [${provider}] ${errorType}:`, error);
 
     return createErrorResponse(errorType, { error, ...res, provider });

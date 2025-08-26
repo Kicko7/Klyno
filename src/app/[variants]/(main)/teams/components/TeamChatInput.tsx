@@ -336,6 +336,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     // Check if chunk contains text content
     const chunkText = chunk?.text || (chunk?.type === 'text' ? chunk.text : '');
 
+    
     if (chunkText) {
       const newResponse = aiResponse + chunkText;
       await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
@@ -344,6 +345,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       });
       return newResponse;
     }
+
 
     return aiResponse;
   };
@@ -384,6 +386,8 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       },
       assistantMessageId,
     );
+
+    // console.log('🔍 Context:', context);
 
     if (context?.usage?.totalTokens) {
       await updateOrganizationSubscriptionInfo(context.usage.totalTokens);

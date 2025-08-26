@@ -288,25 +288,19 @@ export class WebSocketServer {
             // Message is in Redis session - update it there
             await this.sessionManager.updateMessage(session.sessionId, messageId, {
               content,
-              editedAt: new Date().toISOString(),
-              editedBy: socket.data.userId,
+              updatedAt: new Date(),
             });
-
-            // Broadcast edit to all rooms the user is in
-            // for (const roomId of socket.data.activeRooms) {
-            //   this.io.to(roomId).emit('message:update', {
-            //     id: messageId,
-            //     content,
-            //     editedAt: new Date().toISOString(),
-            //     editedBy: socket.data.userId,
-            //   });
-            // }
 
             console.log(`✅ Message ${messageId} updated in Redis session ${session.sessionId}`);
           } else {
-            // Message not in Redis - check database and update there
             try {
               console.log(`✅ Message ${messageId} updated in database`);
+              const message = await this.apiService.updateMessage(messageId, {
+                content,
+                updatedAt: new Date(),
+                updatedBy: socket.data.userId,
+              });
+              console.log(`✅ Message ${messageId} updated in database`, message);
             } catch (dbError) {
               console.error('❌ Failed to update message in database:', dbError);
 

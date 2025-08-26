@@ -549,7 +549,7 @@ const PricingPage = () => {
                           style={{
                             fontSize: theme.fontSizeSM,
                             fontWeight: 600,
-                            color: stat.remaining > 0 ? theme.colorSuccess : theme.colorError,
+                            color: Number(stat.remaining) > 0 ? theme.colorSuccess : theme.colorError,
                           }}
                         >
                           {stat.remaining.toLocaleString()} {stat.unit}

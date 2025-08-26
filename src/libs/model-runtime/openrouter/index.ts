@@ -23,14 +23,13 @@ export const LobeOpenRouterAI = createOpenAICompatibleRuntime({
         const modelConfig = OpenRouterModels.find((m) => m.id === model);
         const defaultMaxOutput = modelConfig?.maxOutput;
 
-        // 配置优先级：用户设置 > 模型配置 > 硬编码默认值
         const getMaxTokens = () => {
           if (max_tokens) return max_tokens;
           if (defaultMaxOutput) return defaultMaxOutput;
           return undefined;
         };
 
-        const maxTokens = getMaxTokens() || 32_000; // Claude Opus 4 has minimum maxOutput
+        const maxTokens = getMaxTokens() || 32_000;
 
         reasoning = {
           max_tokens: thinking?.budget_tokens
@@ -39,18 +38,145 @@ export const LobeOpenRouterAI = createOpenAICompatibleRuntime({
         };
       }
 
-      return {
+      const finalPayload = {
         ...payload,
         model: payload.enabledSearch ? `${payload.model}:online` : payload.model,
         reasoning,
         stream: payload.stream ?? true,
+        // Force standard streaming mode
+        apiMode: undefined,
+        // Try different approaches for OpenRouter usage data
+        ...(payload.stream && {
+          stream_options: {
+            include_usage: true,
+            // Try to force usage data to be sent separately
+            usage_type: 'separate',
+            // Alternative: try to force usage in final chunk only
+            final_usage_only: true,
+          },
+          include_usage: true,
+          // Force usage data to be included
+          usage: true,
+          extra_headers: {
+            'X-OpenRouter-Usage': 'true',
+            'OpenAI-Beta': 'assistants=v1',
+            // Try additional headers to force usage data
+            'X-Usage-Format': 'separate',
+            'X-Force-Usage': 'true',
+          },
+        }),
       } as any;
+
+      return finalPayload;
+    },
+    excludeUsage: false,
+    // Add comprehensive stream debugging
+    handleStream: (stream, options) => {
+      // Import OpenAIStream directly to ensure we use the right one
+      const { OpenAIStream } = require('../../model-runtime/utils/streams/openai/openai');
+      
+      // Since OpenRouter provides an async iterable stream, we need to handle it differently
+      if (stream && Symbol.asyncIterator in stream) {
+        // Convert async iterable to ReadableStream without complex transformation
+        const readableStream = new ReadableStream({
+          async start(controller) {
+            try {
+              let usageData: any = null;
+              
+              // Process the async iterable stream
+              for await (const chunk of stream as AsyncIterable<any>) {
+                // Check if chunk contains usage data
+                if (chunk && typeof chunk === 'object' && chunk.usage) {
+                  usageData = chunk.usage;
+                  
+                  // Send chunk without usage data
+                  const cleanChunk = { ...chunk };
+                  delete cleanChunk.usage;
+                  controller.enqueue(cleanChunk);
+                } else {
+                  // Send chunk as-is
+                  controller.enqueue(chunk);
+                }
+              }
+              
+              // Send usage data as final chunk if we found any
+              if (usageData) {
+                // Format usage chunk to match what transformOpenAIStream expects
+                const usageChunk = {
+                  id: 'usage-chunk',
+                  object: 'chat.completion.chunk',
+                  created: Math.floor(Date.now() / 1000),
+                  choices: [], // Empty choices array to satisfy the transformer
+                  usage: usageData, // The actual usage data
+                  type: 'usage' // Custom type for identification
+                };
+                controller.enqueue(usageChunk);
+              }
+              
+              controller.close();
+            } catch (error) {
+              controller.error(error);
+            }
+          }
+        });
+        
+        return OpenAIStream(readableStream, {
+          ...options,
+          callbacks: {
+            ...options?.callbacks,
+            onStart: () => {
+              options?.callbacks?.onStart?.();
+            },
+            onCompletion: (completion: any) => {
+              options?.callbacks?.onCompletion?.(completion);
+            },
+            onText: (content: string) => {
+              options?.callbacks?.onText?.(content);
+            },
+            onUsage: (usage: any) => {
+              if (options?.callbacks?.onUsage) {
+                options.callbacks.onUsage(usage);
+              }
+            },
+            onFinal: (completion: any) => {
+              options?.callbacks?.onFinal?.(completion);
+            },
+          },
+        });
+      } else {
+        // Fallback: use standard OpenAIStream
+        return OpenAIStream(stream, {
+          ...options,
+          callbacks: {
+            ...options?.callbacks,
+            onStart: () => {
+              options?.callbacks?.onStart?.();
+            },
+            onCompletion: (completion: any) => {
+              options?.callbacks?.onCompletion?.(completion);
+            },
+            onText: (content: string) => {
+              options?.callbacks?.onText?.(content);
+            },
+            onUsage: (usage: any) => {
+              if (options?.callbacks?.onUsage) {
+                options.callbacks.onUsage(usage);
+              }
+            },
+            onFinal: (completion: any) => {
+              options?.callbacks?.onFinal?.(completion);
+            },
+          },
+        });
+      }
     },
   },
   constructorOptions: {
     defaultHeaders: {
       'HTTP-Referer': 'https://chat-preview.lobehub.com',
       'X-Title': 'Lobe Chat',
+      'OpenAI-Beta': 'assistants=v1',
+      'X-OpenRouter-Usage': 'true',
     },
   },
   debug: {
@@ -71,10 +197,8 @@ export const LobeOpenRouterAI = createOpenAICompatibleRuntime({
       console.error('Failed to fetch OpenRouter frontend models:', error);
     }
 
-    // 解析模型能力
     const baseModels = await processMultiProviderModelList(modelList);
 
-    // 合并 OpenRouter 获取的模型信息
     return baseModels
       .map((baseModel) => {
         const model = modelList.find((m) => m.id === baseModel.id);

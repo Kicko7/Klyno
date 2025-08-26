@@ -221,6 +221,8 @@ export class SubscriptionManager {
       }
 
       const currentBalance = currentSubscription[0].balance;
+      console.log('🔍 currentBalance', currentBalance);
+      console.log('🔍 creditsUsed', creditsUsed);
 
       // If insufficient credits, set balance to 0
       if (currentBalance < creditsUsed) {
@@ -243,7 +245,7 @@ export class SubscriptionManager {
       const [updatedSubscription] = await tx
         .update(userSubscriptions)
         .set({
-          balance: sql`${userSubscriptions.balance} - ${creditsUsed}`,
+          balance: currentBalance - creditsUsed,
         })
         .where(eq(userSubscriptions.userId, ownerId))
         .returning();

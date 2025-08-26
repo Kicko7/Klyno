@@ -72,4 +72,11 @@ export class ApiService {
       { method: 'DELETE' },
     );
   }
+
+  async updateMessage(messageId: string, data: { content: string; updatedAt: Date; updatedBy: string }): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(
+      `/api/websockets/teamchat/update-message?id=${messageId}`,
+      { method: 'PUT', body: JSON.stringify(data) },
+    );
+  }
 }

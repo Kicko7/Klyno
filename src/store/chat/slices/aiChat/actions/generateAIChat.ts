@@ -621,7 +621,8 @@ export const generateAIChat: StateCreator<
         content,
         { traceId, observationId, toolCalls, reasoning, grounding, usage, speed },
       ) => {
-        console.log(usage, '[USAGE]');
+
+        console.log('🔍 onFinish called with parameters:',usage);
         if (usage?.totalTokens) {
           const currentUser = getUserStoreState().user?.id;
           if (currentUser) {
@@ -684,6 +685,8 @@ export const generateAIChat: StateCreator<
         });
       },
       onMessageHandle: async (chunk) => {
+    
+        
         switch (chunk.type) {
           case 'grounding': {
             // if there is no citations, then stop
