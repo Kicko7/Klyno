@@ -93,16 +93,16 @@ export const createFileUploadSlice: StateCreator<
       message.error('User not found');
       return;
     }
-    // Check and display file size at the beginning
-    const fileSizeInMB = (file.size / (1024 * 1024)).toFixed(2);
-    console.log(`File size: ${fileSizeInMB} MB`);
 
-    // Auto-detect context if not provided
+    const fileSizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+
+    const { useTeamChatStore } = await import('@/store/teamChat');
+    const { useOrganizationStore } = await import('@/store/organization/store');
+
+    const teamChatState = useTeamChatStore.getState();
     let uploadContext = context;
     if (!uploadContext) {
       try {
-        const { useTeamChatStore } = await import('@/store/teamChat');
-        const teamChatState = useTeamChatStore.getState();
         uploadContext = teamChatState.activeTeamChatId ? 'teamChat' : 'regularChat';
       } catch (error) {
         // Fallback to regular chat if team chat store is not available
@@ -110,33 +110,58 @@ export const createFileUploadSlice: StateCreator<
       }
     }
 
-    // Show different notifications based on context
+    let subscriptionInfo;
+    let organizationInfo;
+    let ownerId: string;
+
     if (uploadContext === 'teamChat') {
-      message.info(`Team Chat: File "${file.name}" size: ${fileSizeInMB} MB`);
-    } else {
-      // FIXED: Removed await from hook usage
-      try {
-        const result = await lambdaClient.subscription.getUserSubscriptionInfo.query({
-          userId: user.id,
-        });
-        if (!result?.data?.subscription) {
-          message.error('You need to subscribe to upload files');
-          // Remove file from UI when subscription check fails
-          onStatusUpdate?.({ id: file.name, type: 'removeFile' });
-          return;
-        }
-        if (result?.data?.subscription?.fileStorageRemaining < Number(fileSizeInMB)) {
-          message.error('Your Plan does not have enough storage to upload this file');
-          // Remove file from UI when subscription check fails
-          onStatusUpdate?.({ id: file.name, type: 'removeFile' });
-          return;
-        }
-      } catch (error) {
-        console.log('Could not get subscription info:', error);
-        // Remove file from UI when subscription check fails
+      const organizationState = useOrganizationStore.getState();
+      const organizationId = organizationState.selectedOrganizationId;
+
+      // Single API call to get organization info
+      organizationInfo = await lambdaClient.organization.getOrganizationById.query({
+        organizationId: organizationId as string,
+      });
+
+      ownerId = organizationInfo?.ownerId as string;
+
+      if (!ownerId) {
+        message.error('Organization owner not found');
         onStatusUpdate?.({ id: file.name, type: 'removeFile' });
         return;
       }
+
+      // Single API call to get subscription info
+      subscriptionInfo = await lambdaClient.subscription.getUserSubscriptionInfo.query({
+        userId: ownerId,
+      });
+    } else {
+      // Single API call to get subscription info for regular user
+      subscriptionInfo = await lambdaClient.subscription.getUserSubscriptionInfo.query({
+        userId: user.id,
+      });
+      ownerId = user.id;
+    }
+
+    // Check subscription and storage limits
+    if (!subscriptionInfo?.data?.subscription) {
+      const errorMessage =
+        uploadContext === 'teamChat'
+          ? 'Your Team Plan does not have enough storage to upload this file'
+          : 'You need to subscribe to upload files';
+      message.error(errorMessage);
+      onStatusUpdate?.({ id: file.name, type: 'removeFile' });
+      return;
+    }
+
+    if (subscriptionInfo.data.subscription.fileStorageRemaining < Number(fileSizeInMB)) {
+      const errorMessage =
+        uploadContext === 'teamChat'
+          ? 'Your Team Plan does not have enough storage to upload this file'
+          : 'Your Plan does not have enough storage to upload this file';
+      message.error(errorMessage);
+      onStatusUpdate?.({ id: file.name, type: 'removeFile' });
+      return;
     }
 
     const fileArrayBuffer = await file.arrayBuffer();
@@ -209,15 +234,33 @@ export const createFileUploadSlice: StateCreator<
       knowledgeBaseId,
     );
 
-    // Log when file is successfully uploaded
-
-    // Show notification that file has been uploaded
-
-    const result = await lambdaClient.subscription.updateSubscriptionFileLimit.mutate({
-      userId: user.id,
+    // Update subscription file limit
+    const updateResult = await lambdaClient.subscription.updateSubscriptionFileLimit.mutate({
+      userId: ownerId,
       fileSize: Number(fileSizeInMB),
     });
-    console.log(result, 'result');
+
+    // Check if subscription update was successful
+    if (!updateResult?.success) {
+      const errorMessage = updateResult?.message || 'Failed to update subscription storage limit';
+      message.error(errorMessage);
+      onStatusUpdate?.({ id: file.name, type: 'removeFile' });
+      return;
+    }
+
+    // Refresh subscription data to update frontend state
+    try {
+      // Dispatch custom event to trigger subscription refresh
+      window.dispatchEvent(new CustomEvent('update-subscription-info'));
+      
+      // Also refresh organization subscription if in team chat context
+      if (uploadContext === 'teamChat') {
+        window.dispatchEvent(new CustomEvent('update-organization-subscription-info'));
+      }
+    } catch (error) {
+      console.warn('Failed to refresh subscription data:', error);
+    }
+
     message.success(`File "${file.name}" uploaded successfully!`);
 
     onStatusUpdate?.({

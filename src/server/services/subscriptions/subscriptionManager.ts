@@ -135,9 +135,10 @@ export class SubscriptionManager {
             interval: plan.interval,
             stripePriceId: stripePriceId,
             updatedAt: new Date(),
-            // balance: plan.monthlyCredits,
-            // fileStorageRemaining: plan.fileStorageLimitGB,
-            // fileStorageUsed: 0,
+            // Reset balance and storage for plan renewal/change
+            balance: plan.monthlyCredits,
+            fileStorageRemaining: plan.fileStorageLimitGB * 1024, // Convert GB to MB
+            fileStorageUsed: 0,
           })
           .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId));
       } else {
@@ -171,35 +172,6 @@ export class SubscriptionManager {
         .update(users)
         .set({ stripeCustomerId: stripeCustomerId })
         .where(eq(users.id, userId));
-
-      // Handle usage quota setup/sync
-      if (isNewSubscription || isPlanChange) {
-        if (isPlanChange) {
-          // Reset usage for plan change
-          await this.resetUsageForPlanChange(
-            tx,
-            userId,
-            plan,
-            currentPeriodStart,
-            currentPeriodEnd,
-          );
-        } else {
-          // Create new usage quota for new subscription
-          await this.createOrUpdateUsageQuota(
-            tx,
-            userId,
-            plan,
-            currentPeriodStart,
-            currentPeriodEnd,
-          );
-        }
-      } else {
-        // Even without a plan change, ensure current quota limits stay in sync (no counter reset)
-        await this.createOrUpdateUsageQuota(tx, userId, plan, currentPeriodStart, currentPeriodEnd);
-      }
-
-      // Note: Credit allocation is now handled by webhook handlers to avoid duplicate allocation
-      // and ensure proper sequencing
     });
   }
 
@@ -265,21 +237,43 @@ export class SubscriptionManager {
         .from(userSubscriptions)
         .where(eq(userSubscriptions.userId, userId))
         .limit(1);
+
       if (!currentSubscription.length) {
         return { success: false, message: 'Subscription not found' };
       }
+
+      const subscription = currentSubscription[0];
+
+      // Validate file size is positive
+      if (fileSize <= 0) {
+        return { success: false, message: 'File size must be positive' };
+      }
+
+      // Check if there's enough storage remaining
+      if (subscription.fileStorageRemaining < fileSize) {
+        return {
+          success: false,
+          message: `Insufficient storage. Available: ${subscription.fileStorageRemaining} MB, Required: ${fileSize} MB`,
+        };
+      }
+
+      // Update userSubscriptions table - simple balance approach
       const updatedSubscription = await tx
         .update(userSubscriptions)
         .set({
-          fileStorageRemaining: sql`${userSubscriptions.fileStorageRemaining} - ${fileSize}`,
-          fileStorageUsed: sql`${userSubscriptions.fileStorageUsed} + ${fileSize}`,
+          fileStorageRemaining: subscription.fileStorageRemaining - fileSize,
+          fileStorageUsed: subscription.fileStorageUsed + fileSize,
+          updatedAt: new Date(),
         })
         .where(eq(userSubscriptions.userId, userId))
         .returning();
+
       return {
         success: true,
         message: 'Subscription file limit updated successfully',
-        subscription: updatedSubscription,
+        subscription: updatedSubscription[0],
+        storageRemaining: subscription.fileStorageRemaining - fileSize,
+        storageUsed: subscription.fileStorageUsed + fileSize,
       };
     });
   }
@@ -555,11 +549,29 @@ export class SubscriptionManager {
         priceId: sub.stripePriceId,
         productId: sub.planId,
         metadata: transactionMetadata,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
-      console.log(`Credit transaction recorded for user ${userId}: ${creditsToAdd} credits`);
+      // Also reset file storage limits for monthly renewal
+      await tx
+        .update(userSubscriptions)
+        .set({
+          fileStorageRemaining: sub.fileStorageLimit * 1024, // Convert GB to MB
+          fileStorageUsed: 0,
+          updatedAt: new Date(),
+        })
+        .where(eq(userSubscriptions.id, sub.id));
 
-      return { success: true, creditsAdded: creditsToAdd };
+      console.log(`✅ Reset file storage for user ${userId}: ${sub.fileStorageLimit} GB available`);
+
+      return {
+        success: true,
+        creditsAdded: creditsToAdd,
+        newBalance:
+          userCreditsRecord.length > 0 ? userCreditsRecord[0].balance + creditsToAdd : creditsToAdd,
+        fileStorageReset: sub.fileStorageLimit * 1024, // MB
+      };
     });
   }
 
@@ -1059,5 +1071,55 @@ export class SubscriptionManager {
       console.error('Error cleaning up orphaned subscriptions:', error);
       throw error;
     }
+  }
+
+  /**
+   * Update subscription balance when credits are used
+   */
+  async updateSubscriptionBalance(userId: string, creditsUsed: number) {
+    return db.transaction(async (tx) => {
+      const currentSubscription = await tx
+        .select()
+        .from(userSubscriptions)
+        .where(eq(userSubscriptions.userId, userId))
+        .limit(1);
+
+      if (!currentSubscription.length) {
+        return { success: false, message: 'Subscription not found' };
+      }
+
+      const subscription = currentSubscription[0];
+
+      // Validate credits used is positive
+      if (creditsUsed <= 0) {
+        return { success: false, message: 'Credits used must be positive' };
+      }
+
+      // Check if there are enough credits remaining
+      if (subscription.balance < creditsUsed) {
+        return {
+          success: false,
+          message: `Insufficient credits. Available: ${subscription.balance}, Required: ${creditsUsed}`,
+        };
+      }
+
+      // Update subscription balance
+      const updatedSubscription = await tx
+        .update(userSubscriptions)
+        .set({
+          balance: subscription.balance - creditsUsed,
+          updatedAt: new Date(),
+        })
+        .where(eq(userSubscriptions.userId, userId))
+        .returning();
+
+      return {
+        success: true,
+        message: 'Subscription balance updated successfully',
+        subscription: updatedSubscription[0],
+        balanceRemaining: subscription.balance - creditsUsed,
+        balanceUsed: creditsUsed,
+      };
+    });
   }
 }

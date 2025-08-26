@@ -63,4 +63,23 @@ export const subscriptionRouter = router({
         message: result.message,
       };
     }),
+
+    updateSubscriptionBalance: authedProcedure
+      .input(
+        z.object({
+          userId: z.string().min(1),
+          creditsUsed: z.number().min(0),
+        }),
+      )
+      .mutation(async ({ input }) => {
+        const subscriptionManager = new SubscriptionManager();
+        const result = await subscriptionManager.updateSubscriptionBalance(input.userId, input.creditsUsed);
+        return {
+          success: result.success,
+          data: result.subscription,
+          message: result.message,
+          balanceRemaining: result.balanceRemaining,
+          balanceUsed: result.balanceUsed,
+        };
+      }),
 });

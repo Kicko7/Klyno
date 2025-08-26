@@ -37,41 +37,44 @@ interface FooterProps {
   isLoading: boolean;
   inputMessage: string;
   handleSend: () => void;
+  isUploadingFiles: boolean;
 }
 
-const TeamChatInputFooter = memo<FooterProps>(({ isLoading, inputMessage, handleSend }) => {
-  const { t } = useTranslation('chat');
-  const { styles } = useStyles();
+const TeamChatInputFooter = memo<FooterProps>(
+  ({ isLoading, inputMessage, handleSend, isUploadingFiles }) => {
+    const { t } = useTranslation('chat');
+    const { styles } = useStyles();
 
-  return (
-    <>
-      <Flexbox
-        align={'end'}
-        className={styles.overrideAntdIcon}
-        distribution={'space-between'}
-        flex={'none'}
-        gap={8}
-        horizontal
-        paddingInline={16}
-      >
-        <Flexbox align={'center'} gap={8} horizontal style={{ overflow: 'hidden' }}></Flexbox>
-        <Flexbox align={'center'} flex={'none'} gap={8} horizontal>
-          <Flexbox style={{ minWidth: 92 }}>
-            <Space.Compact>
-              <Button
-                disabled={isLoading || !inputMessage.trim()}
-                type={'primary'}
-                onClick={handleSend}
-              >
-                {t('input.send')}
-              </Button>
-            </Space.Compact>
+    return (
+      <>
+        <Flexbox
+          align={'end'}
+          className={styles.overrideAntdIcon}
+          distribution={'space-between'}
+          flex={'none'}
+          gap={8}
+          horizontal
+          paddingInline={16}
+        >
+          <Flexbox align={'center'} gap={8} horizontal style={{ overflow: 'hidden' }}></Flexbox>
+          <Flexbox align={'center'} flex={'none'} gap={8} horizontal>
+            <Flexbox style={{ minWidth: 92 }}>
+              <Space.Compact>
+                <Button
+                  disabled={isLoading || !inputMessage.trim() || isUploadingFiles}
+                  type={'primary'}
+                  onClick={handleSend}
+                >
+                  {t('input.send')}
+                </Button>
+              </Space.Compact>
+            </Flexbox>
           </Flexbox>
         </Flexbox>
-      </Flexbox>
-    </>
-  );
-});
+      </>
+    );
+  },
+);
 
 TeamChatInputFooter.displayName = 'TeamChatInputFooter';
 

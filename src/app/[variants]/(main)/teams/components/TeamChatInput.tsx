@@ -68,6 +68,16 @@ export const gatherChatHistory = async (
         role: messageType as MessageRoleType,
         content: `[${userName}]: ${content}`,
         sessionId: teamChatId,
+        // Include file information if available
+        fileList: metadata.files?.filter((f: any) => !f.type?.startsWith('image')) || [],
+        imageList:
+          metadata.files
+            ?.filter((f: any) => f.type?.startsWith('image'))
+            ?.map((f: any) => ({
+              id: f.id,
+              url: f.url,
+              alt: f.name,
+            })) || [],
       };
     }
 
@@ -76,6 +86,16 @@ export const gatherChatHistory = async (
       role: messageType as MessageRoleType,
       content,
       sessionId: teamChatId,
+      // Include file information if available
+      fileList: metadata?.files?.filter((f: any) => !f.type?.startsWith('image')) || [],
+      imageList:
+        metadata?.files
+          ?.filter((f: any) => f.type?.startsWith('image'))
+          ?.map((f: any) => ({
+            id: f.id,
+            url: f.url,
+            alt: f.name,
+          })) || [],
     };
   });
 };
@@ -140,7 +160,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
 
   const handleSend = async () => {
     const messageToSend = inputMessage.trim();
-    if (!messageToSend && fileList.length === 0) return;
+    if (!messageToSend) return;
     if (loading || isUploadingFiles) return;
 
     // Check if user has remaining credits
@@ -310,9 +330,33 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     userMessage: string,
     agentConfig: any,
   ) => {
+    // Prepare file information for the current user message
+    const currentFileList =
+      fileList.length > 0
+        ? fileList.map((file) => ({
+            id: file.id,
+            name: file.file.name,
+            size: file.file.size,
+            type: file.file.type || 'application/octet-stream',
+            url: file.fileUrl || '',
+            content: '', // Will be populated by the file processing system
+          }))
+        : [];
+
+    // Separate images from other files
+    const currentImageList = currentFileList.filter((file) => file.type.startsWith('image'));
+    const currentOtherFiles = currentFileList.filter((file) => !file.type.startsWith('image'));
+
     const messages = [
       ...chatHistory,
-      { role: 'user', content: userMessage, sessionId: teamChatId },
+      {
+        role: 'user',
+        content: userMessage,
+        sessionId: teamChatId,
+        // Add file information for vision models
+        fileList: currentOtherFiles,
+        imageList: currentImageList,
+      },
     ];
 
     // Add system role at the beginning if it exists
@@ -333,19 +377,55 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     teamChatId: string,
     assistantMessageId: string,
   ) => {
-    // Check if chunk contains text content
-    const chunkText = chunk?.text || (chunk?.type === 'text' ? chunk.text : '');
+    // Handle different chunk types like the main chat system
+    switch (chunk.type) {
+      case 'text': {
+        const chunkText = chunk.text || '';
+        if (chunkText) {
+          const newResponse = aiResponse + chunkText;
+          await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
+            content: newResponse,
+          });
+          return newResponse;
+        }
+        break;
+      }
 
-    
-    if (chunkText) {
-      const newResponse = aiResponse + chunkText;
-      await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
-        content: newResponse,
-        metadata: { isThinking: false, clientMessageId: assistantMessageId },
-      });
-      return newResponse;
+      case 'base64_image': {
+        // Handle image generation responses
+        if (chunk.images && chunk.images.length > 0) {
+          const imageList = chunk.images.map((img: any) => ({
+            id: img.id,
+            url: img.data,
+            alt: img.id,
+          }));
+        }
+        break;
+      }
+
+      case 'tool_calls': {
+        // Handle tool calls if needed
+        console.log('Tool calls received:', chunk.tool_calls);
+        break;
+      }
+
+      case 'reasoning': {
+        // Handle reasoning if needed
+        console.log('Reasoning chunk:', chunk.text);
+        break;
+      }
+
+      default: {
+        // Handle other chunk types
+        if ('text' in chunk && chunk.text) {
+          const newResponse = aiResponse + chunk.text;
+          await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
+            content: newResponse,
+          });
+          return newResponse;
+        }
+      }
     }
-
 
     return aiResponse;
   };
@@ -369,12 +449,10 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       clientMessageId: assistantMessageId,
     };
 
-    // Update local store
     await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
       content: finalMessage,
       metadata: { ...baseMetadata, isThinking: false, isLocal: true },
     });
-
     // Send via WebSocket
     sendWebSocketMessage(
       finalMessage,
@@ -387,7 +465,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       assistantMessageId,
     );
 
-    // console.log('🔍 Context:', context);
+    console.log('🔍 Context:', context);
 
     if (context?.usage?.totalTokens) {
       await updateOrganizationSubscriptionInfo(context.usage.totalTokens);
@@ -408,11 +486,11 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
     await teamChatStore.addMessage(teamChatId, {
+      id: `error_${Date.now()}_${nanoid(10)}`,
       content: `Sorry, I encountered an error processing your request: ${errorMessage}`,
       messageType: 'assistant',
       userId: 'assistant',
       metadata: { isError: true },
-      isLocal: true,
     });
   };
 
@@ -451,6 +529,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
           isLoading={loading}
           inputMessage={inputMessage}
           handleSend={handleSend}
+          isUploadingFiles={isUploadingFiles}
         />
       </Flexbox>
     </DraggablePanel>

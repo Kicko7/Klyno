@@ -253,7 +253,7 @@ type TeamChatStore = TeamChatState & {
   removeMessage: (teamChatId: string, messageId: string) => void;
   copyMessage: (content: string) => void;
   toggleMessageEditing: (id: string, editing: boolean) => void;
-  updateMessage: (teamChatId: string, messageId: string, content: string, metadata?: any) => void;
+  updateMessageContent: (teamChatId: string, messageId: string, content: string, metadata?: any) => void;
 
   // Redis-based real-time operations
   handleRedisMessageDelete: (messageId: string, teamChatId: string) => void;
@@ -356,6 +356,122 @@ export const useTeamChatStore = create<TeamChatStore>()(
           const updatedMessage = {
             ...existingMessage,
             ...updates,
+          } as any;
+
+          // Use the same deduplication and sorting logic as batchUpdateMessages
+          const messageMap = new Map(existingMessages.map((m) => [m.id, m]));
+
+          // Update the specific message
+          messageMap.set(messageId, updatedMessage);
+
+          // Apply the same sorting logic for consistency
+          const sortedMessages = Array.from(messageMap.values()).sort((a, b) => {
+            // Parse timestamps to numbers for comparison
+            const getTimestamp = (msg: TeamChatMessageItem): number => {
+              if (msg.createdAt instanceof Date) {
+                return msg.createdAt.getTime();
+              }
+              if (typeof msg.createdAt === 'string') {
+                return new Date(msg.createdAt).getTime();
+              }
+              return 0;
+            };
+
+            const tsA = getTimestamp(a);
+            const tsB = getTimestamp(b);
+
+            // First priority: sort by timestamp
+            if (tsA !== tsB) {
+              return tsA - tsB;
+            }
+
+            // Second priority: when timestamps are equal, user messages come first
+            if (a.userId !== b.userId) {
+              // User messages (userId !== "assistant") come before assistant messages
+              if (a.userId === 'assistant') return 1;
+              if (b.userId === 'assistant') return -1;
+            }
+
+            // Third priority: if still equal, sort by ID for consistency
+            return a.id.localeCompare(b.id);
+          });
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: sortedMessages,
+            },
+          };
+        });
+
+        // If the message is no longer local, check if it's an AI message and persist it to database
+        // if ((updates as any).metadata.isLocal === false) {
+        //   console.log(`   🔄 Message is no longer local, checking if it's an AI message...`);
+        //   const state = get();
+        //   const existingMessages = state.messages[teamChatId] || [];
+        //   const message = existingMessages.find((m) => m.id === messageId);
+
+        //   if (message && message.messageType === 'assistant') {
+        //     console.log(`   💾 Persisting updated AI message to database: ${messageId}`);
+        //     console.log(`   📊 Message data:`, {
+        //       id: message.id,
+        //       content: message.content.substring(0, 100),
+        //       messageType: message.messageType,
+        //       metadata: message.metadata,
+        //     });
+        //     // Use the persistMessageToDatabase method to save the updated message
+        //     // Exclude isLocal from database persistence since it's not in the schema yet
+        //     const { isLocal, ...dbMessageData } = message as any;
+        //     await get().persistMessageToDatabase(teamChatId, dbMessageData);
+        //     console.log(`   ✅ AI message persisted successfully: ${messageId}`);
+        //   } else {
+        //     console.log(`   ℹ️ Message is not an AI message or not found:`, {
+        //       messageId,
+        //       messageType: message?.messageType,
+        //       isLocal: (message as any)?.isLocal,
+        //     });
+        //   }
+        // } else {
+        //   console.log(`   ℹ️ Message is still local or isLocal not changed:`, {
+        //     messageId,
+        //     newIsLocal: (updates as any).isLocal,
+        //   });
+        // }
+      },
+
+      updateMessageContent: async (
+        teamChatId: string,
+        messageId: string,
+        content: string,
+      ) => {
+        // console.log(`📝 updateMessage called for ${teamChatId}:`, {
+        //   messageId,
+        //   updates,
+        //   isLocalChange: (updates as any).isLocal !== undefined,
+        //   newIsLocalValue: (updates as any).isLocal,
+        // });
+
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found: ${messageId}`);
+            return state;
+          }
+
+          const existingMessage = existingMessages[messageIndex] as any;
+          // console.log(`   📋 Existing message:`, {
+          //   id: existingMessage.id,
+          //   messageType: existingMessage.messageType,
+          //   currentIsLocal: existingMessage.isLocal,
+          //   newIsLocal: (updates as any).isLocal,
+          // });
+
+          // Create updated message
+          const updatedMessage = {
+            ...existingMessage,
+            content,
           } as any;
 
           // Use the same deduplication and sorting logic as batchUpdateMessages

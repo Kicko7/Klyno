@@ -288,26 +288,13 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
           key: 'edit',
           label: t('edit', { defaultValue: 'Edit' }),
         },
-        {
-          icon: RefreshCw,
-          key: 'regenerate',
-          label: t('regenerate', { defaultValue: 'Regenerate' }),
-        },
+    
         {
           icon: Trash,
           key: 'del',
           label: t('delete', { defaultValue: 'Delete' }),
         },
-        {
-          icon: Heart,
-          key: 'reaction',
-          label: t('react', { defaultValue: 'React' }),
-        },
-        {
-          icon: Check,
-          key: 'read',
-          label: t('markRead', { defaultValue: 'Mark Read' }),
-        },
+      
       ]}
       onActionClick={handleActionClick}
     />

@@ -177,10 +177,10 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
     useCallback((state) => state.toggleMessageEditing, []),
   );
 
-  const updateMessage = useTeamChatStore(useCallback((state) => state.updateMessage, []));
+  const updateMessageContent = useTeamChatStore(useCallback((state) => state.updateMessageContent, []));
   const handleUpdateMessage = async (teamChatId: string, messageId: string, content: string) => {
-    await updateMessage(teamChatId, messageId, content);
-    await editMessage(messageId, content);
+     updateMessageContent(teamChatId, messageId, content);
+     editMessage(messageId, content);
   };
 
   // Memoized processed messages for better performance
@@ -315,7 +315,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
       isMessageEditing,
       getAvatar,
       toggleMessageEditing,
-      updateMessage,
+      updateMessageContent,
     ],
   );
 

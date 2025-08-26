@@ -72,6 +72,7 @@ export const useUserSubscription = () => {
       window.removeEventListener('update-subscription-info', handleSubscriptionUpdate);
     };
   }, [fetchSubscriptionInfo]);
+  
 
   const refetch = useCallback(() => {
     fetchSubscriptionInfo();

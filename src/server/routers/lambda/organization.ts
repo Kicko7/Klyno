@@ -230,4 +230,10 @@ export const organizationRouter = router({
         input.token,
       );
     }),
+    getOrganizationById: organizationProcedure
+    .input(z.object({ organizationId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.organizationService.getOrganizationById(input.organizationId);
+    }),
+  
 });

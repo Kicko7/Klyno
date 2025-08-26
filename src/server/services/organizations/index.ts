@@ -327,4 +327,7 @@ export class OrganizationService {
       invitation,
     };
   }
+  async getOrganizationById(organizationId: string) {
+    return this.organizationModel.getOrganizationById(organizationId);
+  }
 }
