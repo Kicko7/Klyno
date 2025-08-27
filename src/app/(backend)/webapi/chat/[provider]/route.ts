@@ -58,6 +58,7 @@ export const POST = checkAuth(async (req: Request, { params, jwtPayload, createR
     const cleanData = { ...data };
     delete (cleanData as any).subscription;
 
+    console.log('🔍 Clean data:', JSON.stringify(cleanData, null, 2));
     // Note: Usage data is handled automatically by the model runtime factory
     // The factory will exclude usage for ChatGPT models and other models that don't support it
     return await agentRuntime.chat(cleanData, {

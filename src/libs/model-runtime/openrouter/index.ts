@@ -45,27 +45,18 @@ export const LobeOpenRouterAI = createOpenAICompatibleRuntime({
         stream: payload.stream ?? true,
         // Force standard streaming mode
         apiMode: undefined,
-        // Try different approaches for OpenRouter usage data
+        // Properly configure streaming options for OpenRouter
         ...(payload.stream && {
           stream_options: {
             include_usage: true,
-            // Try to force usage data to be sent separately
-            usage_type: 'separate',
-            // Alternative: try to force usage in final chunk only
-            final_usage_only: true,
-          },
-          include_usage: true,
-          // Force usage data to be included
-          usage: true,
-          extra_headers: {
-            'X-OpenRouter-Usage': 'true',
-            'OpenAI-Beta': 'assistants=v1',
-            // Try additional headers to force usage data
-            'X-Usage-Format': 'separate',
-            'X-Force-Usage': 'true',
           },
         }),
       } as any;
+
+      // Remove these problematic properties
+      delete finalPayload.usage;
+      delete finalPayload.include_usage;
+      delete finalPayload.extra_headers;
 
       return finalPayload;
     },
@@ -175,8 +166,6 @@ export const LobeOpenRouterAI = createOpenAICompatibleRuntime({
     defaultHeaders: {
       'HTTP-Referer': 'https://chat-preview.lobehub.com',
       'X-Title': 'Lobe Chat',
-      'OpenAI-Beta': 'assistants=v1',
-      'X-OpenRouter-Usage': 'true',
     },
   },
   debug: {
