@@ -109,30 +109,106 @@ const UserExtra = memo<{
       color: theme.colorTextSecondary,
       marginTop: '4px',
       display: 'flex',
-      alignItems: 'center',
-      gap: '4px',
       flexDirection: 'column',
+      gap: '8px',
+      alignItems: 'flex-start',
     }}
   >
-    {Array.isArray(files) &&
-      files.length > 0 &&
-      (() => {
-        const firstImage = files.find((file) => file.type?.startsWith('image/'));
-        return firstImage ? (
-          <img
-            src={firstImage.url}
-            alt={firstImage.name}
-            style={{
-              maxWidth: '150px',
-              borderRadius: '8px',
-              maxHeight: '150px',
-              objectFit: 'contain',
-            }}
-            loading="lazy"
-          />
-        ) : null;
-      })()}
-    {userInfo?.email && <span>{userInfo.email}</span>}
+    {/* Display all uploaded files */}
+    {Array.isArray(files) && files.length > 0 && (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+        {files.map((file, index) => {
+          if (file.type?.startsWith('image/')) {
+            // Display images
+            return (
+              <img
+                key={`${file.id || index}`}
+                src={file.url}
+                alt={file.name}
+                style={{
+                  maxWidth: '200px',
+                  borderRadius: '8px',
+                  maxHeight: '200px',
+                  objectFit: 'contain',
+                  border: `1px solid ${theme.colorBorder}`,
+                }}
+                loading="lazy"
+              />
+            );
+          } else {
+            // Display other file types as file items
+            return (
+              <div
+                key={`${file.id || index}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px',
+                  backgroundColor: theme.colorFillTertiary,
+                  borderRadius: '6px',
+                  border: `1px solid ${theme.colorBorder}`,
+                  maxWidth: '300px',
+                }}
+              >
+                <div
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    backgroundColor: theme.colorPrimary,
+                    borderRadius: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  {file.type?.startsWith('application/pdf') ? 'PDF' :
+                   file.type?.startsWith('text/') ? 'TXT' :
+                   file.type?.startsWith('application/') ? 'DOC' :
+                   file.type?.startsWith('video/') ? 'VID' :
+                   file.type?.startsWith('audio/') ? 'AUD' : 'FILE'}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      color: theme.colorText,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title={file.name}
+                  >
+                    {file.name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: theme.colorTextSecondary }}>
+                    {file.size ? `${(file.size / 1024).toFixed(1)} KB` : 'Unknown size'}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+        })}
+      </div>
+    )}
+    
+    {/* Display user info */}
+    {userInfo?.email && (
+      <div style={{ 
+        fontSize: '11px', 
+        color: theme.colorTextTertiary,
+        padding: '4px 8px',
+        backgroundColor: theme.colorFillQuaternary,
+        borderRadius: '4px',
+        border: `1px solid ${theme.colorBorder}`,
+      }}>
+        👤 {userInfo.fullName || userInfo.username || userInfo.email}
+      </div>
+    )}
   </div>
 ));
 UserExtra.displayName = 'UserExtra';

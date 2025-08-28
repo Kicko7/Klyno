@@ -3,8 +3,10 @@
 import { createStyles } from 'antd-style';
 import { Suspense, useMemo } from 'react';
 
+import DragUpload from '@/components/DragUpload';
 import FileList from '@/features/ChatInput/Desktop/FilePreview/FileList';
 import { SkeletonList } from '@/features/Conversation';
+import { useFileStore } from '@/store/file';
 import { useTeamChatStore } from '@/store/teamChat';
 
 import TeamChatInput from '../TeamChatInput';
@@ -68,8 +70,20 @@ const TeamChatLayout = ({
   const { styles } = useStyles();
   const isLoadingState = isLoading || isTransitioning;
 
+  // Get file store for uploads
+  const uploadFiles = useFileStore((s) => s.uploadChatFiles);
+
+  const handleUploadFiles = async (files: File[]) => {
+    if (files.length > 0) {
+      await uploadFiles(files);
+    }
+  };
+
   return (
     <div className={styles.container}>
+      {/* DragUpload for copy-paste and drag-and-drop file uploads */}
+      <DragUpload onUploadFiles={handleUploadFiles} />
+      
       {/* Fixed Header */}
       <div className={styles.headerContainer}>
         <TeamChatHeader teamChatId={teamChatId} />

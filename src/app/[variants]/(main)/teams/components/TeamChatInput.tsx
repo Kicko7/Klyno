@@ -467,7 +467,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
 
     console.log('🔍 Context:', context);
 
-    if (context?.usage?.totalTokens) {
+    if (context?.usage?.totalTokens && !agentConfig.model.includes('free')) {
       await updateOrganizationSubscriptionInfo(context.usage.totalTokens);
     }
   };

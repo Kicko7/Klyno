@@ -14,7 +14,7 @@ export * from './trace';
  * @param payload - The JWT payload.
  * @returns The options object.
  */
-const getParamsFromPayload = (provider: string, payload: JWTPayload, params: any) => {
+const getParamsFromPayload = (provider: string, payload: JWTPayload, params: any,model?:string) => {
   const llmConfig = getLLMConfig() as Record<string, any>;
   // console.log(params)
 
@@ -93,6 +93,9 @@ const getParamsFromPayload = (provider: string, payload: JWTPayload, params: any
 
     case ModelProvider.OpenRouter: {
       const { OPENROUTER_API_KEY } = llmConfig;
+      if(model?.includes('free')){
+        return { apiKey: OPENROUTER_API_KEY };
+      }
       const apiKey = apiKeyManager.pick(
         hasValidSubscription ? OPENROUTER_API_KEY : payload?.apiKey,
       );
@@ -127,9 +130,10 @@ export const initAgentRuntimeWithUserPayload = (
   payload: JWTPayload,
   params: any = {},
   subscription?: any,
+  model?: string,
 ) => {
   return AgentRuntime.initializeWithProvider(provider, {
-    ...getParamsFromPayload(provider, payload, subscription),
+    ...getParamsFromPayload(provider, payload, subscription,model),
     ...params,
   });
 };

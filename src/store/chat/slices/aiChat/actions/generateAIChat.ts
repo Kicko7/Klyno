@@ -623,7 +623,9 @@ export const generateAIChat: StateCreator<
       ) => {
 
         // console.log('🔍 onFinish called with parameters:',usage);
-        if (usage?.totalTokens) {
+        console.log(provider,model,'[PROVIDER]')
+        if (usage?.totalTokens && !model.includes('free')) {
+          console.log("deducting")
           const currentUser = getUserStoreState().user?.id;
           if (currentUser) {
             const result =

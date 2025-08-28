@@ -31,9 +31,9 @@ const TeamWelcome = () => {
           theme.appearance === 'dark' ? 'bg-black' : 'bg-white'
         }`}
       >
-        <div className="mx-auto py-4">
+        {/* <div className="mx-auto py-4">
           <TeamChatInput teamChatId={activeTeamChatId ?? ''} />
-        </div>
+        </div> */}
       </div>
     </div>
   );

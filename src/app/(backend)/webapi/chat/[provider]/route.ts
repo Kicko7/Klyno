@@ -18,19 +18,11 @@ export const POST = checkAuth(async (req: Request, { params, jwtPayload, createR
   const { provider } = await params;
 
   try {
-    // Now you can use your customField here
-
-    // const subscriptionManager = new SubscriptionManager();
-    // const user = jwtPayload.userId;
-    // const subscription = await subscriptionManager.getUserSubscriptionInfo(user as string);
-
     // ============  1. init chat model   ============ //
 
     const data = (await req.json()) as ChatStreamPayload;
-    console.log('🔍 Complete request body received:', JSON.stringify(data, null, 2));
 
     const subscriptionInfo = (data as any).subscription;
-    console.log('🔍 Subscription field received:', subscriptionInfo);
 
     let agentRuntime: AgentRuntime;
     if (createRuntime) {
@@ -41,6 +33,7 @@ export const POST = checkAuth(async (req: Request, { params, jwtPayload, createR
         jwtPayload,
         {},
         subscriptionInfo,
+        data?.model
       );
     }
 
@@ -58,7 +51,6 @@ export const POST = checkAuth(async (req: Request, { params, jwtPayload, createR
     const cleanData = { ...data };
     delete (cleanData as any).subscription;
 
-    console.log('🔍 Clean data:', JSON.stringify(cleanData, null, 2));
     // Note: Usage data is handled automatically by the model runtime factory
     // The factory will exclude usage for ChatGPT models and other models that don't support it
     return await agentRuntime.chat(cleanData, {
