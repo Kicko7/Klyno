@@ -12,6 +12,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOrganizationStore } from '@/store/organization/store';
 import { useTheme } from 'antd-style';
+import { useTeamChatStore } from '@/store/teamChat';
 
 const CompanySelector = () => {
   const router = useRouter();
@@ -23,6 +24,7 @@ const CompanySelector = () => {
     selectedOrganizationId,
     setSelectedOrganizationId,
   } = useOrganizationStore();
+  const {setCurrentOrganizationId} = useTeamChatStore();
 
   const theme = useTheme()
   // Fetch organizations on mount if not loaded
@@ -40,6 +42,7 @@ const CompanySelector = () => {
   useEffect(() => {
     if (organizations && organizations.length > 0 && !selectedOrganizationId) {
       setSelectedOrganizationId(organizations[0].id);
+      setCurrentOrganizationId(organizations[0].id);
     }
   }, [organizations, selectedOrganizationId, setSelectedOrganizationId]);
 
@@ -132,7 +135,10 @@ const CompanySelector = () => {
                         ? 'hover:bg-slate-800 text-slate-200 hover:text-white'
                         : 'hover:bg-slate-100 text-black hover:text-black'
                   }`}
-                  onClick={() => setSelectedOrganizationId(org.id)}
+                  onClick={() => {
+                    setSelectedOrganizationId(org.id);
+                    setCurrentOrganizationId(org.id);
+                  }}
                 >
                   <ShowCompany org={org} />
                 </div>

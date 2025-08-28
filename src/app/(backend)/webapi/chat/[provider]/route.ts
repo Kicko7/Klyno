@@ -53,6 +53,11 @@ export const POST = checkAuth(async (req: Request, { params, jwtPayload, createR
 
     // Note: Usage data is handled automatically by the model runtime factory
     // The factory will exclude usage for ChatGPT models and other models that don't support it
+
+    const model = data?.model;
+    console.log(subscriptionInfo,'[SUBSCRIPTION INFO]')
+    console.log(model,'[MODEL]')
+    
     return await agentRuntime.chat(cleanData, {
       user: jwtPayload.userId,
       ...traceOptions,

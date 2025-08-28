@@ -123,7 +123,6 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
   React.useEffect(() => {
     if (
       currentOrganization?.id &&
-      !currentOrganizationId &&
       userState.isSignedIn &&
       userState.user?.id
     ) {
