@@ -54,15 +54,25 @@ export const POST = checkAuth(async (req: Request, { params, jwtPayload, createR
     // Note: Usage data is handled automatically by the model runtime factory
     // The factory will exclude usage for ChatGPT models and other models that don't support it
 
-    const model = data?.model;
-    console.log(subscriptionInfo,'[SUBSCRIPTION INFO]')
-    console.log(model,'[MODEL]')
-    
-    return await agentRuntime.chat(cleanData, {
-      user: jwtPayload.userId,
-      ...traceOptions,
-      signal: req.signal,
-    });
+    const model = cleanData?.model;
+    // console.log(subscriptionInfo, '[SUBSCRIPTION INFO]')
+    // console.log(model, '[MODEL]')
+
+    if (subscriptionInfo && model == "openrouter/auto") {
+      cleanData.model = "anthropic/claude-3.5-haiku"
+      return await agentRuntime.chat(cleanData, {
+        user: jwtPayload.userId,
+        ...traceOptions,
+        signal: req.signal,
+      });
+    } else {
+      cleanData.model = "qwen/qwen3-14b:free"
+      return await agentRuntime.chat(cleanData, {
+        user: jwtPayload.userId,
+        ...traceOptions,
+        signal: req.signal,
+      });
+    }
   } catch (e) {
     const {
       errorType = ChatErrorType.InternalServerError,
