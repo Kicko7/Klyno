@@ -622,7 +622,7 @@ export const generateAIChat: StateCreator<
         { traceId, observationId, toolCalls, reasoning, grounding, usage, speed },
       ) => {
 
-        console.log('🔍 onFinish called with parameters:',usage);
+        // console.log('🔍 onFinish called with parameters:',usage);
         if (usage?.totalTokens) {
           const currentUser = getUserStoreState().user?.id;
           if (currentUser) {

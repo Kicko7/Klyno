@@ -245,9 +245,7 @@ export class SubscriptionManager {
       const subscription = currentSubscription[0];
 
       // Validate file size is positive
-      if (fileSize <= 0) {
-        return { success: false, message: 'File size must be positive' };
-      }
+
 
       // Check if there's enough storage remaining
       if (subscription.fileStorageRemaining < fileSize) {
