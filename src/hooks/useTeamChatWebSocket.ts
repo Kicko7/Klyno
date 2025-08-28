@@ -155,7 +155,7 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
       return;
     }
 
-    const socketUrl =process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:3001';
+    const socketUrl =process.env.NEXT_PUBLIC_WEBSOCKET_URL ;
     console.log('🔌 Connecting socket to:', socketUrl);
 
     const socket = io(socketUrl, socketConfig);
