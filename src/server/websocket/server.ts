@@ -33,8 +33,8 @@ export class WebSocketServer {
     this.io = new Server(httpServer, {
       cors: {
         // Allow the frontend origin, not the socket server URL
-        // origin: process.env.APP_URL || 'http://localhost:3000',
-        origin: 'http://localhost:3000',
+        origin: process.env.APP_URL ,
+        // origin: 'http://localhost:3000',
         methods: ['GET', 'POST'],
         credentials: true,
       },
