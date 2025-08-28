@@ -1,6 +1,5 @@
 import { Hotkey, Icon } from '@lobehub/ui';
 import { DiscordIcon } from '@lobehub/ui/icons';
-import { Badge } from 'antd';
 import { ItemType } from 'antd/es/menu/interface';
 import {
   Book,
@@ -8,7 +7,6 @@ import {
   Cloudy,
   Download,
   Feather,
-  FileClockIcon,
   HardDriveDownload,
   LifeBuoy,
   LogOut,
@@ -16,16 +14,14 @@ import {
   Settings2,
 } from 'lucide-react';
 import Link from 'next/link';
-import { PropsWithChildren, memo } from 'react';
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Flexbox } from 'react-layout-kit';
 
 import type { MenuProps } from '@/components/Menu';
 import { enableAuth } from '@/const/auth';
 import { BRANDING_EMAIL, LOBE_CHAT_CLOUD, SOCIAL_URL } from '@/const/branding';
 import { DEFAULT_HOTKEY_CONFIG } from '@/const/settings';
 import {
-  CHANGELOG,
   DOCUMENTS_REFER_URL,
   GITHUB_ISSUES,
   OFFICIAL_URL,
@@ -39,33 +35,8 @@ import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfi
 import { useUserStore } from '@/store/user';
 import { authSelectors } from '@/store/user/selectors';
 
-import { useNewVersion } from './useNewVersion';
-
-const NewVersionBadge = memo(
-  ({
-    children,
-    showBadge,
-    onClick,
-  }: PropsWithChildren & { onClick?: () => void; showBadge?: boolean }) => {
-    const { t } = useTranslation('common');
-    if (!showBadge)
-      return (
-        <Flexbox flex={1} onClick={onClick}>
-          {children}
-        </Flexbox>
-      );
-    return (
-      <Flexbox align={'center'} flex={1} gap={8} horizontal onClick={onClick} width={'100%'}>
-        <span>{children}</span>
-        <Badge count={t('upgradeVersion.hasNew')} />
-      </Flexbox>
-    );
-  },
-);
-
 export const useMenu = () => {
   const { canInstall, install } = usePWAInstall();
-  const hasNewVersion = useNewVersion();
   const { t } = useTranslation(['common', 'setting', 'auth']);
   const { showCloudPromotion, hideDocs } = useServerConfigStore(featureFlagsSelectors);
   const [isLogin, isLoginWithAuth] = useUserStore((s) => [
@@ -92,7 +63,7 @@ export const useMenu = () => {
       key: 'setting',
       label: (
         <Link href={'/settings/common'}>
-          <NewVersionBadge showBadge={hasNewVersion}>{t('userPanel.setting')}</NewVersionBadge>
+          {t('userPanel.setting')}
         </Link>
       ),
     },
@@ -139,11 +110,6 @@ export const useMenu = () => {
           {t('userPanel.cloud', { name: LOBE_CHAT_CLOUD })}
         </Link>
       ),
-    },
-    {
-      icon: <Icon icon={FileClockIcon} />,
-      key: 'changelog',
-      label: <Link href={isDesktop ? CHANGELOG : '/changelog/modal'}>{t('changelog')}</Link>,
     },
     {
       children: [

@@ -80,7 +80,7 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
           active={false}
           icon={DollarSign}
           size={ICON_SIZE}
-          title={'pricing'}
+          title={'Pricing'}
           tooltipProps={{ placement: 'right' }}
         />
       </Link>
