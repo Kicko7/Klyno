@@ -1,7 +1,7 @@
 'use client';
 
 import { createStyles } from 'antd-style';
-import { Suspense, useMemo } from 'react';
+import { Suspense, useCallback, useMemo } from 'react';
 
 import DragUpload from '@/components/DragUpload';
 import FileList from '@/features/ChatInput/Desktop/FilePreview/FileList';
@@ -64,8 +64,11 @@ const TeamChatLayout = ({
   isLoading,
   isTransitioning,
 }: TeamChatLayoutProps) => {
-  const messages = useTeamChatStore((state) => state.messages[teamChatId] || []);
-  const memoizedMessages = useMemo(() => messages, [messages]);
+  
+  const messages = useTeamChatStore(
+    useCallback((state) => state.messages[teamChatId] || [], [teamChatId])
+  );
+  
 
   const { styles } = useStyles();
   const isLoadingState = isLoading || isTransitioning;
@@ -92,7 +95,7 @@ const TeamChatLayout = ({
       {/* Messages */}
       <div className={styles.messagesContainer}>
         <Suspense fallback={<SkeletonList mobile={mobile} />}>
-          <TeamChatMessages messages={memoizedMessages} isLoading={isLoadingState} />
+          <TeamChatMessages messages={messages} isLoading={isLoadingState} />
         </Suspense>
       </div>
 

@@ -1,5 +1,6 @@
 import { ModelTag } from '@lobehub/icons';
 import { Skeleton } from 'antd';
+import { createStyles } from 'antd-style';
 import isEqual from 'fast-deep-equal';
 import { memo } from 'react';
 import { Flexbox } from 'react-layout-kit';
@@ -17,7 +18,29 @@ import HistoryLimitTags from './HistoryLimitTags';
 import KnowledgeTag from './KnowledgeTag';
 import SearchTags from './SearchTags';
 
+const useStyles = createStyles(({ css, token }) => ({
+  modelSwitchButton: css`
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: ${token.colorFillTertiary};
+    border: 1px solid ${token.colorBorder};
+    transition: all 0.2s ease;
+    
+    &:hover {
+      background: ${token.colorFillSecondary};
+      border-color: ${token.colorPrimary};
+      transform: scale(1.05);
+    }
+    
+    &:active {
+      transform: scale(0.98);
+    }
+  `,
+}));
+
 const TitleTags = memo(() => {
+  const { styles } = useStyles();
   const [model, provider, hasKnowledge, isLoading] = useAgentStore((s) => [
     agentSelectors.currentAgentModel(s),
     agentSelectors.currentAgentModelProvider(s),
@@ -39,7 +62,9 @@ const TitleTags = memo(() => {
   ) : (
     <Flexbox align={'center'} gap={4} horizontal>
       <ModelSwitchPanel>
-        <ModelTag model={model} />
+        <div className={styles.modelSwitchButton}>
+          <ModelTag model={model} />
+        </div>
       </ModelSwitchPanel>
       {isAgentEnableSearch && <SearchTags />}
       {showPlugin && plugins?.length > 0 && <PluginTag plugins={plugins} />}

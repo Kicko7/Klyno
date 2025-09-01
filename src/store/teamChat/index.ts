@@ -160,14 +160,14 @@ interface TeamChatState {
       createdAt?: Date;
       isLocal?: boolean; // Flag to prevent WebSocket duplication
     },
-  ) => Promise<string>;
+  ) => Promise<any>;
 
   // Update an existing message in the store
   updateMessage: (
     teamChatId: string,
     messageId: string,
     updates: Partial<TeamChatMessageItem> & { isLocal?: boolean },
-  ) => void;
+  ) => any;
 
   // Batch update messages (for WebSocket reconciliation)
   batchUpdateMessages: (teamChatId: string, messages: TeamChatMessageItem[]) => void;
@@ -403,6 +403,10 @@ export const useTeamChatStore = create<TeamChatStore>()(
             },
           };
         });
+        const state = get();
+        const existingMessages = state.messages[teamChatId] || [];
+        const messageIndex = existingMessages.findIndex((m) => m.id === messageId);
+        return messageIndex !== -1 ? existingMessages[messageIndex] : undefined;
 
         // If the message is no longer local, check if it's an AI message and persist it to database
         // if ((updates as any).metadata.isLocal === false) {
@@ -1651,16 +1655,16 @@ export const useTeamChatStore = create<TeamChatStore>()(
               // Extract usage information and include model/provider for proper display
               const metadata = context?.usage
                 ? {
-                    ...context.usage,
-                    model: agentConfig.model,
-                    provider: agentConfig.provider,
-                    // Use the API's token count directly
-                    totalTokens: context.usage.totalTokens || 0,
-                  }
+                  ...context.usage,
+                  model: agentConfig.model,
+                  provider: agentConfig.provider,
+                  // Use the API's token count directly
+                  totalTokens: context.usage.totalTokens || 0,
+                }
                 : {
-                    model: agentConfig.model,
-                    provider: agentConfig.provider,
-                  };
+                  model: agentConfig.model,
+                  provider: agentConfig.provider,
+                };
 
               await get().sendMessage(
                 teamChatId,
@@ -1811,7 +1815,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
       // Centralized message management - single source of truth for all message operations
       addMessage: async (teamChatId: string, message: any) => {
         const messageId = message.id || `msg_${Date.now()}_${nanoid(10)}`;
-        const timestamp = new Date();
+        const timestamp = new Date().toISOString();
 
         const messageData = {
           id: messageId,
@@ -1832,7 +1836,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
               existing.id === messageId ||
               (existing.content === message.content &&
                 existing.userId === message.userId &&
-                Math.abs(existing.createdAt.getTime() - timestamp.getTime()) < 1000),
+                Math.abs(new Date(existing.createdAt).getTime() - new Date(timestamp).getTime()) < 1000),
           );
 
           if (isDuplicate) {
@@ -1843,12 +1847,12 @@ export const useTeamChatStore = create<TeamChatStore>()(
           const updatedMessages = [...existingMessages, messageData];
 
           const sortedMessages = updatedMessages.sort((a, b) => {
-            const tsA = a.createdAt.getTime();
-            const tsB = b.createdAt.getTime();
+            const tsA = new Date(a.createdAt).getTime();
+            const tsB = new Date(b.createdAt).getTime();
 
             if (tsA !== tsB) return tsA - tsB;
             if (a.userId !== b.userId) {
-              return a.userId === 'assistant' ? 1 : -1;
+              return a.metadata?.userInfo?.id === 'assistant' ? 1 : -1;
             }
             return a.id.localeCompare(b.id);
           });
@@ -1861,7 +1865,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
           };
         });
 
-        return messageId;
+        return messageData;
       },
 
       // Batch update messages (for WebSocket reconciliation)
@@ -1869,28 +1873,74 @@ export const useTeamChatStore = create<TeamChatStore>()(
         set((state) => {
           const existingMessages = state.messages[teamChatId] || [];
           
-          // Merge messages efficiently
-          const messageMap = new Map();
+          const messageMap = new Map<string, any>();
           
-          // Add existing messages
-          existingMessages.forEach(msg => messageMap.set(msg.id, msg));
+          // Add existing
+          existingMessages.forEach((msg) => {
+            if (msg.id) messageMap.set(msg.id, msg);
+          });
           
-          // Add/update new messages
-          newMessages.forEach(msg => {
+          // Add/merge new
+          newMessages.forEach((msg) => {
             if (msg.id) {
-              messageMap.set(msg.id, { ...msg, updatedAt: new Date() });
+              messageMap.set(msg.id, {
+                ...messageMap.get(msg.id),
+                ...msg,
+              });
             }
           });
-
+          
           const mergedMessages = Array.from(messageMap.values());
           
-          // Sort messages
+          // Sorting
           const sortedMessages = mergedMessages.sort((a, b) => {
-            const tsA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
-            const tsB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
-            return tsA - tsB;
+            const getTimestamp = (msg: any): number => {
+              if (msg.createdAt instanceof Date) return msg.createdAt.getTime();
+              if (typeof msg.createdAt === "string") {
+                // Handle PostgreSQL timestamp formats
+                // Examples: "2025-09-01 09:25:12.564+00", "2025-09-01T09:25:12.564Z", etc.
+                let timestampString = msg.createdAt.trim();
+                
+                // Convert PostgreSQL format to ISO format if needed
+                if (timestampString.includes(' ') && !timestampString.includes('T')) {
+                  // Replace space with 'T' for ISO format
+                  timestampString = timestampString.replace(' ', 'T');
+                }
+                
+                // Handle timezone offset format (+00 instead of +00:00)
+                if (/[+-]\d{2}$/.test(timestampString)) {
+                  timestampString += ':00';
+                }
+                
+                // If no timezone info, assume UTC
+                if (!timestampString.includes('+') && !timestampString.includes('-') && !timestampString.endsWith('Z')) {
+                  timestampString += 'Z';
+                }
+                
+                const parsed = new Date(timestampString).getTime();
+                return isNaN(parsed) ? 0 : parsed;
+              }
+              return 0;
+            };
+            
+            const tsA = getTimestamp(a);
+            const tsB = getTimestamp(b);
+            
+            // 1. chronological order
+           
+            if (tsA !== tsB) return tsA - tsB;
+            
+            console.log("User Message before assistant");
+            
+            // 2. user messages before assistant
+            const isAssistantA = a.metadata?.userInfo?.id === "assistant";
+            const isAssistantB = b.metadata?.userInfo?.id === "assistant";
+            if (isAssistantA !== isAssistantB) return isAssistantA ? 1 : -1;
+            
+            // 3. fallback by ID
+            return String(a.id).localeCompare(String(b.id));
           });
-
+          
           return {
             messages: {
               ...state.messages,
@@ -1899,6 +1949,8 @@ export const useTeamChatStore = create<TeamChatStore>()(
           };
         });
       },
+      
+      
 
       // Method to persist message to database
       persistMessageToDatabase: async (teamChatId: string, messageData: any) => {

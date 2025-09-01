@@ -234,7 +234,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         : { clientMessageId: userMessageId };
 
       // Add user message to local store
-      await teamChatStore.addMessage(teamChatId, {
+     const message =  await teamChatStore.addMessage(teamChatId, {
         id: userMessageId,
         content: messageToSend,
         messageType: 'user',
@@ -243,7 +243,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         isLocal: true,
       });
 
-      await sendWebSocketMessage(messageToSend, 'user', userMetadata, userMessageId);
+      await sendWebSocketMessage(messageToSend, 'user', userMetadata, userMessageId,message.createdAt);
       // Send message via WebSocket
       // console.log('Sending message to WebSocket');
 
@@ -449,7 +449,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       clientMessageId: assistantMessageId,
     };
 
-    await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
+   const message =  await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
       content: finalMessage,
       metadata: { ...baseMetadata, isThinking: false, isLocal: true },
     });
@@ -463,9 +463,10 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         userId: currentUser?.id || 'assistant',
       },
       assistantMessageId,
+      message.createdAt,
     );
 
-    console.log('🔍 Context:', context);
+    // console.log('🔍 Context:', context);
 
     if (context?.usage?.totalTokens && !agentConfig.model.includes('free')) {
       await updateOrganizationSubscriptionInfo(context.usage.totalTokens);

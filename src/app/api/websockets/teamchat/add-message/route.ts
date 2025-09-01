@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
             messageType: messageData.messageType,
             metadata: messageMetadata,
             updatedAt: new Date(),
+            createdAt:messageData.originalTimestamp
           })
           .where(eq(teamChatMessages.id, data.id))
           .returning();

@@ -33,7 +33,7 @@ export class WebSocketServer {
     this.io = new Server(httpServer, {
       cors: {
         // Allow the frontend origin, not the socket server URL
-        origin: process.env.APP_URL ,
+        origin: process.env.APP_URL,
         // origin: 'http://localhost:3000',
         methods: ['GET', 'POST'],
         credentials: true,
@@ -63,7 +63,7 @@ export class WebSocketServer {
     this.setupEventHandlers();
     console.log('✅ WebSocket server initialized with Redis and SessionManager');
     console.log('🔌 WebSocket server listening on port:', process.env.PORT || '3001');
-    console.log('🌐 CORS origin:', process.env.APP_URL );
+    console.log('🌐 CORS origin:', process.env.APP_URL);
   }
 
   private setupMiddleware() {
@@ -169,19 +169,36 @@ export class WebSocketServer {
             lastActiveAt: new Date().toISOString(),
             isActive: false,
           });
+
+          // If room is now empty, persist messages to DB and expire session
+          try {
+            const room = this.io.sockets.adapter.rooms.get(roomId);
+            const roomSize = room ? room.size : 0;
+            if (roomSize === 0) {
+              await this.sessionManager.expireSession(roomId);
+              console.log(`💾 Room ${roomId} empty after leave → session expired & synced`);
+            }
+          } catch (checkErr) {
+            console.error(`Error checking room empty state for ${roomId}:`, checkErr);
+          }
         } catch (error) {
           console.error('Error leaving room:', error);
         }
       });
 
       // Message Events
+
       socket.on(
         'message:send',
-        async (message: { teamId: string; content: string; type?: string; metadata?: any }) => {
+        async (message: { teamId: string; content: string; type?: string; metadata?: any, timestamp?: any }) => {
+          console.log("message timestamp",message.timestamp)
           try {
             console.log(message.metadata);
             const timestamp = new Date().toISOString();
 
+            if (!message.timestamp) {
+              message.timestamp = timestamp;
+            }
             const messageId =
               message.metadata?.clientMessageId || `msg_${Date.now()}_${nanoid(10)}`;
 
@@ -190,7 +207,7 @@ export class WebSocketServer {
               id: messageId,
               content: message.content,
               userId: message.type === 'assistant' ? 'assistant' : socket.data.userId,
-              timestamp: Date.now(),
+              timestamp: message.timestamp,
               type: (message.type as 'user' | 'assistant' | 'system') || 'user',
               metadata: message.metadata || {},
               syncedToDb: false,
@@ -272,7 +289,7 @@ export class WebSocketServer {
                 error: error instanceof Error ? error.message : 'Unknown error',
                 timestamp: new Date().toISOString(),
               });
-            } catch {}
+            } catch { }
           }
         },
       );
@@ -289,6 +306,11 @@ export class WebSocketServer {
             await this.sessionManager.updateMessage(session.sessionId, messageId, {
               content,
               updatedAt: new Date(),
+            });
+            await this.apiService.updateMessage(messageId, {
+              content,
+              updatedAt: new Date(),
+              updatedBy: socket.data.userId,
             });
 
             console.log(`✅ Message ${messageId} updated in Redis session ${session.sessionId}`);
@@ -327,6 +349,8 @@ export class WebSocketServer {
             for (const roomId of socket.data.activeRooms) {
               this.io.to(roomId).emit('message:delete', messageId);
             }
+
+            await this.apiService.deleteMessage(messageId);
 
             console.log(`✅ Message ${messageId} deleted from Redis session ${session.sessionId}`);
           } else {
@@ -445,6 +469,18 @@ export class WebSocketServer {
               lastActiveAt: new Date().toISOString(),
               isActive: false,
             });
+
+            // If this disconnect leaves the room empty, sync and expire the session
+            try {
+              const room = this.io.sockets.adapter.rooms.get(roomId);
+              const roomSize = room ? room.size : 0;
+              if (roomSize === 0) {
+                await this.sessionManager.expireSession(roomId);
+                console.log(`💾 Room ${roomId} empty after disconnect → session expired & synced`);
+              }
+            } catch (checkErr) {
+              console.error(`Error checking room empty state for ${roomId}:`, checkErr);
+            }
           } catch (error) {
             console.error(`Error updating presence for room ${roomId}:`, error);
           }

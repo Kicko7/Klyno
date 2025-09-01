@@ -119,15 +119,15 @@ export class SyncService {
       await this.batchSyncMessages(session.teamChatId, unsyncedMessages);
 
       // Update chat metadata
-      await this.updateChatMetadata(session.teamChatId, {
-        lastActivityAt: session.lastActivityAt,
-        messageCount: session.messages.length,
-        lastSessionId: session.sessionId,
-        participantCount: session.participants.length,
-      });
+      // await this.updateChatMetadata(session.teamChatId, {
+      //   lastActivityAt: session.lastActivityAt,
+      //   messageCount: session.messages.length,
+      //   lastSessionId: session.sessionId,
+      //   participantCount: session.participants.length,
+      // });
 
       // Create session history record
-      await this.createSessionHistory(session);
+      // await this.createSessionHistory(session);
 
       console.log(`✅ Session sync completed: ${unsyncedMessages.length} messages synced`);
     } catch (error) {

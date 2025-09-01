@@ -23,8 +23,10 @@ export async function DELETE(req: NextRequest) {
 
     if (!existingMessage) {
       return NextResponse.json(
-        { error: 'Message not found' },
-        { status: 404 },
+        {
+          success: true,
+          message: "Message already deleted"
+        }
       );
     }
 
@@ -32,15 +34,15 @@ export async function DELETE(req: NextRequest) {
       .delete(teamChatMessages)
       .where(eq(teamChatMessages.id, messageId));
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Message deleted successfully' 
+    return NextResponse.json({
+      success: true,
+      message: 'Message deleted successfully'
     });
 
   } catch (error) {
     console.error('Error deleting message:', error);
     return NextResponse.json(
-      { error: 'Internal server error' }, 
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

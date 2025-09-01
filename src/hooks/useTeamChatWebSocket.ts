@@ -155,7 +155,7 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
       return;
     }
 
-    const socketUrl =process.env.NEXT_PUBLIC_WEBSOCKET_URL ;
+    const socketUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL;
     console.log('🔌 Connecting socket to:', socketUrl);
 
     const socket = io(socketUrl, socketConfig);
@@ -320,6 +320,7 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
         type: 'user' | 'assistant' | 'system' = 'user',
         metadata?: any,
         messageId?: string,
+        timestamp?: any,
       ) => {
         const socket = socketRef.current;
         if (!socket?.connected) {
@@ -332,11 +333,12 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
           content,
           type,
           metadata: { ...metadata, ...(messageId && { clientMessageId: messageId }) },
+          timestamp,
         });
         return true;
       },
 
-      userCredits: userCredits,
+      // userCredits: userCredits,
       /**
        * Start typing indicator for the current user
        */

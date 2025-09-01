@@ -165,11 +165,17 @@ const UserExtra = memo<{
                     fontWeight: 'bold',
                   }}
                 >
-                  {file.type?.startsWith('application/pdf') ? 'PDF' :
-                   file.type?.startsWith('text/') ? 'TXT' :
-                   file.type?.startsWith('application/') ? 'DOC' :
-                   file.type?.startsWith('video/') ? 'VID' :
-                   file.type?.startsWith('audio/') ? 'AUD' : 'FILE'}
+                  {file.type?.startsWith('application/pdf')
+                    ? 'PDF'
+                    : file.type?.startsWith('text/')
+                      ? 'TXT'
+                      : file.type?.startsWith('application/')
+                        ? 'DOC'
+                        : file.type?.startsWith('video/')
+                          ? 'VID'
+                          : file.type?.startsWith('audio/')
+                            ? 'AUD'
+                            : 'FILE'}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
@@ -195,17 +201,19 @@ const UserExtra = memo<{
         })}
       </div>
     )}
-    
+
     {/* Display user info */}
     {userInfo?.email && (
-      <div style={{ 
-        fontSize: '11px', 
-        color: theme.colorTextTertiary,
-        padding: '4px 8px',
-        backgroundColor: theme.colorFillQuaternary,
-        borderRadius: '4px',
-        border: `1px solid ${theme.colorBorder}`,
-      }}>
+      <div
+        style={{
+          fontSize: '11px',
+          color: theme.colorTextTertiary,
+          padding: '4px 8px',
+          backgroundColor: theme.colorFillQuaternary,
+          borderRadius: '4px',
+          border: `1px solid ${theme.colorBorder}`,
+        }}
+      >
         👤 {userInfo.fullName || userInfo.username || userInfo.email}
       </div>
     )}
@@ -253,23 +261,21 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
     useCallback((state) => state.toggleMessageEditing, []),
   );
 
-  const updateMessageContent = useTeamChatStore(useCallback((state) => state.updateMessageContent, []));
+  const updateMessageContent = useTeamChatStore(
+    useCallback((state) => state.updateMessageContent, []),
+  );
   const handleUpdateMessage = async (teamChatId: string, messageId: string, content: string) => {
-     updateMessageContent(teamChatId, messageId, content);
-     editMessage(messageId, content);
+    updateMessageContent(teamChatId, messageId, content);
+    editMessage(messageId, content);
   };
 
   // Memoized processed messages for better performance
   const processedMessages = useMemo(() => {
     if (!messages || !Array.isArray(messages)) return [];
 
-    return messages
-      .filter((msg) => msg && msg.id && (msg.content || msg.content === 'Thinking...'))
-      .sort((a, b) => {
-        const tsA = getMessageTimestamp(a.createdAt);
-        const tsB = getMessageTimestamp(b.createdAt);
-        return tsA !== tsB ? tsA - tsB : a.id.localeCompare(b.id);
-      });
+    return messages.filter(
+      (msg) => msg && msg.id && (msg.content || msg.content === 'Thinking...'),
+    );
   }, [messages]);
 
   // Optimized scroll to bottom with debouncing

@@ -112,38 +112,38 @@ export const useMenu = () => {
     },
     {
       children: [
-        {
-          icon: <Icon icon={Book} />,
-          key: 'docs',
-          label: (
-            <Link href={DOCUMENTS_REFER_URL} target={'_blank'}>
-              {t('userPanel.docs')}
-            </Link>
-          ),
-        },
+        // {
+        //   icon: <Icon icon={Book} />,
+        //   key: 'docs',
+        //   label: (
+        //     <Link href={DOCUMENTS_REFER_URL} target={'_blank'}>
+        //       {t('userPanel.docs')}
+        //     </Link>
+        //   ),
+        // },
         {
           icon: <Icon icon={Feather} />,
           key: 'feedback',
           label: (
-            <Link href={GITHUB_ISSUES} target={'_blank'}>
+            <Link href={'https://agent.jotform.com/0199041db2217e5e8697c6247e9763169b25'} target={'_blank'}>
               {t('userPanel.feedback')}
             </Link>
           ),
         },
-        {
-          icon: <Icon icon={DiscordIcon} />,
-          key: 'discord',
-          label: (
-            <Link href={SOCIAL_URL.discord} target={'_blank'}>
-              {t('userPanel.discord')}
-            </Link>
-          ),
-        },
+        // {
+        //   icon: <Icon icon={DiscordIcon} />,
+        //   key: 'discord',
+        //   label: (
+        //     <Link href={SOCIAL_URL.discord} target={'_blank'}>
+        //       {t('userPanel.discord')}
+        //     </Link>
+        //   ),
+        // },
         {
           icon: <Icon icon={Mail} />,
           key: 'email',
           label: (
-            <Link href={mailTo(BRANDING_EMAIL.support)} target={'_blank'}>
+            <Link href={mailTo("support@ascensionhostings.com")} target={'_blank'}>
               {t('userPanel.email')}
             </Link>
           ),
