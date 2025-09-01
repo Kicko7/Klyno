@@ -12,6 +12,7 @@ import {
   LogOut,
   Mail,
   Settings2,
+  CreditCard,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
@@ -63,6 +64,15 @@ export const useMenu = () => {
       label: (
         <Link href={'/settings/common'}>
           {t('userPanel.setting')}
+        </Link>
+      ),
+    },
+    {
+      icon: <Icon icon={CreditCard} />,
+      key: 'plans',
+      label: (
+        <Link href={'/pricing'}>
+          Plans & Pricing
         </Link>
       ),
     },

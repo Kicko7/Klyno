@@ -93,7 +93,7 @@ const Item = memo<NetworkOption>(({ value, description, icon, label }) => {
       horizontal
       key={value}
       onClick={async () => {
-        console.log("value",value)
+        // console.log("value",value)
         // Check if trying to enable smart search (auto mode)
         if (value === 'auto') {
           // Check if model supports smart search
