@@ -4,6 +4,7 @@ import Stripe from 'stripe';
 import { getStripeConfig } from '@/config/stripe';
 import { db } from '@/database';
 import { users } from '@/database/schemas/user';
+import { getAppConfig } from '@/envs/app';
 
 export class StripeCheckoutService {
   private stripe: Stripe;
@@ -213,6 +214,131 @@ export class StripeCheckoutService {
       console.error('Error creating subscription checkout session:', error);
       throw new Error(
         `Failed to create subscription checkout session: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+  }
+
+  /**
+   * Create a checkout session for upgrading an existing subscription
+   * This method handles the upgrade flow differently from new subscriptions
+   */
+  async createSubscriptionUpgradeSession(
+    userId: string,
+    priceId: string,
+    currentSubscriptionId: string,
+
+  ) {
+    try {
+      // Ensure user has a Stripe customer
+      const customerId = await this.ensureCustomer(userId);
+
+      // Verify the price is a recurring price (subscription)
+      const price = await this.stripe.prices.retrieve(priceId);
+      if (!price.recurring) {
+        throw new Error('Only recurring prices are supported for subscription upgrades');
+      }
+
+      // Verify the current subscription exists and belongs to the user
+      const currentSubscription = await this.stripe.subscriptions.retrieve(currentSubscriptionId);
+      if (currentSubscription.customer !== customerId) {
+        throw new Error('Current subscription does not belong to this user');
+      }
+
+      // Create upgrade checkout session
+
+      const appConfig = getAppConfig();
+      const successUrl = `${appConfig.APP_URL}/pricing`;
+      const cancelUrl = `${appConfig.APP_URL}/pricing`;
+      const session = await this.stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        mode: 'subscription',
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        metadata: {
+          userId,
+          priceId,
+          action: 'upgrade',
+          currentSubscriptionId,
+        },
+        // Ensure the resulting subscription gets metadata for upgrade tracking
+        // Note: proration_behavior cannot be set in checkout sessions for upgrades
+        // Proration will be handled by Stripe automatically when the new subscription starts
+        subscription_data: {
+          metadata: {
+            userId,
+            action: 'upgrade',
+            previousSubscriptionId: currentSubscriptionId,
+            upgradeDate: new Date().toISOString(),
+          },
+        },
+      });
+
+      console.log(`✅ Upgrade checkout session created for user ${userId} from ${currentSubscriptionId} to ${priceId}`);
+      return session;
+    } catch (error) {
+      console.error('Error creating subscription upgrade session:', error);
+      throw new Error(
+        `Failed to create subscription upgrade session: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+  }
+
+  /**
+   * Immediately upgrade a subscription to a new plan
+   * This changes the current subscription instead of creating a new one
+   */
+  async upgradeSubscriptionImmediately(
+    userId: string,
+    currentSubscriptionId: string,
+    newPriceId: string,
+  ) {
+    try {
+      // Ensure user has a Stripe customer
+      const customerId = await this.ensureCustomer(userId);
+
+      // Verify the current subscription exists and belongs to the user
+      const currentSubscription = await this.stripe.subscriptions.retrieve(currentSubscriptionId);
+      if (currentSubscription.customer !== customerId) {
+        throw new Error('Current subscription does not belong to this user');
+      }
+
+      // Verify the new price is a recurring price
+      const newPrice = await this.stripe.prices.retrieve(newPriceId);
+      if (!newPrice.recurring) {
+        throw new Error('Only recurring prices are supported for subscription upgrades');
+      }
+
+      // Update the subscription to the new price
+      const updatedSubscription = await this.stripe.subscriptions.update(currentSubscriptionId, {
+        items: [
+          {
+            id: currentSubscription.items.data[0].id,
+            price: newPriceId,
+          },
+        ],
+        metadata: {
+          ...currentSubscription.metadata,
+          action: 'upgrade',
+          upgradeDate: new Date().toISOString(),
+          previousPriceId: currentSubscription.items.data[0].price.id,
+        },
+        // Enable proration for immediate plan changes
+        proration_behavior: 'create_prorations',
+      });
+
+      console.log(`✅ Subscription ${currentSubscriptionId} immediately upgraded for user ${userId} to price ${newPriceId}`);
+      return updatedSubscription;
+    } catch (error) {
+      console.error('Error immediately upgrading subscription:', error);
+      throw new Error(
+        `Failed to immediately upgrade subscription: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
   }

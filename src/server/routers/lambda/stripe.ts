@@ -203,4 +203,14 @@ export const stripeRouter = router({
       );
     }
   }),
+
+  upgradeSubscriptionImmediately: authedProcedure
+    .input(z.object({
+      currentSubscriptionId: z.string().min(1),
+      newPriceId: z.string().min(1),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const checkoutService = new StripeCheckoutService();
+      return await checkoutService.createSubscriptionUpgradeSession(ctx.userId, input.newPriceId, input.currentSubscriptionId);
+    }),
 });
