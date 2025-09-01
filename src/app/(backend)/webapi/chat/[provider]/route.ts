@@ -65,8 +65,15 @@ export const POST = checkAuth(async (req: Request, { params, jwtPayload, createR
         ...traceOptions,
         signal: req.signal,
       });
-    } else {
+    } else if (!subscriptionInfo && model == "openrouter/auto") {
       cleanData.model = "qwen/qwen3-14b:free"
+      return await agentRuntime.chat(cleanData, {
+        user: jwtPayload.userId,
+        ...traceOptions,
+        signal: req.signal,
+      });
+    }
+    else {
       return await agentRuntime.chat(cleanData, {
         user: jwtPayload.userId,
         ...traceOptions,

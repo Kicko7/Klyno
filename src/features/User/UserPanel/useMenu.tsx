@@ -14,7 +14,6 @@ import {
   Settings2,
 } from 'lucide-react';
 import Link from 'next/link';
-import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { MenuProps } from '@/components/Menu';
