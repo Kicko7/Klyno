@@ -4,8 +4,11 @@ import { StateCreator } from 'zustand/vanilla';
 
 import { message } from '@/components/AntdStaticMethods';
 import { LOBE_CHAT_CLOUD } from '@/const/branding';
+import { useUserSubscription } from '@/hooks/useUserSubscription';
+import { lambdaClient } from '@/libs/trpc/client';
 import { fileService } from '@/services/file';
 import { uploadService } from '@/services/upload';
+import { useUserStore } from '@/store/user';
 import { FileMetadata, UploadFileItem } from '@/types/files';
 
 import { FileStore } from '../../store';
@@ -33,6 +36,10 @@ interface UploadWithProgressParams {
    * Default is `false`, which means file type checks will be performed.
    */
   skipCheckFileType?: boolean;
+  /**
+   * Optional context to identify the source of upload (e.g., 'teamChat', 'regular')
+   */
+  context?: string;
 }
 
 interface UploadWithProgressResult {
@@ -73,7 +80,90 @@ export const createFileUploadSlice: StateCreator<
     });
     return { ...res, filename: metadata.filename };
   },
-  uploadWithProgress: async ({ file, onStatusUpdate, knowledgeBaseId, skipCheckFileType }) => {
+  uploadWithProgress: async ({
+    file,
+    onStatusUpdate,
+    knowledgeBaseId,
+    skipCheckFileType,
+    context,
+  }) => {
+    const user = useUserStore.getState().user;
+
+    if (!user?.id) {
+      message.error('User not found');
+      return;
+    }
+
+    const fileSizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+
+    const { useTeamChatStore } = await import('@/store/teamChat');
+    const { useOrganizationStore } = await import('@/store/organization/store');
+
+    const teamChatState = useTeamChatStore.getState();
+    let uploadContext = context;
+    if (!uploadContext) {
+      try {
+        uploadContext = teamChatState.activeTeamChatId ? 'teamChat' : 'regularChat';
+      } catch (error) {
+        // Fallback to regular chat if team chat store is not available
+        uploadContext = 'regularChat';
+      }
+    }
+
+    let subscriptionInfo;
+    let organizationInfo;
+    let ownerId: string;
+
+    if (uploadContext === 'teamChat') {
+      const organizationState = useOrganizationStore.getState();
+      const organizationId = organizationState.selectedOrganizationId;
+
+      // Single API call to get organization info
+      organizationInfo = await lambdaClient.organization.getOrganizationById.query({
+        organizationId: organizationId as string,
+      });
+
+      ownerId = organizationInfo?.ownerId as string;
+
+      if (!ownerId) {
+        message.error('Organization owner not found');
+        onStatusUpdate?.({ id: file.name, type: 'removeFile' });
+        return;
+      }
+
+      // Single API call to get subscription info
+      subscriptionInfo = await lambdaClient.subscription.getUserSubscriptionInfo.query({
+        userId: ownerId,
+      });
+    } else {
+      // Single API call to get subscription info for regular user
+      subscriptionInfo = await lambdaClient.subscription.getUserSubscriptionInfo.query({
+        userId: user.id,
+      });
+      ownerId = user.id;
+    }
+
+    // Check subscription and storage limits
+    if (!subscriptionInfo?.data?.subscription) {
+      const errorMessage =
+        uploadContext === 'teamChat'
+          ? 'Your Team Plan does not have enough storage to upload this file'
+          : 'You need to subscribe to upload files';
+      message.error(errorMessage);
+      onStatusUpdate?.({ id: file.name, type: 'removeFile' });
+      return;
+    }
+
+    if (subscriptionInfo.data.subscription.fileStorageRemaining < Number(fileSizeInMB)) {
+      const errorMessage =
+        uploadContext === 'teamChat'
+          ? 'Your Team Plan does not have enough storage to upload this file'
+          : 'Your Plan does not have enough storage to upload this file';
+      message.error(errorMessage);
+      onStatusUpdate?.({ id: file.name, type: 'removeFile' });
+      return;
+    }
+
     const fileArrayBuffer = await file.arrayBuffer();
 
     // 1. check file hash
@@ -114,7 +204,9 @@ export const createFileUploadSlice: StateCreator<
         },
         skipCheckFileType,
       });
-      if (!success) return;
+
+      // FIXED: Explicit return
+      if (!success) return undefined;
 
       metadata = data;
     }
@@ -141,6 +233,35 @@ export const createFileUploadSlice: StateCreator<
       },
       knowledgeBaseId,
     );
+
+    // Update subscription file limit
+    const updateResult = await lambdaClient.subscription.updateSubscriptionFileLimit.mutate({
+      userId: ownerId,
+      fileSize: Number(fileSizeInMB),
+    });
+
+    // Check if subscription update was successful
+    if (!updateResult?.success) {
+      const errorMessage = updateResult?.message || 'Failed to update subscription storage limit';
+      message.error(errorMessage);
+      onStatusUpdate?.({ id: file.name, type: 'removeFile' });
+      return;
+    }
+
+    // Refresh subscription data to update frontend state
+    try {
+      // Dispatch custom event to trigger subscription refresh
+      window.dispatchEvent(new CustomEvent('update-subscription-info'));
+      
+      // Also refresh organization subscription if in team chat context
+      if (uploadContext === 'teamChat') {
+        window.dispatchEvent(new CustomEvent('update-organization-subscription-info'));
+      }
+    } catch (error) {
+      console.warn('Failed to refresh subscription data:', error);
+    }
+
+    message.success(`File "${file.name}" uploaded successfully!`);
 
     onStatusUpdate?.({
       id: file.name,

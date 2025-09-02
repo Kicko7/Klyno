@@ -55,12 +55,12 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
           tooltipProps={{ placement: 'right' }}
         />
       </Link>
-      <Link aria-label={'teams'} href={'/teams'}>
+      <Link aria-label={t('tab.teams')} href={'/teams'}>
         <ActionIcon
           active={isTeamsActive}
           icon={Users}
           size={ICON_SIZE}
-          title={'teams'}
+          title={t('tab.teams')}
           tooltipProps={{ placement: 'right' }}
         />
       </Link>
@@ -72,15 +72,15 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
             size={ICON_SIZE}
             title={t('tab.files')}
             tooltipProps={{ placement: 'right' }}
-          />
+        />
         </Link>
       )}
-      <Link aria-label={'pricing'} href={'/pricing'}>
+      <Link aria-label={t('tab.pricing')} href={'/pricing'}>
         <ActionIcon
           active={false}
           icon={DollarSign}
           size={ICON_SIZE}
-          title={'pricing'}
+          title={t('tab.pricing')}
           tooltipProps={{ placement: 'right' }}
         />
       </Link>

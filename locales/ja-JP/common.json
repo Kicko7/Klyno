@@ -328,7 +328,9 @@
     "discover": "発見",
     "files": "ファイル",
     "me": "私",
-    "setting": "設定"
+    "pricing": "料金",
+    "setting": "設定",
+    "teams": "チーム"
   },
   "telemetry": {
     "allow": "許可する",

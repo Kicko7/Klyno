@@ -37,4 +37,49 @@ export const subscriptionRouter = router({
         };
       }
     }),
+  updateOrganizationSubscriptionInfo: authedProcedure
+    .input(z.object({
+      ownerId: z.string().min(1),
+      creditsUsed: z.number().min(0),
+    }))
+    .mutation(async ({ input }) => {
+      const subscriptionManager = new SubscriptionManager();
+      const result = await subscriptionManager.updateOrganizationSubscriptionInfo(input.ownerId, input.creditsUsed);
+      return {
+        success: result.success,
+        data: result.subscription,
+        message: result.message,
+      };
+    }),
+    updateSubscriptionFileLimit: authedProcedure.input(z.object({
+      userId: z.string().min(1),
+      fileSize: z.number().min(0),
+    })).mutation(async ({ input }) => {
+      const subscriptionManager = new SubscriptionManager();
+      const result = await subscriptionManager.updateSubscriptionFileLimit(input.userId, input.fileSize);
+      return {
+        success: result.success,
+        data: result.subscription,
+        message: result.message,
+      };
+    }),
+
+    updateSubscriptionBalance: authedProcedure
+      .input(
+        z.object({
+          userId: z.string().min(1),
+          creditsUsed: z.number().min(0),
+        }),
+      )
+      .mutation(async ({ input }) => {
+        const subscriptionManager = new SubscriptionManager();
+        const result = await subscriptionManager.updateSubscriptionBalance(input.userId, input.creditsUsed);
+        return {
+          success: result.success,
+          data: result.subscription,
+          message: result.message,
+          balanceRemaining: result.balanceRemaining,
+          balanceUsed: result.balanceUsed,
+        };
+      }),
 });

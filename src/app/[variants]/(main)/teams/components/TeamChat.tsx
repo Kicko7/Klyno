@@ -58,23 +58,23 @@ const TeamChat = memo(() => {
     agentSelectors.currentAgentModelProvider(s),
   ]);
 
-  // Load team chats when organization changes
   useEffect(() => {
     if (currentOrganization?.id && currentOrganization.id !== currentOrganizationId) {
       console.log('🔄 Organization changed, loading team chats:', currentOrganization.id);
       refreshTeamChats();
     }
-  }, [currentOrganization?.id, currentOrganizationId, refreshTeamChats]);
+  }, [currentOrganization?.id, currentOrganizationId]); // Remove refreshTeamChats
 
   // Validate chat access and sync with URL
   useEffect(() => {
-    if (!chatId || !currentOrganization?.id || isLoading) return;
+    // Wait for everything to be loaded before validating
+    if (!chatId || !currentOrganization?.id || isLoading || teamChats.length === 0) return;
 
     // Find the chat in current organization's chats
     const chat = teamChats.find((c) => c.id === chatId);
 
     // If we have chats loaded and can't find this chat, it might be invalid
-    if (teamChats.length > 0 && !chat) {
+    if (!chat) {
       console.warn('⚠️ Chat not found in current organization:', chatId);
       setActiveTeamChat(null);
       router.push('/teams');
@@ -82,12 +82,19 @@ const TeamChat = memo(() => {
     }
 
     // If we found the chat and it's not already active, set it
-    if (chat && activeTeamChatId !== chatId) {
+    if (activeTeamChatId !== chatId) {
       console.log('🔍 Setting active chat from URL:', chatId);
       setActiveTeamChat(chatId);
     }
-  }, [chatId, currentOrganization?.id, isLoading, activeTeamChatId, teamChats, router]);
-
+  }, [
+    chatId,
+    currentOrganization?.id,
+    isLoading,
+    activeTeamChatId,
+    teamChats.length, // Only depend on length, not the full array
+    router,
+    selectedOrganizationId,
+  ]);
   // Only create first team chat if welcome page is shown and no chats exist
   useEffect(() => {
     if (
@@ -139,25 +146,19 @@ const TeamChat = memo(() => {
   });
 
   // Memoize active users to prevent infinite re-renders
-  const memoizedActiveUsers = useMemo(() => {
-    return activeUsers || {};
-  }, [activeUsers]);
+  // const memoizedActiveUsers = useMemo(() => {
+  //   return activeUsers || {};
+  // }, [activeUsers]);
 
   // Presence is now handled by WebSocket in useTeamChatWebSocket hook
 
   // Debug logging
-  useEffect(() => {
-    console.log('🔍 TeamChat Debug:', {
-      currentOrganization: currentOrganization?.id,
-      teamChats: (teamChats || []).length,
-      activeTeamChatId,
-      isLoading,
-    });
-  }, [currentOrganization, teamChats, activeTeamChatId, isLoading]);
 
-  // const theme = useTheme()
+  const theme = useTheme();
   return (
-    <div className="flex flex-col h-full w-full bg-black relative">
+    <div
+      className={`flex flex-col h-full w-full ${theme.appearance === 'dark' ? 'bg-black' : 'bg-white'} relative`}
+    >
       {/* Team Chat Header */}
       <ChatHeader
         left={
@@ -175,16 +176,20 @@ const TeamChat = memo(() => {
                     gap: '8px',
                   }}
                 >
-                  {teamChats.find((chat) => chat.id === activeTeamChatId)?.title ||
-                    'Loading chat...'}
+                  {/* {teamChats.find((chat) => chat.id === activeTeamChatId)?.title ||
+                    'Loading chat...'} */}
                   {isLoading && <span className="animate-pulse">•••</span>}
                 </div>
               </Flexbox>
             )}
-            <ModelSwitchPanel>
+            {/* <ModelSwitchPanel
+              sessionId={
+                teamChats.find((chat) => chat.id === activeTeamChatId)?.metadata?.sessionId
+              }
+            >
               <ModelTag model={model} />
-            </ModelSwitchPanel>
-            {Object.keys(memoizedActiveUsers).length > 0 && !isLoading && (
+            </ModelSwitchPanel> */}
+            {/* {Object.keys(memoizedActiveUsers).length > 0 && !isLoading && (
               <Flexbox gap={8} horizontal style={{ marginLeft: 12 }}>
                 {Object.entries(memoizedActiveUsers)
                   .slice(0, 3)
@@ -208,7 +213,7 @@ const TeamChat = memo(() => {
                   <Tag>+{Object.keys(memoizedActiveUsers).length - 3} active</Tag>
                 )}
               </Flexbox>
-            )}
+            )} */}
           </Flexbox>
         }
         right={

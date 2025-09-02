@@ -101,6 +101,13 @@ export class SubscriptionManager {
     cancelAtPeriodEnd: boolean = false,
     canceledAt?: Date,
   ) {
+    console.log("🔍 upsertSubscription", {
+      userId,
+      stripeSubscriptionId,
+      stripeCustomerId,
+      stripePriceId,
+      plan,
+    })
     return db.transaction(async (tx) => {
       // Check if subscription already exists
       const existingSubscription = await tx
@@ -121,6 +128,7 @@ export class SubscriptionManager {
         await tx
           .update(userSubscriptions)
           .set({
+            planId: plan.id,
             status,
             currentPeriodStart,
             currentPeriodEnd,
@@ -132,7 +140,12 @@ export class SubscriptionManager {
             vectorStorageLimit: plan.vectorStorageLimitMB,
             amount: plan.price,
             interval: plan.interval,
+            stripePriceId: stripePriceId,
             updatedAt: new Date(),
+            // Reset balance and storage for plan renewal/change
+            balance: plan.monthlyCredits,
+            fileStorageRemaining: plan.fileStorageLimitGB * 1024, // Convert GB to MB
+            fileStorageUsed: 0,
           })
           .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId));
       } else {
@@ -155,6 +168,9 @@ export class SubscriptionManager {
           vectorStorageLimit: plan.vectorStorageLimitMB,
           amount: plan.price,
           interval: plan.interval,
+          balance: plan.monthlyCredits,
+          fileStorageRemaining: plan.fileStorageLimitGB * 1024,
+          fileStorageUsed: 0,
         });
       }
 
@@ -163,35 +179,109 @@ export class SubscriptionManager {
         .update(users)
         .set({ stripeCustomerId: stripeCustomerId })
         .where(eq(users.id, userId));
-
-      // Handle usage quota setup
-      if (isNewSubscription || isPlanChange) {
-        if (isPlanChange) {
-          // Reset usage for plan change
-          await this.resetUsageForPlanChange(
-            tx,
-            userId,
-            plan,
-            currentPeriodStart,
-            currentPeriodEnd,
-          );
-        } else {
-          // Create new usage quota for new subscription
-          await this.createOrUpdateUsageQuota(
-            tx,
-            userId,
-            plan,
-            currentPeriodStart,
-            currentPeriodEnd,
-          );
-        }
-      }
-
-      // Note: Credit allocation is now handled by webhook handlers to avoid duplicate allocation
-      // and ensure proper sequencing
     });
   }
 
+  async updateOrganizationSubscriptionInfo(ownerId: string, creditsUsed: number) {
+    return db.transaction(async (tx) => {
+      // First check current balance
+      const currentSubscription = await tx
+        .select()
+        .from(userSubscriptions)
+        .where(eq(userSubscriptions.userId, ownerId))
+        .limit(1);
+
+      if (!currentSubscription.length) {
+        return {
+          success: false,
+          message: 'Subscription not found',
+          subscription: null,
+        };
+      }
+
+      const currentBalance = currentSubscription[0].balance;
+      console.log('🔍 currentBalance', currentBalance);
+      console.log('🔍 creditsUsed', creditsUsed);
+
+      // If insufficient credits, set balance to 0
+      if (currentBalance < creditsUsed) {
+        const [updatedSubscription] = await tx
+          .update(userSubscriptions)
+          .set({
+            balance: 0,
+          })
+          .where(eq(userSubscriptions.userId, ownerId))
+          .returning();
+
+        return {
+          success: true,
+          message: `Insufficient credits. Balance set to 0. Used ${currentBalance} out of ${creditsUsed} requested.`,
+          subscription: updatedSubscription,
+        };
+      }
+
+      // Sufficient credits - perform normal deduction
+      const [updatedSubscription] = await tx
+        .update(userSubscriptions)
+        .set({
+          balance: currentBalance - creditsUsed,
+        })
+        .where(eq(userSubscriptions.userId, ownerId))
+        .returning();
+
+      return {
+        success: true,
+        message: 'Organization subscription info updated successfully',
+        subscription: updatedSubscription,
+      };
+    });
+  }
+
+  async updateSubscriptionFileLimit(userId: string, fileSize: number) {
+    return db.transaction(async (tx) => {
+      const currentSubscription = await tx
+        .select()
+        .from(userSubscriptions)
+        .where(eq(userSubscriptions.userId, userId))
+        .limit(1);
+
+      if (!currentSubscription.length) {
+        return { success: false, message: 'Subscription not found' };
+      }
+
+      const subscription = currentSubscription[0];
+
+      // Validate file size is positive
+
+
+      // Check if there's enough storage remaining
+      if (subscription.fileStorageRemaining < fileSize) {
+        return {
+          success: false,
+          message: `Insufficient storage. Available: ${subscription.fileStorageRemaining} MB, Required: ${fileSize} MB`,
+        };
+      }
+
+      // Update userSubscriptions table - simple balance approach
+      const updatedSubscription = await tx
+        .update(userSubscriptions)
+        .set({
+          fileStorageRemaining: subscription.fileStorageRemaining - fileSize,
+          fileStorageUsed: subscription.fileStorageUsed + fileSize,
+          updatedAt: new Date(),
+        })
+        .where(eq(userSubscriptions.userId, userId))
+        .returning();
+
+      return {
+        success: true,
+        message: 'Subscription file limit updated successfully',
+        subscription: updatedSubscription[0],
+        storageRemaining: subscription.fileStorageRemaining - fileSize,
+        storageUsed: subscription.fileStorageUsed + fileSize,
+      };
+    });
+  }
   /**
    * Create or update usage quota for a billing period
    */
@@ -243,6 +333,8 @@ export class SubscriptionManager {
     periodStart: Date,
     periodEnd: Date,
   ) {
+    console.log(`🔄 Resetting usage for plan change for user ${userId}`);
+
     // Archive current usage by setting period end to now
     const currentUsage = await tx
       .select()
@@ -251,21 +343,69 @@ export class SubscriptionManager {
       .limit(1);
 
     if (currentUsage.length > 0) {
+      const currentQuota = currentUsage[0];
+      console.log(`📊 Archiving current usage quota:`, {
+        id: currentQuota.id,
+        creditsUsed: currentQuota.creditsUsed,
+        fileStorageUsed: currentQuota.fileStorageUsed,
+        vectorStorageUsed: currentQuota.vectorStorageUsed,
+      });
+
+      // Archive the current quota by setting period end to now
       await tx
         .update(userUsageQuotas)
-        .set({ periodEnd: new Date() })
-        .where(eq(userUsageQuotas.id, currentUsage[0].id));
+        .set({
+          periodEnd: new Date(),
+          updatedAt: new Date(),
+          metadata: {
+            ...currentQuota.metadata,
+            archived_at: new Date().toISOString(),
+            reason: 'plan_change',
+            previous_plan_limits: {
+              credits: currentQuota.creditsLimit,
+              fileStorageMB: currentQuota.fileStorageLimit,
+              vectorStorageMB: currentQuota.vectorStorageLimit,
+            },
+          },
+        })
+        .where(eq(userUsageQuotas.id, currentQuota.id));
+
+      console.log(`✅ Archived usage quota ${currentQuota.id}`);
     }
 
     // Create new usage quota with new limits
-    await tx.insert(userUsageQuotas).values({
-      id: `quota_${userId}_${Date.now()}`,
+    const newQuotaId = `quota_${userId}_${Date.now()}`;
+    const newQuotaData = {
+      id: newQuotaId,
       userId,
       periodStart,
       periodEnd,
       creditsLimit: plan.monthlyCredits,
       fileStorageLimit: plan.fileStorageLimitGB * 1024, // Convert GB to MB
       vectorStorageLimit: plan.vectorStorageLimitMB,
+      creditsUsed: 0, // Reset usage counters
+      fileStorageUsed: 0,
+      vectorStorageUsed: 0,
+      lastUsageUpdate: new Date(),
+      usageHistory: [], // Start fresh history
+      metadata: {
+        plan_change: true,
+        new_plan: {
+          id: plan.id,
+          name: plan.name,
+          credits: plan.monthlyCredits,
+          fileStorageGB: plan.fileStorageLimitGB,
+          vectorStorageMB: plan.vectorStorageLimitMB,
+        },
+        created_at: new Date().toISOString(),
+      },
+    };
+
+    await tx.insert(userUsageQuotas).values(newQuotaData);
+    console.log(`✅ Created new usage quota ${newQuotaId} with plan limits:`, {
+      credits: plan.monthlyCredits,
+      fileStorageMB: plan.fileStorageLimitGB * 1024,
+      vectorStorageMB: plan.vectorStorageLimitMB,
     });
   }
 
@@ -389,30 +529,54 @@ export class SubscriptionManager {
       }
 
       // Record the transaction
+      const transactionMetadata = {
+        subscriptionId: metadata?.subscriptionId || sub.id,
+        planId: metadata?.planId || sub.planId,
+        planName: metadata?.planName || sub.planName,
+        billingPeriod: {
+          start: sub.currentPeriodStart,
+          end: sub.currentPeriodEnd,
+        },
+        isPlanChange: metadata?.isPlanChange || false,
+        previousBalance: userCreditsRecord.length > 0 ? userCreditsRecord[0].balance : 0,
+        newBalance:
+          userCreditsRecord.length > 0 ? userCreditsRecord[0].balance + creditsToAdd : creditsToAdd,
+        allocationType: 'monthly_renewal',
+      };
+
       await tx.insert(creditTransactions).values({
         id: `tx_${userId}_${Date.now()}`,
         userId,
-        type: metadata?.isPlanChange ? 'subscription_renewal' : 'subscription_allocation',
+        type: 'subscription_allocation',
         amount: creditsToAdd,
         currency: sub.currency,
         stripeEventId: metadata?.stripeEventId || `monthly_alloc_${Date.now()}`,
         priceId: sub.stripePriceId,
         productId: sub.planId,
-        metadata: {
-          subscriptionId: metadata?.subscriptionId || sub.id,
-          planId: metadata?.planId || sub.planId,
-          planName: metadata?.planName || sub.planName,
-          billingPeriod: {
-            start: sub.currentPeriodStart,
-            end: sub.currentPeriodEnd,
-          },
-          isPlanChange: metadata?.isPlanChange || false,
-        },
+        metadata: transactionMetadata,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
-      console.log(`Credit transaction recorded for user ${userId}: ${creditsToAdd} credits`);
+      // Also reset file storage limits for monthly renewal
+      await tx
+        .update(userSubscriptions)
+        .set({
+          fileStorageRemaining: sub.fileStorageLimit * 1024, // Convert GB to MB
+          fileStorageUsed: 0,
+          updatedAt: new Date(),
+        })
+        .where(eq(userSubscriptions.id, sub.id));
 
-      return { success: true, creditsAdded: creditsToAdd };
+      console.log(`✅ Reset file storage for user ${userId}: ${sub.fileStorageLimit} GB available`);
+
+      return {
+        success: true,
+        creditsAdded: creditsToAdd,
+        newBalance:
+          userCreditsRecord.length > 0 ? userCreditsRecord[0].balance + creditsToAdd : creditsToAdd,
+        fileStorageReset: sub.fileStorageLimit * 1024, // MB
+      };
     });
   }
 
@@ -562,7 +726,7 @@ export class SubscriptionManager {
     return {
       subscription: subscription[0],
       usageQuota: usageQuota[0] || null,
-      currentCredits: userCreditsRecord[0]?.balance || 0,
+      currentCredits: subscription[0]?.balance || 0,
     };
   }
 
@@ -597,6 +761,117 @@ export class SubscriptionManager {
         remainingMB: subscription.vectorStorageLimit - (usageQuota?.vectorStorageUsed || 0),
       },
     };
+  }
+
+  /**
+   * Validate usage against plan limits and return any exceeded limits
+   */
+  async validateUsageLimits(userId: string): Promise<{
+    isValid: boolean;
+    exceeded: {
+      credits: boolean;
+      fileStorage: boolean;
+      vectorStorage: boolean;
+    };
+    details: {
+      credits?: { used: number; limit: number; remaining: number };
+      fileStorage?: { usedMB: number; limitMB: number; remainingMB: number };
+      vectorStorage?: { usedMB: number; limitMB: number; remainingMB: number };
+    };
+  } | null> {
+    const usageLimits = await this.getUsageLimits(userId);
+    if (!usageLimits) {
+      return null;
+    }
+
+    const exceeded = {
+      credits: usageLimits.credits.remaining < 0,
+      fileStorage: usageLimits.fileStorage.remainingMB < 0,
+      vectorStorage: usageLimits.vectorStorage.remainingMB < 0,
+    };
+
+    const isValid = !exceeded.credits && !exceeded.fileStorage && !exceeded.vectorStorage;
+
+    return {
+      isValid,
+      exceeded,
+      details: {
+        credits: exceeded.credits ? usageLimits.credits : undefined,
+        fileStorage: exceeded.fileStorage ? usageLimits.fileStorage : undefined,
+        vectorStorage: exceeded.vectorStorage ? usageLimits.vectorStorage : undefined,
+      },
+    };
+  }
+
+  /**
+   * Force reset usage for a user (admin function)
+   */
+  async forceResetUsage(userId: string, reason: string = 'admin_reset'): Promise<boolean> {
+    try {
+      const subscriptionInfo = await this.getUserSubscriptionInfo(userId);
+      if (!subscriptionInfo?.subscription) {
+        console.warn(`No active subscription found for user ${userId}`);
+        return false;
+      }
+
+      const { subscription } = subscriptionInfo;
+      const now = new Date();
+      const periodEnd =
+        subscription.currentPeriodEnd || new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      await db.transaction(async (tx) => {
+        // Archive current usage quota
+        const currentQuota = await tx
+          .select()
+          .from(userUsageQuotas)
+          .where(and(eq(userUsageQuotas.userId, userId), gte(userUsageQuotas.periodEnd, now)))
+          .limit(1);
+
+        if (currentQuota.length > 0) {
+          await tx
+            .update(userUsageQuotas)
+            .set({
+              periodEnd: now,
+              updatedAt: now,
+              metadata: {
+                ...((currentQuota[0].metadata as Record<string, any>) || {}),
+                archived_at: now.toISOString(),
+                reason,
+                admin_action: true,
+              },
+            })
+            .where(eq(userUsageQuotas.id, currentQuota[0].id));
+        }
+
+        // Create new usage quota with reset counters
+        await tx.insert(userUsageQuotas).values({
+          id: `quota_${userId}_${Date.now()}`,
+          userId,
+          periodStart: now,
+          periodEnd,
+          creditsLimit: subscription.monthlyCredits,
+          fileStorageLimit: subscription.fileStorageLimit * 1024,
+          vectorStorageLimit: subscription.vectorStorageLimit,
+          creditsUsed: 0,
+          fileStorageUsed: 0,
+          vectorStorageUsed: 0,
+          lastUsageUpdate: now,
+          usageHistory: [],
+          metadata: {
+            force_reset: true,
+            reason,
+            admin_action: true,
+            created_at: now.toISOString(),
+          },
+        });
+      });
+
+      console.log(`✅ Force reset usage completed for user ${userId}, reason: ${reason}`);
+      return true;
+    } catch (error) {
+      console.error(`❌ Error force resetting usage for user ${userId}:`, error);
+      return false;
+    }
   }
 
   /**
@@ -651,7 +926,7 @@ export class SubscriptionManager {
       if (subscription.length > 0) {
         const sub = subscription[0];
 
-        // Create new usage quota
+        // Create new usage quota and reset counters
         await tx.insert(userUsageQuotas).values({
           id: `quota_${userId}_${Date.now()}`,
           userId,
@@ -660,6 +935,10 @@ export class SubscriptionManager {
           creditsLimit: sub.monthlyCredits,
           fileStorageLimit: sub.fileStorageLimit * 1024, // Convert GB to MB
           vectorStorageLimit: sub.vectorStorageLimit,
+          creditsUsed: 0,
+          fileStorageUsed: 0,
+          vectorStorageUsed: 0,
+          lastUsageUpdate: new Date(),
         });
       }
     });
@@ -797,5 +1076,55 @@ export class SubscriptionManager {
       console.error('Error cleaning up orphaned subscriptions:', error);
       throw error;
     }
+  }
+
+  /**
+   * Update subscription balance when credits are used
+   */
+  async updateSubscriptionBalance(userId: string, creditsUsed: number) {
+    return db.transaction(async (tx) => {
+      const currentSubscription = await tx
+        .select()
+        .from(userSubscriptions)
+        .where(eq(userSubscriptions.userId, userId))
+        .limit(1);
+
+      if (!currentSubscription.length) {
+        return { success: false, message: 'Subscription not found' };
+      }
+
+      const subscription = currentSubscription[0];
+
+      // Validate credits used is positive
+      if (creditsUsed <= 0) {
+        return { success: false, message: 'Credits used must be positive' };
+      }
+
+      // Check if there are enough credits remaining
+      if (subscription.balance < creditsUsed) {
+        return {
+          success: false,
+          message: `Insufficient credits. Available: ${subscription.balance}, Required: ${creditsUsed}`,
+        };
+      }
+
+      // Update subscription balance
+      const updatedSubscription = await tx
+        .update(userSubscriptions)
+        .set({
+          balance: subscription.balance - creditsUsed,
+          updatedAt: new Date(),
+        })
+        .where(eq(userSubscriptions.userId, userId))
+        .returning();
+
+      return {
+        success: true,
+        message: 'Subscription balance updated successfully',
+        subscription: updatedSubscription[0],
+        balanceRemaining: subscription.balance - creditsUsed,
+        balanceUsed: creditsUsed,
+      };
+    });
   }
 }

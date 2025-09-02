@@ -87,7 +87,7 @@ const KlynoWelcome = memo<KlynoWelcomeProps>(({ showTeamFeatures = false, organi
                 <br />
                 Your team AI assistant is ready to help with collaborative tasks and questions.
                 <br />
-                Start a conversation below to get started.
+                Start a conversation by adding a new chat.
               </>
             ) : (
               <>
@@ -95,7 +95,7 @@ const KlynoWelcome = memo<KlynoWelcomeProps>(({ showTeamFeatures = false, organi
                   defaultValue: 'Your intelligent AI assistant is ready to help you with any questions or tasks.' 
                 })}
                 <br />
-                Start a conversation below to get started.
+                Start a conversation by adding a new chat.
               </>
             )}
           </div>

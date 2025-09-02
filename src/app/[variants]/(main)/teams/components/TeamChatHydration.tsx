@@ -1,34 +1,9 @@
 'use client';
 
-import { useQueryState } from 'nuqs';
-import { memo, useLayoutEffect } from 'react';
-import { createStoreUpdater } from 'zustand-utils';
+import { memo } from 'react';
 
-import { useTeamChatStore } from '@/store/teamChat';
-
-// Sync outside state to useTeamChatStore for URL parameters
+// Temporarily disable to prevent infinite loops
 const TeamChatHydration = memo(() => {
-  const useStoreUpdater = createStoreUpdater(useTeamChatStore);
-
-  // Two-way bindings for topic params to team chat store
-  const [topic, setTopic] = useQueryState('topic', { history: 'replace', throttleMs: 500 });
-  
-  // Update store when URL changes
-  useStoreUpdater('activeTopicId', topic);
-
-  useLayoutEffect(() => {
-    // Subscribe to store changes and update URL
-    const unsubscribeTopic = useTeamChatStore.subscribe(
-      (state) => {
-        setTopic(!state.activeTopicId ? null : state.activeTopicId);
-      }
-    );
-
-    return () => {
-      unsubscribeTopic();
-    };
-  }, [setTopic]);
-
   return null;
 });
 

@@ -365,4 +365,10 @@ export class OrganizationModel {
     });
     return !!member;
   }
+  async getOrganizationById(organizationId: string) {
+    const organization = await this.db.query.organizations.findFirst({
+      where: (organizations, { eq }) => eq(organizations.id, organizationId),
+    });
+    return organization;
+  }
 }

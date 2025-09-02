@@ -67,7 +67,7 @@ const Preview = memo<FieldType & { title?: string }>(
             {withFooter ? (
               <Flexbox align={'center'} className={styles.footer} gap={4}>
                 <ProductLogo type={'combine'} />
-                <div className={styles.url}>{pkg.homepage}</div>
+                {/* <div className={styles.url}>{pkg.homepage}</div> */}
               </Flexbox>
             ) : (
               <div />

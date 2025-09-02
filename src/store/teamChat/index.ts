@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid';
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
+import { DEFAULT_AGENT_CONFIG } from '@/const/settings';
 import { isServerMode } from '@/const/version';
 import { TeamChatItem, TeamChatMessageItem } from '@/database/schemas/teamChat';
 import { convertUsage } from '@/libs/model-runtime/utils/usageConverter';
@@ -159,14 +160,14 @@ interface TeamChatState {
       createdAt?: Date;
       isLocal?: boolean; // Flag to prevent WebSocket duplication
     },
-  ) => Promise<string>;
+  ) => Promise<any>;
 
   // Update an existing message in the store
   updateMessage: (
     teamChatId: string,
     messageId: string,
     updates: Partial<TeamChatMessageItem> & { isLocal?: boolean },
-  ) => void;
+  ) => any;
 
   // Batch update messages (for WebSocket reconciliation)
   batchUpdateMessages: (teamChatId: string, messages: TeamChatMessageItem[]) => void;
@@ -248,11 +249,33 @@ type TeamChatStore = TeamChatState & {
   startMessagePolling: (chatId: string) => void;
   stopMessagePolling: (chatId: string) => void;
   creditService: typeof teamChatCreditService;
-  getMessageById: (id: string) => void;
-  deleteMessage: (teamChatId: string, messageId: string) => void;
+  getMessageById: (id: string) => TeamChatMessageItem | undefined;
+  removeMessage: (teamChatId: string, messageId: string) => void;
   copyMessage: (content: string) => void;
   toggleMessageEditing: (id: string, editing: boolean) => void;
-  updateMessage: (teamChatId: string, messageId: string, content: string, metadata?: any) => void;
+  updateMessageContent: (teamChatId: string, messageId: string, content: string, metadata?: any) => void;
+
+  // Redis-based real-time operations
+  handleRedisMessageDelete: (messageId: string, teamChatId: string) => void;
+  handleRedisMessageUpdate: (
+    messageId: string,
+    teamChatId: string,
+    updates: Partial<TeamChatMessageItem>,
+  ) => void;
+  handleRedisMessageComplete: (
+    messageId: string,
+    teamChatId: string,
+    finalMessage: TeamChatMessageItem,
+  ) => void;
+  handleRedisTypingUpdate: (teamChatId: string, userId: string, isTyping: boolean) => void;
+  handleRedisMessageError: (messageId: string, teamChatId: string, error: string) => void;
+  handleRedisMessageReaction: (
+    messageId: string,
+    teamChatId: string,
+    userId: string,
+    reaction: string,
+  ) => void;
+  handleRedisReadReceipt: (messageId: string, teamChatId: string, userId: string) => void;
 };
 
 export const useTeamChatStore = create<TeamChatStore>()(
@@ -305,12 +328,12 @@ export const useTeamChatStore = create<TeamChatStore>()(
         messageId: string,
         updates: Partial<TeamChatMessageItem>,
       ) => {
-        console.log(`📝 updateMessage called for ${teamChatId}:`, {
-          messageId,
-          updates,
-          isLocalChange: (updates as any).isLocal !== undefined,
-          newIsLocalValue: (updates as any).isLocal,
-        });
+        // console.log(`📝 updateMessage called for ${teamChatId}:`, {
+        //   messageId,
+        //   updates,
+        //   isLocalChange: (updates as any).isLocal !== undefined,
+        //   newIsLocalValue: (updates as any).isLocal,
+        // });
 
         set((state) => {
           const existingMessages = state.messages[teamChatId] || [];
@@ -322,12 +345,342 @@ export const useTeamChatStore = create<TeamChatStore>()(
           }
 
           const existingMessage = existingMessages[messageIndex] as any;
-          console.log(`   📋 Existing message:`, {
-            id: existingMessage.id,
-            messageType: existingMessage.messageType,
-            currentIsLocal: existingMessage.isLocal,
-            newIsLocal: (updates as any).isLocal,
+          // console.log(`   📋 Existing message:`, {
+          //   id: existingMessage.id,
+          //   messageType: existingMessage.messageType,
+          //   currentIsLocal: existingMessage.isLocal,
+          //   newIsLocal: (updates as any).isLocal,
+          // });
+
+          // Create updated message
+          const updatedMessage = {
+            ...existingMessage,
+            ...updates,
+          } as any;
+
+          // Use the same deduplication and sorting logic as batchUpdateMessages
+          const messageMap = new Map(existingMessages.map((m) => [m.id, m]));
+
+          // Update the specific message
+          messageMap.set(messageId, updatedMessage);
+
+          // Apply the same sorting logic for consistency
+          const sortedMessages = Array.from(messageMap.values()).sort((a, b) => {
+            // Parse timestamps to numbers for comparison
+            const getTimestamp = (msg: TeamChatMessageItem): number => {
+              if (msg.createdAt instanceof Date) {
+                return msg.createdAt.getTime();
+              }
+              if (typeof msg.createdAt === 'string') {
+                return new Date(msg.createdAt).getTime();
+              }
+              return 0;
+            };
+
+            const tsA = getTimestamp(a);
+            const tsB = getTimestamp(b);
+
+            // First priority: sort by timestamp
+            if (tsA !== tsB) {
+              return tsA - tsB;
+            }
+
+            // Second priority: when timestamps are equal, user messages come first
+            if (a.userId !== b.userId) {
+              // User messages (userId !== "assistant") come before assistant messages
+              if (a.userId === 'assistant') return 1;
+              if (b.userId === 'assistant') return -1;
+            }
+
+            // Third priority: if still equal, sort by ID for consistency
+            return a.id.localeCompare(b.id);
           });
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: sortedMessages,
+            },
+          };
+        });
+        const state = get();
+        const existingMessages = state.messages[teamChatId] || [];
+        const messageIndex = existingMessages.findIndex((m) => m.id === messageId);
+        return messageIndex !== -1 ? existingMessages[messageIndex] : undefined;
+
+        // If the message is no longer local, check if it's an AI message and persist it to database
+        // if ((updates as any).metadata.isLocal === false) {
+        //   console.log(`   🔄 Message is no longer local, checking if it's an AI message...`);
+        //   const state = get();
+        //   const existingMessages = state.messages[teamChatId] || [];
+        //   const message = existingMessages.find((m) => m.id === messageId);
+
+        //   if (message && message.messageType === 'assistant') {
+        //     console.log(`   💾 Persisting updated AI message to database: ${messageId}`);
+        //     console.log(`   📊 Message data:`, {
+        //       id: message.id,
+        //       content: message.content.substring(0, 100),
+        //       messageType: message.messageType,
+        //       metadata: message.metadata,
+        //     });
+        //     // Use the persistMessageToDatabase method to save the updated message
+        //     // Exclude isLocal from database persistence since it's not in the schema yet
+        //     const { isLocal, ...dbMessageData } = message as any;
+        //     await get().persistMessageToDatabase(teamChatId, dbMessageData);
+        //     console.log(`   ✅ AI message persisted successfully: ${messageId}`);
+        //   } else {
+        //     console.log(`   ℹ️ Message is not an AI message or not found:`, {
+        //       messageId,
+        //       messageType: message?.messageType,
+        //       isLocal: (message as any)?.isLocal,
+        //     });
+        //   }
+        // } else {
+        //   console.log(`   ℹ️ Message is still local or isLocal not changed:`, {
+        //     messageId,
+        //     newIsLocal: (updates as any).isLocal,
+        //   });
+        // }
+      },
+
+      updateMessageContent: async (
+        teamChatId: string,
+        messageId: string,
+        content: string,
+      ) => {
+        // console.log(`📝 updateMessage called for ${teamChatId}:`, {
+        //   messageId,
+        //   updates,
+        //   isLocalChange: (updates as any).isLocal !== undefined,
+        //   newIsLocalValue: (updates as any).isLocal,
+        // });
+
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found: ${messageId}`);
+            return state;
+          }
+
+          const existingMessage = existingMessages[messageIndex] as any;
+          // console.log(`   📋 Existing message:`, {
+          //   id: existingMessage.id,
+          //   messageType: existingMessage.messageType,
+          //   currentIsLocal: existingMessage.isLocal,
+          //   newIsLocal: (updates as any).isLocal,
+          // });
+
+          // Create updated message
+          const updatedMessage = {
+            ...existingMessage,
+            content,
+          } as any;
+
+          // Use the same deduplication and sorting logic as batchUpdateMessages
+          const messageMap = new Map(existingMessages.map((m) => [m.id, m]));
+
+          // Update the specific message
+          messageMap.set(messageId, updatedMessage);
+
+          // Apply the same sorting logic for consistency
+          const sortedMessages = Array.from(messageMap.values()).sort((a, b) => {
+            // Parse timestamps to numbers for comparison
+            const getTimestamp = (msg: TeamChatMessageItem): number => {
+              if (msg.createdAt instanceof Date) {
+                return msg.createdAt.getTime();
+              }
+              if (typeof msg.createdAt === 'string') {
+                return new Date(msg.createdAt).getTime();
+              }
+              return 0;
+            };
+
+            const tsA = getTimestamp(a);
+            const tsB = getTimestamp(b);
+
+            // First priority: sort by timestamp
+            if (tsA !== tsB) {
+              return tsA - tsB;
+            }
+
+            // Second priority: when timestamps are equal, user messages come first
+            if (a.userId !== b.userId) {
+              // User messages (userId !== "assistant") come before assistant messages
+              if (a.userId === 'assistant') return 1;
+              if (b.userId === 'assistant') return -1;
+            }
+
+            // Third priority: if still equal, sort by ID for consistency
+            return a.id.localeCompare(b.id);
+          });
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: sortedMessages,
+            },
+          };
+        });
+
+        // If the message is no longer local, check if it's an AI message and persist it to database
+        // if ((updates as any).metadata.isLocal === false) {
+        //   console.log(`   🔄 Message is no longer local, checking if it's an AI message...`);
+        //   const state = get();
+        //   const existingMessages = state.messages[teamChatId] || [];
+        //   const message = existingMessages.find((m) => m.id === messageId);
+
+        //   if (message && message.messageType === 'assistant') {
+        //     console.log(`   💾 Persisting updated AI message to database: ${messageId}`);
+        //     console.log(`   📊 Message data:`, {
+        //       id: message.id,
+        //       content: message.content.substring(0, 100),
+        //       messageType: message.messageType,
+        //       metadata: message.metadata,
+        //     });
+        //     // Use the persistMessageToDatabase method to save the updated message
+        //     // Exclude isLocal from database persistence since it's not in the schema yet
+        //     const { isLocal, ...dbMessageData } = message as any;
+        //     await get().persistMessageToDatabase(teamChatId, dbMessageData);
+        //     console.log(`   ✅ AI message persisted successfully: ${messageId}`);
+        //   } else {
+        //     console.log(`   ℹ️ Message is not an AI message or not found:`, {
+        //       messageId,
+        //       messageType: message?.messageType,
+        //       isLocal: (message as any)?.isLocal,
+        //     });
+        //   }
+        // } else {
+        //   console.log(`   ℹ️ Message is still local or isLocal not changed:`, {
+        //     messageId,
+        //     newIsLocal: (updates as any).isLocal,
+        //   });
+        // }
+      },
+
+      // Remove a message by id
+      removeMessage: (teamChatId: string, messageId: string) => {
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const filteredMessages = existingMessages.filter((m: any) => m.id !== messageId);
+
+          // Apply the same sorting logic for consistency
+          const sortedMessages = filteredMessages.sort((a, b) => {
+            // Parse timestamps to numbers for comparison
+            const getTimestamp = (msg: TeamChatMessageItem): number => {
+              if (msg.createdAt instanceof Date) {
+                return msg.createdAt.getTime();
+              }
+              if (typeof msg.createdAt === 'string') {
+                return new Date(msg.createdAt).getTime();
+              }
+              return 0;
+            };
+
+            const tsA = getTimestamp(a);
+            const tsB = getTimestamp(b);
+
+            // First priority: sort by timestamp
+            if (tsA !== tsB) {
+              return tsA - tsB;
+            }
+
+            // Second priority: when timestamps are equal, user messages come first
+            if (a.userId !== b.userId) {
+              // User messages (userId !== "assistant") come before assistant messages
+              if (a.userId === 'assistant') return 1;
+              if (b.userId === 'assistant') return -1;
+            }
+
+            // Third priority: if still equal, sort by ID for consistency
+            return a.id.localeCompare(b.id);
+          });
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: sortedMessages,
+            },
+          };
+        });
+      },
+
+      // Get a message by id from any team chat
+      getMessageById: (id: string) => {
+        const state = get();
+        for (const messages of Object.values(state.messages)) {
+          const message = messages.find((m: any) => m.id === id);
+          if (message) return message;
+        }
+        return undefined;
+      },
+
+      // Copy message content to clipboard
+      copyMessage: (content: string) => {
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(content);
+        } else {
+          // Fallback for older browsers
+          const textArea = document.createElement('textarea');
+          textArea.value = content;
+          textArea.style.position = 'fixed';
+          textArea.style.left = '-999999px';
+          textArea.style.top = '-999999px';
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          try {
+            document.execCommand('copy');
+          } catch (err) {
+            console.error('Failed to copy message:', err);
+          }
+          document.body.removeChild(textArea);
+        }
+      },
+
+      // Toggle message editing state
+      toggleMessageEditing: (id: string, editing: boolean) => {
+        set((state) => ({
+          messageEditingIds: editing
+            ? [...state.messageEditingIds, id]
+            : state.messageEditingIds.filter((editId) => editId !== id),
+        }));
+      },
+
+      // Redis-based real-time message operations
+      // These methods are called by WebSocket handlers to sync state across all users
+
+      // Handle real-time message deletion from Redis
+      handleRedisMessageDelete: (messageId: string, teamChatId: string) => {
+        console.log(`🔄 Redis: Handling message deletion: ${messageId} in ${teamChatId}`);
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const filteredMessages = existingMessages.filter((m: any) => m.id !== messageId);
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: filteredMessages,
+            },
+          };
+        });
+      },
+
+      // Handle real-time message updates from Redis (for streaming)
+      handleRedisMessageUpdate: (
+        messageId: string,
+        teamChatId: string,
+        updates: Partial<TeamChatMessageItem>,
+      ) => {
+        console.log(`🔄 Redis: Handling message update: ${messageId} in ${teamChatId}`);
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m: any) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found for Redis update: ${messageId}`);
+            return state;
+          }
 
           const updatedMessages = [...existingMessages];
           updatedMessages[messageIndex] = {
@@ -343,51 +696,174 @@ export const useTeamChatStore = create<TeamChatStore>()(
             },
           };
         });
-
-        // If the message is no longer local, check if it's an AI message and persist it to database
-        if ((updates as any).isLocal === false) {
-          console.log(`   🔄 Message is no longer local, checking if it's an AI message...`);
-          const state = get();
-          const existingMessages = state.messages[teamChatId] || [];
-          const message = existingMessages.find((m) => m.id === messageId);
-
-          if (message && message.messageType === 'assistant') {
-            console.log(`   💾 Persisting updated AI message to database: ${messageId}`);
-            console.log(`   📊 Message data:`, {
-              id: message.id,
-              content: message.content.substring(0, 100),
-              messageType: message.messageType,
-              metadata: message.metadata,
-            });
-            // Use the persistMessageToDatabase method to save the updated message
-            // Exclude isLocal from database persistence since it's not in the schema yet
-            const { isLocal, ...dbMessageData } = message as any;
-            await get().persistMessageToDatabase(teamChatId, dbMessageData);
-            console.log(`   ✅ AI message persisted successfully: ${messageId}`);
-          } else {
-            console.log(`   ℹ️ Message is not an AI message or not found:`, {
-              messageId,
-              messageType: message?.messageType,
-              isLocal: (message as any)?.isLocal,
-            });
-          }
-        } else {
-          console.log(`   ℹ️ Message is still local or isLocal not changed:`, {
-            messageId,
-            newIsLocal: (updates as any).isLocal,
-          });
-        }
       },
 
-      // Remove a message by id
-      removeMessage: (teamChatId: string, messageId: string) => {
+      // Handle real-time message completion from Redis
+      handleRedisMessageComplete: (
+        messageId: string,
+        teamChatId: string,
+        finalMessage: TeamChatMessageItem,
+      ) => {
+        console.log(`🔄 Redis: Handling message completion: ${messageId} in ${teamChatId}`);
         set((state) => {
           const existingMessages = state.messages[teamChatId] || [];
-          const filteredMessages = existingMessages.filter((m: any) => m.id !== messageId);
+          const messageIndex = existingMessages.findIndex((m: any) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found for Redis completion: ${messageId}`);
+            return state;
+          }
+
+          const updatedMessages = [...existingMessages];
+          updatedMessages[messageIndex] = {
+            ...finalMessage,
+            updatedAt: new Date(),
+          } as any;
+
           return {
             messages: {
               ...state.messages,
-              [teamChatId]: filteredMessages,
+              [teamChatId]: updatedMessages,
+            },
+          };
+        });
+      },
+
+      // Handle real-time typing indicators from Redis
+      handleRedisTypingUpdate: (teamChatId: string, userId: string, isTyping: boolean) => {
+        console.log(
+          `🔄 Redis: Handling typing update: ${userId} ${isTyping ? 'started' : 'stopped'} typing in ${teamChatId}`,
+        );
+        set((state) => ({
+          activeChatStates: {
+            ...state.activeChatStates,
+            [teamChatId]: {
+              ...state.activeChatStates[teamChatId],
+              typingUsers: {
+                ...state.activeChatStates[teamChatId]?.typingUsers,
+                [userId]: isTyping ? Date.now() : undefined,
+              },
+            },
+          },
+        }));
+      },
+
+      // Handle real-time message errors from Redis
+      handleRedisMessageError: (messageId: string, teamChatId: string, error: string) => {
+        console.log(`🔄 Redis: Handling message error: ${messageId} in ${teamChatId} - ${error}`);
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m: any) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found for Redis error: ${messageId}`);
+            return state;
+          }
+
+          const updatedMessages = [...existingMessages];
+          updatedMessages[messageIndex] = {
+            ...updatedMessages[messageIndex],
+            error: {
+              type: 'redis_error',
+              message: error,
+            },
+            updatedAt: new Date(),
+          } as any;
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: updatedMessages,
+            },
+          };
+        });
+      },
+
+      // Handle real-time message reactions from Redis
+      handleRedisMessageReaction: (
+        messageId: string,
+        teamChatId: string,
+        userId: string,
+        reaction: string,
+      ) => {
+        console.log(
+          `🔄 Redis: Handling message reaction: ${userId} reacted with ${reaction} to ${messageId} in ${teamChatId}`,
+        );
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m: any) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found for Redis reaction: ${messageId}`);
+            return state;
+          }
+
+          const updatedMessages = [...existingMessages];
+          const currentMessage = updatedMessages[messageIndex] as any;
+
+          // Initialize reactions if they don't exist
+          if (!currentMessage.reactions) {
+            currentMessage.reactions = {};
+          }
+
+          // Add or update reaction
+          if (!currentMessage.reactions[reaction]) {
+            currentMessage.reactions[reaction] = [];
+          }
+
+          // Add user to reaction if not already there
+          if (!currentMessage.reactions[reaction].includes(userId)) {
+            currentMessage.reactions[reaction].push(userId);
+          }
+
+          updatedMessages[messageIndex] = {
+            ...currentMessage,
+            updatedAt: new Date(),
+          };
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: updatedMessages,
+            },
+          };
+        });
+      },
+
+      // Handle real-time read receipts from Redis
+      handleRedisReadReceipt: (messageId: string, teamChatId: string, userId: string) => {
+        console.log(
+          `🔄 Redis: Handling read receipt: ${userId} read ${messageId} in ${teamChatId}`,
+        );
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m: any) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found for Redis read receipt: ${messageId}`);
+            return state;
+          }
+
+          const updatedMessages = [...existingMessages];
+          const currentMessage = updatedMessages[messageIndex] as any;
+
+          // Initialize read receipts if they don't exist
+          if (!currentMessage.readReceipts) {
+            currentMessage.readReceipts = {};
+          }
+
+          // Mark message as read by user
+          currentMessage.readReceipts[userId] = new Date().toISOString();
+
+          updatedMessages[messageIndex] = {
+            ...currentMessage,
+            updatedAt: new Date(),
+          };
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: updatedMessages,
             },
           };
         });
@@ -477,7 +953,22 @@ export const useTeamChatStore = create<TeamChatStore>()(
 
           if (isServerMode) {
             console.log('🚄 Using tRPC client for server mode');
-            newChatId = await lambdaClient.teamChat.createTeamChat.mutate({
+
+            const sessionResult = await lambdaClient.session.createSession.mutate({
+              config: {
+                model: DEFAULT_AGENT_CONFIG.model,
+                provider: DEFAULT_AGENT_CONFIG.provider,
+                systemRole: DEFAULT_AGENT_CONFIG.systemRole,
+                params: DEFAULT_AGENT_CONFIG.params as any,
+              },
+              session: {
+                title: title,
+                type: 'agent',
+              },
+              type: 'agent',
+            });
+
+            const chat = await lambdaClient.teamChat.createTeamChat.mutate({
               organizationId,
               title,
               metadata: {
@@ -490,8 +981,11 @@ export const useTeamChatStore = create<TeamChatStore>()(
                     addedBy: userId,
                   },
                 ],
+                sessionId: sessionResult,
               },
             });
+
+            newChatId = chat.id;
 
             // For server mode, we need to reload the list to get the full object
             const chats = await lambdaClient.teamChat.getTeamChatsByOrganization.query({
@@ -611,7 +1105,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
           }
 
           set({ isLoading: true, error: null });
-          console.log('📥 Loading team chats for organization:', organizationId);
+          console.log('�� Loading team chats for organization:', organizationId);
 
           let chats: TeamChatItem[];
 
@@ -635,12 +1129,17 @@ export const useTeamChatStore = create<TeamChatStore>()(
           console.log(`✅ Loaded ${chats.length} accessible team chats for user ${userId}`);
 
           // Update chats for this organization and set it as current
+          // Only update currentOrganizationId if it's different to prevent infinite loops
+          const currentState = get();
           set((state) => ({
             teamChatsByOrg: {
               ...state.teamChatsByOrg,
               [organizationId]: chats,
             },
-            currentOrganizationId: organizationId,
+            currentOrganizationId:
+              currentState.currentOrganizationId === organizationId
+                ? currentState.currentOrganizationId
+                : organizationId,
             isLoading: false,
           }));
         } catch (error) {
@@ -1007,7 +1506,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
           // Then persist to database in background
           let message;
           if (isServerMode) {
-            console.log('🚄 Using tRPC client to send message');
+            // console.log('🚄 Using tRPC client to send message');
             message = await lambdaClient.teamChat.addMessage.mutate({
               teamChatId,
               content,
@@ -1156,16 +1655,16 @@ export const useTeamChatStore = create<TeamChatStore>()(
               // Extract usage information and include model/provider for proper display
               const metadata = context?.usage
                 ? {
-                    ...context.usage,
-                    model: agentConfig.model,
-                    provider: agentConfig.provider,
-                    // Use the API's token count directly
-                    totalTokens: context.usage.totalTokens || 0,
-                  }
+                  ...context.usage,
+                  model: agentConfig.model,
+                  provider: agentConfig.provider,
+                  // Use the API's token count directly
+                  totalTokens: context.usage.totalTokens || 0,
+                }
                 : {
-                    model: agentConfig.model,
-                    provider: agentConfig.provider,
-                  };
+                  model: agentConfig.model,
+                  provider: agentConfig.provider,
+                };
 
               await get().sendMessage(
                 teamChatId,
@@ -1201,7 +1700,14 @@ export const useTeamChatStore = create<TeamChatStore>()(
 
       // Refresh team chats for current organization
       refreshTeamChats: async () => {
-        const { currentOrganizationId } = get();
+        const { currentOrganizationId, isLoading } = get();
+
+        // Prevent duplicate calls if already loading
+        if (isLoading) {
+          console.log('⚠️ Already loading team chats, skipping duplicate call');
+          return;
+        }
+
         if (currentOrganizationId) {
           await get().loadTeamChats(currentOrganizationId);
         } else {
@@ -1307,29 +1813,9 @@ export const useTeamChatStore = create<TeamChatStore>()(
       },
 
       // Centralized message management - single source of truth for all message operations
-      addMessage: async (
-        teamChatId: string,
-        message: {
-          id?: string;
-          content: string;
-          messageType: 'user' | 'assistant' | 'system';
-          userId: string;
-          metadata?: any;
-          createdAt?: Date;
-          isLocal?: boolean; // Flag to prevent WebSocket duplication
-        },
-      ) => {
+      addMessage: async (teamChatId: string, message: any) => {
         const messageId = message.id || `msg_${Date.now()}_${nanoid(10)}`;
-        const timestamp = message.createdAt || new Date();
-
-        console.log(`📝 addMessage called for ${teamChatId}:`, {
-          providedId: message.id,
-          finalId: messageId,
-          userId: message.userId,
-          messageType: message.messageType,
-          isLocal: message.isLocal,
-          contentPreview: message.content.substring(0, 50),
-        });
+        const timestamp = new Date().toISOString();
 
         const messageData = {
           id: messageId,
@@ -1342,203 +1828,129 @@ export const useTeamChatStore = create<TeamChatStore>()(
           updatedAt: timestamp,
         };
 
-        // Update local store immediately
-        set((state) => {
+        set((state: any) => {
           const existingMessages = state.messages[teamChatId] || [];
-          console.log(`   Existing messages before add: ${existingMessages.length}`);
 
-          // Check for duplicates before adding
-          const isDuplicate = existingMessages.some((existing) => {
-            // Check exact ID match
-            if (existing.id === messageId) {
-              console.log(`   🔄 Duplicate detected by exact ID: ${messageId}`);
-              return true;
-            }
-
-            // Check clientMessageId match for AI messages
-            if (
-              message.messageType === 'assistant' &&
-              message.metadata?.clientMessageId &&
-              existing.metadata?.clientMessageId
-            ) {
-              if (message.metadata.clientMessageId === existing.metadata.clientMessageId) {
-                console.log(
-                  `   🔄 Duplicate detected by clientMessageId: ${message.metadata.clientMessageId}`,
-                );
-                return true;
-              }
-            }
-
-            // Check for AI messages with similar content and very close timestamps
-            if (message.messageType === 'assistant' && existing.messageType === 'assistant') {
-              const contentIdentical = existing.content === message.content;
-              const timeVeryClose =
-                Math.abs(existing.createdAt.getTime() - timestamp.getTime()) < 2000; // Within 2 seconds
-
-              if (contentIdentical && timeVeryClose) {
-                console.log(
-                  `   🔄 Duplicate AI message detected by content and time: ${messageId} vs ${existing.id}`,
-                );
-                return true;
-              }
-            }
-
-            return false;
-          });
+          const isDuplicate = existingMessages.some(
+            (existing: any) =>
+              existing.id === messageId ||
+              (existing.content === message.content &&
+                existing.userId === message.userId &&
+                Math.abs(new Date(existing.createdAt).getTime() - new Date(timestamp).getTime()) < 1000),
+          );
 
           if (isDuplicate) {
-            console.log(`   🚫 Skipping duplicate message: ${messageId}`);
-            return state; // Don't modify state if duplicate detected
+            console.log(`�� Skipping duplicate message: ${messageId}`);
+            return state;
           }
 
-          const updatedMessages = [...existingMessages, messageData as any];
-          console.log(`   Messages after add: ${updatedMessages.length}`);
+          const updatedMessages = [...existingMessages, messageData];
 
-          return {
-            messages: {
-              ...state.messages,
-              [teamChatId]: updatedMessages,
-            },
-          };
-        });
+          const sortedMessages = updatedMessages.sort((a, b) => {
+            const tsA = new Date(a.createdAt).getTime();
+            const tsB = new Date(b.createdAt).getTime();
 
-        // Persist to database in background (non-blocking)
-        if (!message.isLocal) {
-          console.log(`   Persisting message to database: ${messageId}`);
-          // Exclude isLocal from database persistence until migration is run
-          const { isLocal, ...dbMessageData } = messageData as any;
-          await get().persistMessageToDatabase(teamChatId, dbMessageData);
-        } else if (message.messageType === 'assistant') {
-          // For AI messages, persist immediately even if local to handle page reloads
-          console.log(
-            `   Persisting AI message to database immediately (isLocal: true): ${messageId}`,
-          );
-          const { isLocal, ...dbMessageData } = messageData as any;
-          await get().persistMessageToDatabase(teamChatId, dbMessageData);
-        } else {
-          console.log(`   Skipping database persistence (isLocal: true): ${messageId}`);
-        }
-
-        return messageId;
-      },
-
-      // Batch update messages (for WebSocket reconciliation)
-      batchUpdateMessages: (teamChatId: string, messages: TeamChatMessageItem[]) => {
-        console.log(
-          `🔄 batchUpdateMessages called for ${teamChatId} with ${messages.length} messages:`,
-          messages.map((m) => ({
-            id: m.id,
-            userId: m.userId,
-            contentPreview: m.content.substring(0, 50),
-            clientMessageId: m.metadata?.clientMessageId,
-          })),
-        );
-
-        set((state) => {
-          const existingMessages = state.messages[teamChatId] || [];
-          console.log(`   Existing messages in store: ${existingMessages.length}`);
-
-          // Create a map for efficient lookup by ID
-          const messageMap = new Map(existingMessages.map((m) => [m.id, m]));
-
-          // Create a map for AI message lookup by clientMessageId
-          const aiMessageMap = new Map<string, TeamChatMessageItem>();
-          existingMessages.forEach((msg) => {
-            if (msg.userId === 'assistant' && msg.metadata?.clientMessageId) {
-              aiMessageMap.set(msg.metadata.clientMessageId, msg);
+            if (tsA !== tsB) return tsA - tsB;
+            if (a.userId !== b.userId) {
+              return a.metadata?.userInfo?.id === 'assistant' ? 1 : -1;
             }
-          });
-
-          // Also create a map for AI messages by content similarity for better reconciliation
-          const aiContentMap = new Map<string, TeamChatMessageItem>();
-          existingMessages.forEach((msg) => {
-            if (msg.userId === 'assistant') {
-              // Use first 100 chars as key for content similarity
-              const contentKey = msg.content.substring(0, 100);
-              aiContentMap.set(contentKey, msg);
-            }
-          });
-
-          // Process incoming messages with enhanced deduplication
-          messages.forEach((message) => {
-            let wasUpdate = false;
-            let wasReplaced = false;
-
-            // First, check for exact ID match
-            if (messageMap.has(message.id)) {
-              messageMap.set(message.id, message);
-              wasUpdate = true;
-              console.log(`   Updated message by ID: ${message.id} (${message.userId})`);
-            } else {
-              // For AI messages, check if we can replace by clientMessageId or content similarity
-              if (message.userId === 'assistant') {
-                let existingAiMessage = aiMessageMap.get(message.metadata?.clientMessageId || '');
-
-                // If no clientMessageId match, try content similarity
-                if (!existingAiMessage && message.content.length > 10) {
-                  const contentKey = message.content.substring(0, 100);
-                  existingAiMessage = aiContentMap.get(contentKey);
-                }
-
-                if (existingAiMessage) {
-                  // Replace the existing AI message with the server-confirmed one
-                  messageMap.delete(existingAiMessage.id);
-                  messageMap.set(message.id, message);
-                  wasReplaced = true;
-                  console.log(
-                    `   🔄 Replaced AI message: ${existingAiMessage.id} → ${message.id} (clientMessageId: ${message.metadata?.clientMessageId || 'none'}, content similarity: ${!!aiContentMap.get(message.content.substring(0, 100))})`,
-                  );
-                } else {
-                  // New AI message, add it
-                  messageMap.set(message.id, message);
-                  console.log(`   Added new AI message: ${message.id} (${message.userId})`);
-                }
-              } else {
-                // Regular message, add it
-                messageMap.set(message.id, message);
-                console.log(`   Added new message: ${message.id} (${message.userId})`);
-              }
-            }
-
-            // Log the action taken
-            if (!wasUpdate && !wasReplaced) {
-              console.log(
-                `   ${wasUpdate ? 'Updated' : 'Added'} message: ${message.id} (${message.userId})`,
-              );
-            }
-          });
-
-          // Sort messages chronologically (oldest first) with proper timestamp handling
-          const updatedMessages = Array.from(messageMap.values()).sort((a, b) => {
-            const dateA =
-              a.createdAt instanceof Date
-                ? a.createdAt.getTime()
-                : typeof a.createdAt === 'string'
-                  ? new Date(a.createdAt).getTime()
-                  : 0;
-            const dateB =
-              b.createdAt instanceof Date
-                ? b.createdAt.getTime()
-                : typeof b.createdAt === 'string'
-                  ? new Date(b.createdAt).getTime()
-                  : 0;
-
-            // Primary sort by timestamp
-            if (dateA !== dateB) return dateA - dateB;
-
-            // Secondary sort by ID for messages with same timestamp
             return a.id.localeCompare(b.id);
           });
 
-          console.log(`   Final message count: ${updatedMessages.length}`);
           return {
             messages: {
               ...state.messages,
-              [teamChatId]: updatedMessages,
+              [teamChatId]: sortedMessages,
+            },
+          };
+        });
+
+        return messageData;
+      },
+
+      // Batch update messages (for WebSocket reconciliation)
+      batchUpdateMessages: (teamChatId: string, newMessages: any[]) => {
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          
+          const messageMap = new Map<string, any>();
+          
+          // Add existing
+          existingMessages.forEach((msg) => {
+            if (msg.id) messageMap.set(msg.id, msg);
+          });
+          
+          // Add/merge new
+          newMessages.forEach((msg) => {
+            if (msg.id) {
+              messageMap.set(msg.id, {
+                ...messageMap.get(msg.id),
+                ...msg,
+              });
+            }
+          });
+          
+          const mergedMessages = Array.from(messageMap.values());
+          
+          // Sorting
+          const sortedMessages = mergedMessages.sort((a, b) => {
+            const getTimestamp = (msg: any): number => {
+              if (msg.createdAt instanceof Date) return msg.createdAt.getTime();
+              if (typeof msg.createdAt === "string") {
+                // Handle PostgreSQL timestamp formats
+                // Examples: "2025-09-01 09:25:12.564+00", "2025-09-01T09:25:12.564Z", etc.
+                let timestampString = msg.createdAt.trim();
+                
+                // Convert PostgreSQL format to ISO format if needed
+                if (timestampString.includes(' ') && !timestampString.includes('T')) {
+                  // Replace space with 'T' for ISO format
+                  timestampString = timestampString.replace(' ', 'T');
+                }
+                
+                // Handle timezone offset format (+00 instead of +00:00)
+                if (/[+-]\d{2}$/.test(timestampString)) {
+                  timestampString += ':00';
+                }
+                
+                // If no timezone info, assume UTC
+                if (!timestampString.includes('+') && !timestampString.includes('-') && !timestampString.endsWith('Z')) {
+                  timestampString += 'Z';
+                }
+                
+                const parsed = new Date(timestampString).getTime();
+                return isNaN(parsed) ? 0 : parsed;
+              }
+              return 0;
+            };
+            
+            const tsA = getTimestamp(a);
+            const tsB = getTimestamp(b);
+            
+            // 1. chronological order
+           
+            if (tsA !== tsB) return tsA - tsB;
+            
+            console.log("User Message before assistant");
+            
+            // 2. user messages before assistant
+            const isAssistantA = a.metadata?.userInfo?.id === "assistant";
+            const isAssistantB = b.metadata?.userInfo?.id === "assistant";
+            if (isAssistantA !== isAssistantB) return isAssistantA ? 1 : -1;
+            
+            // 3. fallback by ID
+            return String(a.id).localeCompare(String(b.id));
+          });
+          
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: sortedMessages,
             },
           };
         });
       },
+      
+      
 
       // Method to persist message to database
       persistMessageToDatabase: async (teamChatId: string, messageData: any) => {
@@ -1579,12 +1991,12 @@ export const useTeamChatStore = create<TeamChatStore>()(
           throw error;
         }
       },
-          getMessageById: (id: string) => {
-        const { messages } = get();
-        return Object.values(messages)
-          .flat()
-          .find((message) => message.id === id);
-      },
+      // getMessageById: (id: string) => {
+      //   const { messages } = get();
+      //   return Object.values(messages)
+      //     .flat()
+      //     .find((message) => message.id === id);
+      // },
     }),
     {
       name: 'team-chat-store',

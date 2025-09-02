@@ -1,249 +1,476 @@
 'use client';
 
-import { ModelTag } from '@lobehub/icons';
 import { useTheme } from 'antd-style';
-import isEqual from 'lodash/isEqual';
-import React, { useMemo } from 'react';
-import { memo, useEffect, useRef } from 'react';
-import { Flexbox } from 'react-layout-kit';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 
 import { DEFAULT_USER_AVATAR } from '@/const/meta';
 import { TeamChatMessageItem } from '@/database/schemas/teamChat';
 import ChatItem from '@/features/ChatItem';
 import Usage from '@/features/Conversation/Extras/Usage';
-import ActionsBar from '@/features/Conversation/components/ChatItem/ActionsBar';
-import { useSessionStore } from '@/store/session';
-import { sessionMetaSelectors } from '@/store/session/selectors';
-import { sessionSelectors } from '@/store/session/slices/session/selectors';
+import { useTeamChatWebSocket } from '@/hooks/useTeamChatWebSocket';
 import { useTeamChatStore } from '@/store/teamChat';
 import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
 
+import TeamChatActions from '../[teamId]/components/TeamChatActions';
 import TeamAPIKeyForm from './TeamAPIKeyForm';
 import TeamChatWelcome from './TeamChatWelcome';
-import TeamChatActions from '../[teamId]/components/TeamChatActions';
 
 interface TeamChatMessagesProps {
   messages: TeamChatMessageItem[];
   isLoading?: boolean;
 }
 
-const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLoading }) => {
-  const userAvatar = useUserStore(userProfileSelectors.userAvatar);
-  const currentUser = useUserStore(userProfileSelectors.userProfile);
-  const [agentMeta, currentSession] = useSessionStore(
-    (s) => [sessionMetaSelectors.currentAgentMeta(s), sessionSelectors.currentSession(s)],
-    isEqual,
-  );
-  const theme = useTheme();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+// Memoized components for better performance
+const LoadingState = memo(() => (
+  <div className="flex-1 flex items-center justify-center text-slate-400">
+    <div>Loading messages...</div>
+  </div>
+));
+LoadingState.displayName = 'LoadingState';
 
-  const isMessageEditing = useTeamChatStore((state)=>state.messageEditingIds)
-  const toggleMessageEditing = useTeamChatStore((state)=>state.toggleMessageEditing)
-  const updateMessage = useTeamChatStore((state)=>state.updateMessage)
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    const container = messagesEndRef.current?.parentElement;
-    if (!container) return;
+const APIKeyErrorMessage = memo<{
+  messageId: string;
+  errorProvider: string;
+}>(({ messageId, errorProvider }) => (
+  <div
+    style={{
+      background: 'rgba(239, 68, 68, 0.1)',
+      border: '1px solid rgba(239, 68, 68, 0.3)',
+      borderRadius: '8px',
+      padding: '16px',
+    }}
+  >
+    <div style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '8px' }}>
+      🔑 API Key Required
+    </div>
+    <div style={{ color: '#6b7280', fontSize: '14px', marginBottom: '12px' }}>
+      To continue chatting with the AI, please configure your {errorProvider.toUpperCase()} API key
+      below:
+    </div>
+    <TeamAPIKeyForm id={messageId} provider={errorProvider} />
+  </div>
+));
+APIKeyErrorMessage.displayName = 'APIKeyErrorMessage';
 
-    const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 8;
-    // If already at bottom (or very close), keep it sticky to bottom
-    if (atBottom) {
-      // Jump to bottom without smooth to avoid bounce stacking on rapid streams
-      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-      return;
-    }
-
-    // If not at bottom, avoid auto-scrolling unless new message is from current user or assistant stream
-    const last = messages?.[messages.length - 1];
-    if (!last) return;
-    const isAssistant = last.messageType === 'assistant';
-    if (isAssistant) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  if (isLoading) {
+// Optimized message extra content components
+const AssistantExtra = memo<{
+  metadata: any;
+  theme: any;
+}>(({ metadata, theme }) => {
+  if (metadata?.totalTokens) {
     return (
-      <div className="flex-1 flex items-center justify-center text-slate-400">
-        <div>Loading messages...</div>
-      </div>
+      <Usage
+        metadata={metadata}
+        model={metadata?.model || 'assistant'}
+        provider={metadata?.provider || 'openai'}
+      />
     );
   }
-
-  if (!messages || messages.length === 0) {
-    return <TeamChatWelcome />;
-  }
-
-  const MemoizedActionsBar = React.memo(({ id, index }:{id:any,index:number}) => {
-  return <ActionsBar id={id} index={index} />;
-});
 
   return (
     <div
       style={{
-        padding: '16px',
-        width: '100%',
-        height: '80vh',
-        overflowY: 'auto',
+        fontSize: '12px',
+        color: theme.colorTextSecondary,
+        marginTop: '4px',
         display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'flex-start', // Start from top, messages flow down
-        gap: '16px',
+        alignItems: 'center',
+        gap: '4px',
       }}
     >
-      {messages.map((message, index) => {
-        const isAssistant = message.messageType === 'assistant';
-        let isApiKeyError = false;
-        let errorProvider = 'openai';
-        let actualMessage = message.content;
+      <span>🤖 AI Assistant</span>
+      {metadata?.model && (
+        <>
+          <span>•</span>
+          <span>{metadata.model}</span>
+        </>
+      )}
+      {metadata?.provider && (
+        <>
+          <span>•</span>
+          <span>{metadata.provider}</span>
+        </>
+      )}
+    </div>
+  );
+});
+AssistantExtra.displayName = 'AssistantExtra';
 
-        if (isAssistant && message.content) {
-          try {
-            const parsed = JSON.parse(message.content);
-            if (parsed.error?.type === 'InvalidProviderAPIKey') {
-              isApiKeyError = true;
-              errorProvider = parsed.error.body?.provider || 'openai';
-              actualMessage = parsed.content || message.content;
-            }
-          } catch (e) {
-            // Not JSON, use as regular message
-          }
-        }
-
-        // Get user information from message metadata or fallback to current user
-        const userInfo = message.metadata?.userInfo;
-        const isCurrentUser = currentUser && userInfo && userInfo.id === currentUser.id;
-
-        const avatar = isAssistant
-          ? {
-              avatar: '🤖', // AI emoji
-              title: 'AI Assistant',
-            }
-          : {
-              avatar: userInfo?.avatar || userAvatar || DEFAULT_USER_AVATAR,
-              title: userInfo?.fullName || userInfo?.username || userInfo?.email || 'Unknown User',
-            };
-
-        // If this is an API key error, show the configuration form
-        if (isApiKeyError) {
-          return (
-            <div key={message.id} style={{ margin: '16px 0' }}>
-              <div
+const UserExtra = memo<{
+  userInfo: any;
+  files: any[];
+  theme: any;
+}>(({ userInfo, files, theme }) => (
+  <div
+    style={{
+      fontSize: '12px',
+      color: theme.colorTextSecondary,
+      marginTop: '4px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+      alignItems: 'flex-start',
+    }}
+  >
+    {/* Display all uploaded files */}
+    {Array.isArray(files) && files.length > 0 && (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+        {files.map((file, index) => {
+          if (file.type?.startsWith('image/')) {
+            // Display images
+            return (
+              <img
+                key={`${file.id || index}`}
+                src={file.url}
+                alt={file.name}
                 style={{
-                  background: 'rgba(239, 68, 68, 0.1)',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  maxWidth: '200px',
                   borderRadius: '8px',
-                  padding: '16px',
-                  marginBottom: '8px',
+                  maxHeight: '200px',
+                  objectFit: 'contain',
+                  border: `1px solid ${theme.colorBorder}`,
+                }}
+                loading="lazy"
+              />
+            );
+          } else {
+            // Display other file types as file items
+            return (
+              <div
+                key={`${file.id || index}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px',
+                  backgroundColor: theme.colorFillTertiary,
+                  borderRadius: '6px',
+                  border: `1px solid ${theme.colorBorder}`,
+                  maxWidth: '300px',
                 }}
               >
-                <div style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '8px' }}>
-                  🔑 API Key Required
+                <div
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    backgroundColor: theme.colorPrimary,
+                    borderRadius: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  {file.type?.startsWith('application/pdf')
+                    ? 'PDF'
+                    : file.type?.startsWith('text/')
+                      ? 'TXT'
+                      : file.type?.startsWith('application/')
+                        ? 'DOC'
+                        : file.type?.startsWith('video/')
+                          ? 'VID'
+                          : file.type?.startsWith('audio/')
+                            ? 'AUD'
+                            : 'FILE'}
                 </div>
-                <div style={{ color: '#6b7280', fontSize: '14px', marginBottom: '12px' }}>
-                  To continue chatting with the AI, please configure your{' '}
-                  {errorProvider.toUpperCase()} API key below:
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      color: theme.colorText,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title={file.name}
+                  >
+                    {file.name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: theme.colorTextSecondary }}>
+                    {file.size ? `${(file.size / 1024).toFixed(1)} KB` : 'Unknown size'}
+                  </div>
                 </div>
-                <TeamAPIKeyForm id={message.id} provider={errorProvider} />
               </div>
-            </div>
-          );
-        }
+            );
+          }
+        })}
+      </div>
+    )}
 
-        return (
-          <ChatItem
-            style={{
-              color: theme.appearance === 'dark' ? '#fefefe' : '#080808',
-              borderRadius: 8,
-              padding: 8,
-            }}
-            key={message.id}
-            avatar={avatar}
-            actions={<TeamChatActions id={message.id} index={index} />}
-            editing={isMessageEditing.includes(message.id)}
-            loading={!message.content && isAssistant} // Show loading for empty assistant messages
-            message={actualMessage || ''}
-            placement={isAssistant ? 'left' : isCurrentUser ? 'right' : 'left'}
-            primary={!isAssistant}
-            time={new Date(message.createdAt).getTime()}
-            onChange={(value: string) => {
-              // Update the message content in real-time during editing
-              updateMessage(message.teamChatId, message.id, value);
-            }}
-            onEditingChange={(editing: boolean) => {
-              // Toggle editing mode
-              toggleMessageEditing(message.id, editing);
-            }}
-            messageExtra={
-              isAssistant && (message.metadata as any)?.totalTokens ? (
-                <Usage
-                  metadata={(message.metadata as any) || {}}
-                  model={(message.metadata as any)?.model || 'assistant'}
-                  provider={(message.metadata as any)?.provider || 'openai'}
-                />
-              ) : isAssistant ? (
-                <div
-                  style={{
-                    fontSize: '12px',
-                    color: theme.colorTextSecondary,
-                    marginTop: '4px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                  }}
-                >
-                  <span>🤖 AI Assistant</span>
-                  {(message.metadata as any)?.model && (
-                    <>
-                      <span>•</span>
-                      <span>{(message.metadata as any)?.model}</span>
-                    </>
-                  )}
-                  {(message.metadata as any)?.provider && (
-                    <>
-                      <span>•</span>
-                      <span>{(message.metadata as any)?.provider}</span>
-                    </>
-                  )}
-                </div>
-              ) : !isAssistant && userInfo ? (
-                <div
-                  style={{
-                    fontSize: '12px',
-                    color: theme.colorTextSecondary,
-                    marginTop: '4px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    flexDirection:"column"
-                  }}
-                >
-                   {Array.isArray(message?.metadata?.files) &&
-                    message.metadata.files.length > 0 &&
-                    (() => {
-                      const firstImage = message.metadata.files.find(
-                        (file) => file.type && file.type.startsWith('image/'),
-                      );
+    {/* Display user info */}
+    {userInfo?.email && (
+      <div
+        style={{
+          fontSize: '11px',
+          color: theme.colorTextTertiary,
+          padding: '4px 8px',
+          backgroundColor: theme.colorFillQuaternary,
+          borderRadius: '4px',
+          border: `1px solid ${theme.colorBorder}`,
+        }}
+      >
+        👤 {userInfo.fullName || userInfo.username || userInfo.email}
+      </div>
+    )}
+  </div>
+));
+UserExtra.displayName = 'UserExtra';
 
-                      return firstImage ? (
-                        <img
-                          src={firstImage.url}
-                          alt={firstImage.name}
-                          style={{ maxWidth: '150px', borderRadius: '8px' ,maxHeight:'150px',objectFit:"contain"}}
-                        />
-                      ) : null;
-                    })()}
-                  {userInfo.email && <span>{userInfo.email}</span>}
-                  {userInfo.email && userInfo.username && <span>•</span>}
-                  {userInfo.username && <span>@{userInfo.username}</span>}
-                </div>
-              ) : undefined
-            }
-            variant={'bubble'}
-          />
-        );
-      })}
-      {/* Invisible div to help with auto-scrolling */}
-      <div ref={messagesEndRef} />
+// Utility functions moved outside component to prevent recreation
+const parseErrorMessage = (content: string) => {
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed.error?.type === 'InvalidProviderAPIKey') {
+      return {
+        isApiKeyError: true,
+        errorProvider: parsed.error.body?.provider || 'openai',
+        actualMessage: parsed.content || content,
+      };
+    }
+  } catch {
+    // ignore JSON errors
+  }
+  return { isApiKeyError: false, errorProvider: 'openai', actualMessage: content };
+};
+
+const getMessageTimestamp = (createdAt: any): number => {
+  if (createdAt instanceof Date) return createdAt.getTime();
+  if (typeof createdAt === 'string') return new Date(createdAt).getTime();
+  return Date.now();
+};
+
+const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLoading }) => {
+  const teamChatId = useTeamChatStore(useCallback((state) => state.activeTeamChatId, []));
+  const { editMessage } = useTeamChatWebSocket({ teamChatId: teamChatId || '' });
+  // ALL HOOKS AT THE TOP
+  const userAvatar = useUserStore(userProfileSelectors.userAvatar);
+  const currentUser = useUserStore(userProfileSelectors.userProfile);
+  const theme = useTheme();
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const lastMessageCountRef = useRef(messages?.length || 0);
+
+  // Zustand store selectors with stability
+  const isMessageEditing = useTeamChatStore(useCallback((state) => state.messageEditingIds, []));
+  const toggleMessageEditing = useTeamChatStore(
+    useCallback((state) => state.toggleMessageEditing, []),
+  );
+
+  const updateMessageContent = useTeamChatStore(
+    useCallback((state) => state.updateMessageContent, []),
+  );
+  const handleUpdateMessage = async (teamChatId: string, messageId: string, content: string) => {
+    updateMessageContent(teamChatId, messageId, content);
+    editMessage(messageId, content);
+  };
+
+  // Memoized processed messages for better performance
+  const processedMessages = useMemo(() => {
+    if (!messages || !Array.isArray(messages)) return [];
+
+    return messages.filter(
+      (msg) => msg && msg.id && (msg.content || msg.content === 'Thinking...'),
+    );
+  }, [messages]);
+
+  // Optimized scroll to bottom with debouncing
+  const scrollToBottom = useCallback(() => {
+    if (processedMessages.length > 0 && isAtBottom) {
+      requestAnimationFrame(() => {
+        virtuosoRef.current?.scrollToIndex({
+          index: processedMessages.length - 1,
+          behavior: 'smooth',
+          align: 'end',
+        });
+      });
+    }
+  }, [processedMessages.length, isAtBottom]);
+
+  // Auto-scroll effect with optimization
+  useEffect(() => {
+    const currentCount = processedMessages.length;
+    const previousCount = lastMessageCountRef.current;
+
+    // Only scroll if new messages were added and user is at bottom
+    if (currentCount > previousCount && isAtBottom) {
+      scrollToBottom();
+    }
+
+    lastMessageCountRef.current = currentCount;
+  }, [processedMessages.length, isAtBottom, scrollToBottom]);
+
+  // Memoized avatar generator
+  const getAvatar = useCallback(
+    (message: TeamChatMessageItem) => {
+      const isAssistant = message.messageType === 'assistant';
+      if (isAssistant) {
+        return { avatar: '🤖', title: 'AI Assistant' };
+      }
+
+      const userInfo = message.metadata?.userInfo;
+      return {
+        avatar: userInfo?.avatar || userAvatar || DEFAULT_USER_AVATAR,
+        title: userInfo?.fullName || userInfo?.username || userInfo?.email || 'Unknown User',
+      };
+    },
+    [userAvatar],
+  );
+
+  // Highly optimized message renderer
+  const MessageRenderer = useCallback(
+    ({ index }: { index: number }) => {
+      const message = processedMessages[index];
+      if (!message) return null;
+
+      const isAssistant = message.messageType === 'assistant';
+      const userInfo = message.metadata?.userInfo;
+      const isCurrentUser = currentUser?.id === userInfo?.id;
+
+      // Parse error and content
+      let actualMessage = message.content;
+      let isApiKeyError = false;
+      let errorProvider = 'openai';
+
+      if (isAssistant && message.content && message.content !== 'Thinking...') {
+        const parsed = parseErrorMessage(message.content);
+        isApiKeyError = parsed.isApiKeyError;
+        errorProvider = parsed.errorProvider;
+        actualMessage = parsed.actualMessage;
+      }
+
+      if (message.content === 'Thinking...') {
+        actualMessage = '';
+      }
+
+      const avatar = getAvatar(message);
+      const messageTime = getMessageTimestamp(message.createdAt);
+
+      return (
+        <div style={{ padding: '8px 16px' }}>
+          {isApiKeyError ? (
+            <APIKeyErrorMessage messageId={message.id} errorProvider={errorProvider} />
+          ) : (
+            <ChatItem
+              style={{
+                color: theme.appearance === 'dark' ? '#fefefe' : '#080808',
+                borderRadius: 8,
+                padding: 8,
+              }}
+              avatar={avatar}
+              actions={<TeamChatActions id={message.id} index={index} />}
+              editing={isMessageEditing.includes(message.id)}
+              loading={message.content === 'Thinking...'}
+              message={actualMessage || ''}
+              placement={isAssistant ? 'left' : isCurrentUser ? 'right' : 'left'}
+              primary={!isAssistant}
+              time={messageTime}
+              onChange={(value: string) =>
+                handleUpdateMessage(message.teamChatId, message.id, value)
+              }
+              onEditingChange={(editing: boolean) => toggleMessageEditing(message.id, editing)}
+              messageExtra={
+                isAssistant ? (
+                  <AssistantExtra metadata={message.metadata} theme={theme} />
+                ) : userInfo ? (
+                  <UserExtra
+                    userInfo={userInfo}
+                    files={message.metadata?.files || []}
+                    theme={theme}
+                  />
+                ) : undefined
+              }
+              variant="bubble"
+            />
+          )}
+        </div>
+      );
+    },
+    [
+      processedMessages,
+      currentUser?.id,
+      theme,
+      isMessageEditing,
+      getAvatar,
+      toggleMessageEditing,
+      updateMessageContent,
+    ],
+  );
+
+  // Virtuoso callbacks for scroll management
+  const handleAtBottomStateChange = useCallback((atBottom: boolean) => {
+    setIsAtBottom(atBottom);
+  }, []);
+
+  // Memoized components - Fix for few messages
+  const components = useMemo(
+    () => ({
+      Footer: () => <div style={{ height: '16px' }} />,
+      Header: () =>
+        processedMessages.length <= 5 ? <div style={{ height: '20px', flexShrink: 0 }} /> : null,
+    }),
+    [processedMessages.length],
+  );
+
+  // CONDITIONAL RETURNS AFTER ALL HOOKS
+  if (isLoading) {
+    return <LoadingState />;
+  }
+
+  if (!processedMessages || processedMessages.length === 0) {
+    return <TeamChatWelcome />;
+  }
+
+  // Determine Virtuoso configuration based on message count
+  const shouldUseVirtualization = processedMessages.length > 10;
+  const virtuosoProps = shouldUseVirtualization
+    ? {
+        followOutput: 'smooth' as const,
+        alignToBottom: true,
+        initialTopMostItemIndex: Math.max(0, processedMessages.length - 1),
+        overscan: 10,
+        increaseViewportBy: { top: 200, bottom: 200 },
+      }
+    : {
+        // For few messages, don't use aggressive bottom alignment
+        followOutput: false as const,
+        alignToBottom: false,
+        initialTopMostItemIndex: 0,
+        overscan: 2,
+      };
+
+  return (
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '500px',
+      }}
+    >
+      <Virtuoso
+        ref={virtuosoRef}
+        data={processedMessages}
+        itemContent={(index) => MessageRenderer({ index })}
+        style={{
+          height: '100%',
+          minHeight: '500px',
+          // Fix for few messages - prevent empty space at top
+          ...(processedMessages.length <= 5 && {
+            justifyContent: 'flex-start',
+          }),
+        }}
+        components={components}
+        atBottomStateChange={handleAtBottomStateChange}
+        {...virtuosoProps}
+        // Custom scroll behavior for few messages
+        computeItemKey={(index) => processedMessages[index]?.id || index}
+      />
     </div>
   );
 });

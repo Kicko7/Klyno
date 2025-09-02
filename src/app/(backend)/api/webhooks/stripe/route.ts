@@ -359,7 +359,7 @@ async function handleSubscriptionUpdated(
   subscriptionManager: SubscriptionManager,
 ) {
   const subscription = event.data.object as Stripe.Subscription;
-  console.log(`Processing subscription update: ${subscription.id}`);
+  console.log(`📝 Processing subscription update: ${subscription.id}`);
 
   try {
     // Get the user ID from subscription metadata or find it by customer ID
@@ -379,24 +379,27 @@ async function handleSubscriptionUpdated(
     }
 
     if (!userId) {
-      console.error(`Could not find user for updated subscription ${subscription.id}`);
+      console.error(`❌ Could not find user for updated subscription ${subscription.id}`);
       return;
     }
 
-    // Get the product details from the subscription
-    const product = await stripe.products.retrieve(
-      subscription.items.data[0].price.product as string,
-    );
+    // Get the product details from the subscription (defensive against empty items)
+    const firstItem = subscription.items.data[0];
+    if (!firstItem || !firstItem.price?.product) {
+      console.error(`❌ Subscription ${subscription.id} has no valid price/product item`);
+      return;
+    }
+    const product = await stripe.products.retrieve(firstItem.price.product as string);
 
-    console.log(`Retrieved product for subscription update: ${product.id} (${product.name})`);
-    console.log(`Product metadata:`, product.metadata);
+    console.log(`📦 Retrieved product for subscription update: ${product.id} (${product.name})`);
+    console.log(`📋 Product metadata:`, product.metadata);
 
     // Map product to plan configuration
     const plan = PlanMapper.getPlanFromStripeProduct(product);
 
     if (plan) {
       console.log(
-        `Mapped to plan: ${plan.name} (${plan.monthlyCredits} credits, ${plan.fileStorageLimitGB}GB storage)`,
+        `✅ Mapped to plan: ${plan.name} (${plan.monthlyCredits} credits, ${plan.fileStorageLimitGB}GB storage, ${plan.vectorStorageLimitMB}MB vector)`,
       );
 
       const currentPeriodStart = safeUnixToDate(subscription.current_period_start);
@@ -405,11 +408,38 @@ async function handleSubscriptionUpdated(
         ? safeUnixToDate(subscription.canceled_at)
         : undefined;
 
+      // Check if this is a plan change by comparing with existing subscription
+      const existingSubscription = await db
+        .select()
+        .from(userSubscriptions)
+        .where(eq(userSubscriptions.stripeSubscriptionId, subscription.id))
+        .limit(1);
+
+      const isPlanChange =
+        existingSubscription.length > 0 &&
+        (existingSubscription[0].monthlyCredits !== plan.monthlyCredits ||
+          existingSubscription[0].fileStorageLimit !== plan.fileStorageLimitGB ||
+          existingSubscription[0].vectorStorageLimit !== plan.vectorStorageLimitMB);
+
+      if (isPlanChange) {
+        console.log(`🔄 Plan change detected for user ${userId}:`);
+        console.log(
+          `   Credits: ${existingSubscription[0].monthlyCredits} → ${plan.monthlyCredits}`,
+        );
+        console.log(
+          `   File Storage: ${existingSubscription[0].fileStorageLimit}GB → ${plan.fileStorageLimitGB}GB`,
+        );
+        console.log(
+          `   Vector Storage: ${existingSubscription[0].vectorStorageLimit}MB → ${plan.vectorStorageLimitMB}MB`,
+        );
+      }
+
+      // Update subscription in database
       await subscriptionManager.upsertSubscription(
         userId,
         subscription.id,
         subscription.customer as string,
-        subscription.items.data[0].price.id,
+        firstItem.price.id,
         plan,
         mapStripeStatus(subscription.status),
         currentPeriodStart,
@@ -418,14 +448,22 @@ async function handleSubscriptionUpdated(
         canceledAt,
       );
 
+      // Plan change logic: do NOT allocate extra credits mid-cycle to avoid balance inflation
+      // Usage quotas and limits are already reset/synced in upsertSubscription
+      if (isPlanChange) {
+        console.log(
+          `🔄 Plan change detected for user ${userId}; skipped mid-cycle credit allocation to prevent balance inflation`,
+        );
+      }
+
       console.log(
         `✅ Subscription ${subscription.id} updated with plan ${plan.name} for user ${userId}`,
       );
     } else {
-      console.error(`Could not map product ${product.id} to plan configuration`);
+      console.error(`❌ Could not map product ${product.id} to plan configuration`);
     }
   } catch (error) {
-    console.error('Error processing customer.subscription.updated:', error);
+    console.error('❌ Error processing customer.subscription.updated:', error);
     // Don't return error response to avoid webhook retries
   }
 }
@@ -458,9 +496,15 @@ async function handleSubscriptionDeleted(
     }
 
     if (userId) {
-      // Completely remove the deleted subscription and clean up related data
+      // Reset usage so stale usage doesn't linger, then remove subscription
+      const now = new Date();
+      await subscriptionManager.resetUsageForNewPeriod(
+        userId,
+        now,
+        new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+      );
       await subscriptionManager.removeDeletedSubscription(userId, subscription.id);
-      console.log(`✅ Subscription ${subscription.id} completely removed for user ${userId}`);
+      console.log(`✅ Subscription ${subscription.id} usage reset and removed for user ${userId}`);
     } else {
       console.error(`Could not find user for deleted subscription ${subscription.id}`);
     }

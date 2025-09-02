@@ -103,6 +103,7 @@ interface FetchOptions extends FetchSSEOptions {
   isWelcomeQuestion?: boolean;
   signal?: AbortSignal | undefined;
   trace?: TracePayload;
+  subscription?: any;
 }
 
 interface GetChatCompletionPayload extends Partial<Omit<ChatStreamPayload, 'messages'>> {
@@ -130,6 +131,7 @@ interface CreateAssistantMessageStream extends FetchSSEOptions {
   isWelcomeQuestion?: boolean;
   params: GetChatCompletionPayload;
   trace?: TracePayload;
+  subscription?: any;
 }
 
 /**
@@ -167,6 +169,7 @@ class ChatService {
   createAssistantMessage = async (
     { plugins: enabledPlugins, messages, ...params }: GetChatCompletionPayload,
     options?: FetchOptions,
+    subscription?: any,
   ) => {
     const payload = merge(
       {
@@ -279,8 +282,10 @@ class ChatService {
         enabledSearch: enabledSearch && useModelSearch ? true : undefined,
         messages: oaiMessages,
         tools,
+        subscription, // Keep subscription for backend processing
       },
       options,
+      subscription
     );
   };
 
@@ -294,7 +299,9 @@ class ChatService {
     trace,
     isWelcomeQuestion,
     historySummary,
+    subscription,
   }: CreateAssistantMessageStream) => {
+
     await this.createAssistantMessage(params, {
       historySummary,
       isWelcomeQuestion,
@@ -304,10 +311,14 @@ class ChatService {
       onMessageHandle,
       signal: abortController?.signal,
       trace: this.mapTrace(trace, TraceTagMap.Chat),
-    });
+    },subscription);
   };
 
-  getChatCompletion = async (params: Partial<ChatStreamPayload>, options?: FetchOptions) => {
+  getChatCompletion = async (
+    params: Partial<ChatStreamPayload>,
+    options?: FetchOptions,
+    subscription?: any,
+  ) => {
     const { signal, responseAnimation } = options ?? {};
 
     const { provider = ModelProvider.OpenAI, ...res } = params;
@@ -334,10 +345,15 @@ class ChatService {
       ? 'responses'
       : undefined;
 
+    // console.log(subscription, '[SUBSCRIPTION]');
     const payload = merge(
       { model: DEFAULT_AGENT_CONFIG.model, stream: true, ...DEFAULT_AGENT_CONFIG.params },
-      { ...res, apiMode, model },
+      { ...res, apiMode, model, subscription }, // Keep subscription for backend
     );
+
+    // Create a clean payload for AI provider (without subscription) - but keep original for backend
+    const aiProviderPayload = { ...payload };
+    delete (aiProviderPayload as any).subscription; // Remove subscription for AI provider only
 
     /**
      * Use browser agent runtime
@@ -355,7 +371,7 @@ class ChatService {
        */
       fetcher = async () => {
         try {
-          return await this.fetchOnClient({ payload, provider, signal });
+          return await this.fetchOnClient({ payload: aiProviderPayload, provider, signal });
         } catch (e) {
           const {
             errorType = ChatErrorType.BadRequest,
@@ -403,7 +419,7 @@ class ChatService {
     ].reduce((acc, cur) => merge(acc, standardizeAnimationStyle(cur)), {});
 
     return fetchSSE(API_ENDPOINTS.chat(sdkType), {
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload), // Use original payload WITH subscription for backend route
       fetcher: fetcher,
       headers,
       method: 'POST',

@@ -2,6 +2,8 @@ import { Server as HttpServer } from 'http';
 import { nanoid } from 'nanoid';
 import { Server } from 'socket.io';
 
+import { SubscriptionManager } from '@/server/services/subscriptions/subscriptionManager';
+import { ApiService } from '@/services/fetchService';
 import { RedisService } from '@/services/redisService';
 import { getRedisService } from '@/services/redisServiceFactory';
 import { MessageData, SessionManager } from '@/services/sessionManager';
@@ -18,29 +20,50 @@ export class WebSocketServer {
   private io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
   private redisService!: RedisService;
   private sessionManager!: SessionManager;
+  private subscriptionManager!: SubscriptionManager;
+  private apiService!: ApiService;
+  private connectionStats = {
+    totalConnections: 0,
+    activeConnections: 0,
+    totalDisconnections: 0,
+    pingTimeouts: 0,
+  };
 
   constructor(httpServer: HttpServer) {
     this.io = new Server(httpServer, {
       cors: {
         // Allow the frontend origin, not the socket server URL
-        origin: process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:3000',
+        origin: process.env.APP_URL,
+        // origin: 'http://localhost:3000',
         methods: ['GET', 'POST'],
         credentials: true,
       },
       path: '/socket.io',
-      transports: ['websocket', 'polling'],
-      allowEIO3: true,
+      transports: ['polling'],
+      allowEIO3: false,
+      pingTimeout: 60000, // 60 seconds - time to wait for pong (reduced)
+      pingInterval: 25000, // 25 seconds - ping interval (reduced)
+      upgradeTimeout: 10000,
+      maxHttpBufferSize: 1e6,
+      connectTimeout: 45000,
+      // Add connection state validation
+      allowRequest: (req, callback) => {
+        // Allow all requests but log them for debugging
+        callback(null, true);
+      },
     });
   }
 
   public async initialize() {
     this.redisService = await getRedisService();
     this.sessionManager = await getSessionManager();
+    this.subscriptionManager = new SubscriptionManager();
+    this.apiService = new ApiService();
     this.setupMiddleware();
     this.setupEventHandlers();
     console.log('✅ WebSocket server initialized with Redis and SessionManager');
     console.log('🔌 WebSocket server listening on port:', process.env.PORT || '3001');
-    console.log('🌐 CORS origin:', process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:3000');
+    console.log('🌐 CORS origin:', process.env.APP_URL);
   }
 
   private setupMiddleware() {
@@ -58,17 +81,20 @@ export class WebSocketServer {
   }
 
   private setupEventHandlers() {
-    this.io.on('connection', (socket) => {
-      console.log(`Socket connected: ${socket.id} (User: ${socket.data.userId})`);
+    this.io.on('connection', async (socket) => {
+      console.log('🔌 Socket connected:', socket.id);
+      // Track connection time for debugging
+      (socket.data as any).connectTime = Date.now();
+
+      // Update connection statistics
+      this.connectionStats.totalConnections++;
+      this.connectionStats.activeConnections++;
 
       // Room Events
       socket.on('room:join', async (roomId) => {
         try {
-          console.log(`🚪 User ${socket.data.userId} attempting to join room: ${roomId}`);
-
           await socket.join(roomId);
           socket.data.activeRooms.add(roomId);
-          console.log(`✅ User ${socket.data.userId} successfully joined room: ${roomId}`);
 
           // Check if session exists in Redis or load from DB
           let session = await this.sessionManager.getSession(roomId);
@@ -97,18 +123,10 @@ export class WebSocketServer {
           // Send current presence list
           const presence = await this.redisService.getPresence(roomId);
           socket.emit('presence:list', presence);
-          console.log(
-            `📊 Sent presence list to user ${socket.data.userId} for room ${roomId}:`,
-            presence,
-          );
 
           // Send current read receipts
           const receipts = await this.redisService.getReadReceipts(roomId);
           socket.emit('receipt:list', receipts);
-          console.log(
-            `📖 Sent read receipts to user ${socket.data.userId} for room ${roomId}:`,
-            receipts,
-          );
 
           // Update user presence
           await this.redisService.updatePresence(roomId, {
@@ -127,9 +145,6 @@ export class WebSocketServer {
           // Get room information for debugging
           const room = this.io.sockets.adapter.rooms.get(roomId);
           const roomSize = room ? room.size : 0;
-          console.log(
-            `✅ User ${socket.data.userId} joined room ${roomId} with session ${session.sessionId}. Room size: ${roomSize}`,
-          );
         } catch (error) {
           console.error(`❌ Error joining room ${roomId}:`, error);
           socket.emit('room:error', 'Failed to join room');
@@ -154,32 +169,45 @@ export class WebSocketServer {
             lastActiveAt: new Date().toISOString(),
             isActive: false,
           });
+
+          // If room is now empty, persist messages to DB and expire session
+          try {
+            const room = this.io.sockets.adapter.rooms.get(roomId);
+            const roomSize = room ? room.size : 0;
+            if (roomSize === 0) {
+              await this.sessionManager.expireSession(roomId);
+              console.log(`💾 Room ${roomId} empty after leave → session expired & synced`);
+            }
+          } catch (checkErr) {
+            console.error(`Error checking room empty state for ${roomId}:`, checkErr);
+          }
         } catch (error) {
           console.error('Error leaving room:', error);
         }
       });
 
       // Message Events
+
       socket.on(
         'message:send',
-        async (message: { teamId: string; content: string; type?: string; metadata?: any }) => {
+        async (message: { teamId: string; content: string; type?: string; metadata?: any, timestamp?: any }) => {
+          console.log("message timestamp",message.timestamp)
           try {
+            console.log(message.metadata);
             const timestamp = new Date().toISOString();
 
-            // Use client-provided message ID if available, otherwise generate a new one
+            if (!message.timestamp) {
+              message.timestamp = timestamp;
+            }
             const messageId =
               message.metadata?.clientMessageId || `msg_${Date.now()}_${nanoid(10)}`;
-
-            console.log(
-              `📨 Processing message: ${messageId} (client provided: ${!!message.metadata?.clientMessageId})`,
-            );
 
             // Create message data for session
             const messageData: MessageData = {
               id: messageId,
               content: message.content,
               userId: message.type === 'assistant' ? 'assistant' : socket.data.userId,
-              timestamp: Date.now(),
+              timestamp: message.timestamp,
               type: (message.type as 'user' | 'assistant' | 'system') || 'user',
               metadata: message.metadata || {},
               syncedToDb: false,
@@ -200,35 +228,8 @@ export class WebSocketServer {
               }
             }
 
-            // For AI messages, ensure immediate database persistence
-            if (message.type === 'assistant') {
-              try {
-                // Use the lambda client to persist AI messages immediately
-                const { lambdaClient } = await import('@/libs/trpc/client/lambda');
-                await lambdaClient.teamChat.addMessage.mutate({
-                  teamChatId: message.teamId,
-                  content: message.content,
-                  messageType: 'assistant',
-                  metadata: {
-                    ...message.metadata,
-                    redisMessageId: messageId,
-                    syncedFromWebSocket: true,
-                  },
-                });
-                console.log(`✅ AI message immediately persisted to database: ${messageId}`);
-              } catch (persistError) {
-                console.error(
-                  `❌ Failed to persist AI message to database: ${messageId}`,
-                  persistError,
-                );
-                // Don't fail the WebSocket flow, but log the error
-              }
-            }
-
             // Check if we need background sync (approaching 1000 message limit)
             if (await this.sessionManager.needsBackgroundSync(message.teamId)) {
-              console.log(`🔄 Triggering background sync for ${message.teamId}`);
-              // Don't await - let it run in background
               this.sessionManager.performBackgroundSync(message.teamId).catch((error) => {
                 console.error('Background sync failed:', error);
               });
@@ -249,37 +250,18 @@ export class WebSocketServer {
             try {
               await this.redisService.addToMessageStream(message.teamId, streamMessage);
             } catch (streamErr) {
-              // Log but don't fail the send path; socket broadcast still proceeds
               console.error('Failed to add to message stream:', streamErr);
             }
 
             // Get room information for debugging
             const room = this.io.sockets.adapter.rooms.get(message.teamId);
             const roomSize = room ? room.size : 0;
-            console.log(
-              `📡 Broadcasting message ${messageId} to room ${message.teamId} (${roomSize} users)`,
-            );
 
             // Broadcast to all users in the room EXCEPT the sender (to prevent duplication)
             socket.broadcast.to(message.teamId).emit('message:new', streamMessage);
 
-            // Log broadcast details for debugging
-            console.log(`✅ Message ${messageId} broadcasted to room ${message.teamId}`, {
-              type: message.type,
-              userId: message.type === 'assistant' ? 'assistant' : socket.data.userId,
-              contentLength: message.content.length,
-              roomSize,
-              timestamp,
-              metadata: message.metadata,
-            });
-
             // Get session stats for monitoring
             const stats = await this.sessionManager.getSessionStats(message.teamId);
-            if (stats) {
-              console.log(
-                `📊 Session ${message.teamId}: ${stats.messageCount} messages, ${stats.unsyncedCount} unsynced`,
-              );
-            }
 
             // Refresh presence TTL for sender to keep them active
             try {
@@ -296,9 +278,6 @@ export class WebSocketServer {
             } catch (e) {
               console.warn('Failed to refresh presence after message send:', e);
             }
-
-            // Note: Database persistence will happen during sync (either background sync or session expiry)
-            console.log(`📡 Message ${messageId} added to session and broadcasted`);
           } catch (error) {
             console.error('Error sending message:', error);
             socket.emit('room:error', 'Failed to send message. Please try again.');
@@ -310,40 +289,80 @@ export class WebSocketServer {
                 error: error instanceof Error ? error.message : 'Unknown error',
                 timestamp: new Date().toISOString(),
               });
-            } catch {}
+            } catch { }
           }
         },
       );
 
       socket.on('message:edit', async (messageId, content) => {
         try {
-          // Update message in database
-          const { lambdaClient } = await import('@/libs/trpc/client/lambda');
-          // Note: You'll need to add an editMessage mutation to the tRPC router
-          // await lambdaClient.teamChat.editMessage.mutate({ messageId, content });
+          console.log(`✏️ Message edit request: ${messageId} by user ${socket.data.userId}`);
 
-          // Broadcast edit to all rooms the user is in
-          for (const roomId of socket.data.activeRooms) {
-            this.io.to(roomId).emit('message:update', { id: messageId, content });
+          // First, check if message exists in Redis session
+          const session = await this.sessionManager.getSessionByMessageId(messageId);
+
+          if (session) {
+            // Message is in Redis session - update it there
+            await this.sessionManager.updateMessage(session.sessionId, messageId, {
+              content,
+              updatedAt: new Date(),
+            });
+            await this.apiService.updateMessage(messageId, {
+              content,
+              updatedAt: new Date(),
+              updatedBy: socket.data.userId,
+            });
+
+            console.log(`✅ Message ${messageId} updated in Redis session ${session.sessionId}`);
+          } else {
+            try {
+              console.log(`✅ Message ${messageId} updated in database`);
+              const message = await this.apiService.updateMessage(messageId, {
+                content,
+                updatedAt: new Date(),
+                updatedBy: socket.data.userId,
+              });
+              console.log(`✅ Message ${messageId} updated in database`, message);
+            } catch (dbError) {
+              console.error('❌ Failed to update message in database:', dbError);
+
+              return;
+            }
           }
         } catch (error) {
-          console.error('Error editing message:', error);
+          console.error('❌ Error editing message:', error);
         }
       });
 
       socket.on('message:delete', async (messageId) => {
         try {
-          // Delete message from database
-          const { lambdaClient } = await import('@/libs/trpc/client/lambda');
-          // Note: You'll need to add a deleteMessage mutation to the tRPC router
-          // await lambdaClient.teamChat.deleteMessage.mutate({ messageId });
+          console.log(`🗑️ Message delete request: ${messageId} by user ${socket.data.userId}`);
 
-          // Broadcast deletion to all rooms the user is in
-          for (const roomId of socket.data.activeRooms) {
-            this.io.to(roomId).emit('message:delete', messageId);
+          // First, check if message exists in Redis session
+          const session = await this.sessionManager.getSessionByMessageId(messageId);
+
+          if (session) {
+            // Message is in Redis session - delete it there
+            await this.sessionManager.deleteMessage(session.sessionId, messageId);
+
+            // Broadcast deletion to all rooms the user is in
+            for (const roomId of socket.data.activeRooms) {
+              this.io.to(roomId).emit('message:delete', messageId);
+            }
+
+            await this.apiService.deleteMessage(messageId);
+
+            console.log(`✅ Message ${messageId} deleted from Redis session ${session.sessionId}`);
+          } else {
+            try {
+              await this.apiService.deleteMessage(messageId);
+              console.log(`✅ Message ${messageId} deleted from database`);
+            } catch (error) {
+              console.error('❌ Error deleting message:', error);
+            }
           }
         } catch (error) {
-          console.error('Error deleting message:', error);
+          console.error('❌ Error deleting message:', error);
         }
       });
 
@@ -376,13 +395,19 @@ export class WebSocketServer {
       // Read Receipt Events
       socket.on('receipt:update', async (data: { teamId: string; lastReadMessageId: string }) => {
         try {
-          const receipt = {
+          await this.redisService.updateReadReceipt(data.teamId, {
             userId: socket.data.userId,
-            timestamp: new Date().toISOString(),
             lastReadMessageId: data.lastReadMessageId,
-          };
-          await this.redisService.updateReadReceipt(data.teamId, receipt);
-          this.io.to(data.teamId).emit('receipt:update', { ...receipt, teamId: data.teamId });
+            timestamp: new Date().toISOString(),
+          });
+
+          // Broadcast to all users in the room
+          this.io.to(data.teamId).emit('receipt:update', {
+            userId: socket.data.userId,
+            lastReadMessageId: data.lastReadMessageId,
+            timestamp: new Date().toISOString(),
+            teamId: data.teamId,
+          });
         } catch (error) {
           console.error('Error updating read receipt:', error);
         }
@@ -406,9 +431,29 @@ export class WebSocketServer {
         }
       });
 
-      // Disconnect handling
-      socket.on('disconnect', async () => {
-        console.log(`Socket disconnected: ${socket.id} (User: ${socket.data.userId})`);
+      // Custom ping/pong handler to prevent timeout issues
+
+      // Handle connection errors
+      socket.on('error', (error) => {
+        console.error(`Socket error for ${socket.id} (User: ${socket.data.userId}):`, error);
+      });
+
+      socket.on('disconnect', async (reason) => {
+        const duration = Date.now() - ((socket.data as any).connectTime || Date.now());
+
+        // Update connection statistics
+        this.connectionStats.activeConnections = Math.max(
+          0,
+          this.connectionStats.activeConnections - 1,
+        );
+        this.connectionStats.totalDisconnections++;
+
+        console.log(
+          `Socket disconnected: ${socket.id} (User: ${socket.data.userId}) - Reason: ${reason} - Duration: ${duration}ms`,
+        );
+        console.log(
+          `📊 Connection stats: Total: ${this.connectionStats.totalConnections}, Active: ${this.connectionStats.activeConnections}, Disconnections: ${this.connectionStats.totalDisconnections}`,
+        );
 
         // Update presence for all active rooms
         for (const roomId of socket.data.activeRooms) {
@@ -424,6 +469,18 @@ export class WebSocketServer {
               lastActiveAt: new Date().toISOString(),
               isActive: false,
             });
+
+            // If this disconnect leaves the room empty, sync and expire the session
+            try {
+              const room = this.io.sockets.adapter.rooms.get(roomId);
+              const roomSize = room ? room.size : 0;
+              if (roomSize === 0) {
+                await this.sessionManager.expireSession(roomId);
+                console.log(`💾 Room ${roomId} empty after disconnect → session expired & synced`);
+              }
+            } catch (checkErr) {
+              console.error(`Error checking room empty state for ${roomId}:`, checkErr);
+            }
           } catch (error) {
             console.error(`Error updating presence for room ${roomId}:`, error);
           }
@@ -434,5 +491,12 @@ export class WebSocketServer {
 
   public getIO() {
     return this.io;
+  }
+
+  public getConnectionStats() {
+    return {
+      ...this.connectionStats,
+      currentTime: new Date().toISOString(),
+    };
   }
 }

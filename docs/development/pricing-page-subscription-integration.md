@@ -23,11 +23,14 @@ This document outlines the integration of user subscription data with the pricin
 
 - **Current Plan**: Shows active plan name
 - **Billing Cycle**: Next billing date
-- **Usage Metrics**:
-  - Compute credits used/limit
-  - File storage used/limit (GB)
-  - Vector storage used/limit (MB)
-- **Progress Bars**: Visual representation of usage
+- **Usage Metrics (Source of Truth)**:
+  - Credits: uses `user_usage_quotas.credits_used` and `credits_limit`
+  - File storage: uses `user_usage_quotas.file_storage_used_mb` and `file_storage_limit_mb` (rendered in GB)
+  - Vector storage: uses `user_usage_quotas.vector_storage_used_mb` and `vector_storage_limit_mb`
+  - All usage values are clamped to the range 0..limit before display
+- **Wallet Balance (Informational)**:
+  - `user_credits.balance` is displayed as “Balance” for credits but is not used to compute “Used”
+- **Progress Bars**: Visual representation of usage (Used/Limit), with percent = `current / limit * 100` when `limit > 0`; otherwise shows “No limit set”
 
 ### 4. **Subscription Management**
 
@@ -65,6 +68,13 @@ userUsageQuotas: {
   vectorStorageUsedMB: number;
   vectorStorageLimitMB: number;
   // ... other fields
+}
+
+// Credit wallet (purchase allocations and deductions)
+userCredits: {
+  id: string;
+  userId: string;
+  balance: number; // informational on pricing page; not used to compute "Used"
 }
 ```
 
@@ -168,6 +178,9 @@ return <PricingPlans />;
 - Manage subscription section
 - Full subscription dashboard available
 
+Credits “Used” = `usageQuota.creditsUsed` (clamped to 0..`creditsLimit`).
+“Balance” displays `userCredits.balance` separately.
+
 ### 3. **Past Due/Canceled Subscription**
 
 - Sees subscription status (if any)
@@ -196,6 +209,18 @@ return <PricingPlans />;
 - Plan upgrade suggestions
 
 ### 4. **Admin Features**
+
+## Stripe Mapping and Webhooks Overview
+
+- Plan mapping is derived from the Stripe Product of the active `SubscriptionItem`.
+  - Primary: Product metadata `plan_key` (e.g. `starter`, `creator-pro`, `enterprise`).
+  - Fallback: Infer by product name keywords, or parse from metadata (`plan_id`, `plan_name`, `monthly_credits`, `file_storage_gb`, `vector_storage_mb`, `price_cents`, `billing_interval`).
+- On `customer.subscription.created` and `customer.subscription.updated`, the system persists:
+  - `planId` and `planName` (from `PlanMapper`),
+  - `stripePriceId`,
+  - limits (`monthlyCredits`, `fileStorageLimit`, `vectorStorageLimit`).
+- Monthly credit allocations are handled on `invoice.payment_succeeded` (idempotent by `invoice.id`).
+- Usage (credits/file/vector) is tracked via `user_usage_quotas` through runtime `UsageTracker.updateUsage(...)` calls, not by webhooks.
 
 - Bulk subscription management
 - Usage analytics dashboard

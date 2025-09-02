@@ -32,7 +32,7 @@ const Footer = memo<PropsWithChildren>(() => {
 
   return hideGitHub ? null : (
     <>
-      <Flexbox justify={'flex-end'}>
+      {/* <Flexbox justify={'flex-end'}>
         <Center
           as={'footer'}
           className={styles}
@@ -93,7 +93,7 @@ const Footer = memo<PropsWithChildren>(() => {
         }}
         open={openFeedback}
         title={t('footer.feedback.title')}
-      />
+      /> */}
     </>
   );
 });

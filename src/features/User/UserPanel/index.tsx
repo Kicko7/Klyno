@@ -25,7 +25,7 @@ const UserPanel = memo<PropsWithChildren>(({ children }) => {
   const { styles } = useStyles();
 
   return (
-    <UpgradeBadge showBadge={hasNewVersion}>
+    <UpgradeBadge showBadge={false}>
       <Popover
         arrow={false}
         content={<PanelContent closePopover={() => setOpen(false)} />}

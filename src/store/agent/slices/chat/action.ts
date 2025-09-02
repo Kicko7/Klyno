@@ -47,7 +47,7 @@ export interface AgentChatAction {
 
   togglePlugin: (id: string, open?: boolean) => Promise<void>;
   updateAgentChatConfig: (config: Partial<LobeAgentChatConfig>) => Promise<void>;
-  updateAgentConfig: (config: PartialDeep<LobeAgentConfig>) => Promise<void>;
+  updateAgentConfig: (config: PartialDeep<LobeAgentConfig>, sessionId?: string) => Promise<void>;
   useFetchAgentConfig: (isLogin: boolean | undefined, id: string) => SWRResponse<LobeAgentConfig>;
   useFetchFilesAndKnowledgeBases: () => SWRResponse<KnowledgeItem[]>;
   useInitInboxAgentStore: (
@@ -149,14 +149,18 @@ export const createChatSlice: StateCreator<
 
     await get().updateAgentConfig({ chatConfig: config });
   },
-  updateAgentConfig: async (config) => {
+  updateAgentConfig: async (config, sessionId) => {
     const { activeId } = get();
 
-    if (!activeId) return;
+    // if (!activeId) return;
 
     const controller = get().internal_createAbortController('updateAgentConfigSignal');
 
-    await get().internal_updateAgentConfig(activeId, config, controller.signal);
+    if (sessionId) {
+      await get().internal_updateAgentConfig(sessionId, config, controller.signal);
+    } else {
+      await get().internal_updateAgentConfig(activeId, config, controller.signal);
+    }
   },
   useFetchAgentConfig: (isLogin, sessionId) =>
     useClientDataSWR<LobeAgentConfig>(
@@ -221,6 +225,7 @@ export const createChatSlice: StateCreator<
     });
 
     if (isEqual(get().agentMap, agentMap)) return;
+    console.log('🔍 agentMap dispatch', agentMap);
 
     set({ agentMap }, false, 'dispatchAgent' + (actions ? `/${actions}` : ''));
   },

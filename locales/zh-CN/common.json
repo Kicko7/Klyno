@@ -328,7 +328,9 @@
     "discover": "发现",
     "files": "文件",
     "me": "我",
-    "setting": "设置"
+    "pricing": "定价",
+    "setting": "设置",
+    "teams": "团队"
   },
   "telemetry": {
     "allow": "允许",

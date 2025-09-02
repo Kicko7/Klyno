@@ -11,6 +11,8 @@ import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
 
 import TeamChatLayout from './layout/TeamChatLayout';
+import { useTheme } from 'antd-style';
+import Loading from '../../chat/loading';
 
 interface TeamChatContentProps {
   teamChatId: string;
@@ -131,11 +133,48 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
 
           const hasMore = messages.length === PAGE_SIZE;
 
+          // Apply consistent sorting logic for messages
+          const sortMessages = (messagesToSort: any[]) => {
+            return messagesToSort.sort((a, b) => {
+              // Parse timestamps to numbers for comparison
+              const getTimestamp = (msg: any): number => {
+                if (msg.createdAt instanceof Date) {
+                  return msg.createdAt.getTime();
+                }
+                if (typeof msg.createdAt === "string") {
+                  return new Date(msg.createdAt).getTime();
+                }
+                return 0;
+              };
+        
+              const tsA = getTimestamp(a);
+              const tsB = getTimestamp(b);
+        
+              // First priority: sort by timestamp
+              if (tsA !== tsB) {
+                return tsA - tsB;
+              }
+        
+              // Second priority: when timestamps are equal, user messages come first
+              if (a.userId !== b.userId) {
+                // User messages (userId !== "assistant") come before assistant messages
+                if (a.userId === "assistant") return 1;
+                if (b.userId === "assistant") return -1;
+              }
+        
+              // Third priority: if still equal, sort by ID for consistency
+              return a.id.localeCompare(b.id);
+            });
+          };
+
+          const sortedMessages = page === 1 
+            ? sortMessages(messages) 
+            : sortMessages([...(useTeamChatStore.getState().messages[teamChatId] || []), ...messages]);
+
           useTeamChatStore.setState((state) => ({
             messages: {
               ...state.messages,
-              [teamChatId]:
-                page === 1 ? messages : [...(state.messages[teamChatId] || []), ...messages],
+              [teamChatId]: sortedMessages,
             },
             activeChatStates: {
               ...(state.activeChatStates || {}),
@@ -191,7 +230,7 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
     useEffect(() => {
       if (!teamChatId || isCacheValid(teamChatId)) return;
       loadMessages(1);
-    }, [teamChatId, loadMessages]);
+    }, [teamChatId]);
 
     // Use WebSocket for real-time updates instead of polling
     const { sendMessage, startTyping, stopTyping, updateReadReceipt } = useTeamChatWebSocket({
@@ -283,12 +322,14 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
       );
     }
 
+    const theme = useTheme();
+
     // Render loading state
     if (!currentChat || !chatState) {
       return (
-        <div className="flex-1 flex items-center justify-center text-slate-400">
+        <div className={`flex-1 flex items-center justify-center text-slate-400  ${theme.appearance === "dark" ? "bg-black" : "bg-white"}`}>
           <div className="text-center">
-            <p>Loading chat...</p>
+            <Loading />
           </div>
         </div>
       );
@@ -316,109 +357,59 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
 
     return (
       <div
-        style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}
-      >
-        {/* Previous chat (for transition) */}
-        {switchState.isPending && switchState.previousChatId && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              opacity: switchState.isPending ? 1 : 0,
-              transform: `translateX(${switchState.isPending ? '0' : '-100%'})`,
-              transition: 'opacity 0.3s ease-out, transform 0.3s ease-out',
-              zIndex: 1,
-            }}
-          >
-            <TeamChatLayout
-              teamChatId={switchState.previousChatId}
-              mobile={mobile}
-              onLoadMore={handleLoadMore}
-              hasMore={false}
-              isLoading={false}
-              isTransitioning={true}
-            />
-          </div>
-        )}
-
-        {/* Current chat */}
+      style={{
+        position: 'relative',
+        height: '100%',
+        opacity: switchState.isPending ? 0 : 1,
+        transform: `translateX(${switchState.isPending ? '100%' : '0'})`,
+        transition: 'opacity 0.3s ease-out, transform 0.3s ease-out',
+      }}
+    >
+      {/* Loading overlay */}
+      {isLoading && !switchState.isPending && (
         <div
           style={{
-            position: 'relative',
-            height: '100%',
-            opacity: switchState.isPending ? 0 : 1,
-            transform: `translateX(${switchState.isPending ? '100%' : '0'})`,
-            transition: 'opacity 0.3s ease-out, transform 0.3s ease-out',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(255, 255, 255, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
           }}
         >
-          {/* Loading overlay */}
-          {isLoading && !switchState.isPending && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'rgba(255, 255, 255, 0.7)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 1000,
-              }}
-            >
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                <p className="mt-2">Loading messages...</p>
-              </div>
-            </div>
-          )}
-
-          {/* Load more button */}
-          {chatState.hasMoreMessages && !isLoading && !switchState.isPending && (
-            <button
-              onClick={handleLoadMore}
-              className="mb-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded self-center"
-            >
-              Load More Messages
-            </button>
-          )}
-
-          <TeamChatLayout
-            teamChatId={teamChatId}
-            mobile={mobile}
-            onLoadMore={handleLoadMore}
-            hasMore={chatState.hasMoreMessages}
-            isLoading={isLoading}
-            isTransitioning={switchState.isPending}
-          />
-        </div>
-
-        {/* Chat switch loading indicator */}
-        {switchState.isPending && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              zIndex: 1001,
-              background: 'rgba(255, 255, 255, 0.9)',
-              padding: '20px',
-              borderRadius: '8px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-            }}
-          >
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-              <p className="mt-3 text-gray-600">Switching chat...</p>
-            </div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            <p className="mt-2">Loading messages...</p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Load more button */}
+      {chatState.hasMoreMessages && !isLoading && !switchState.isPending && (
+        <button
+          onClick={handleLoadMore}
+          className="mb-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded self-center"
+        >
+          Load More Messages
+        </button>
+      )}
+
+      {/* Only show TeamChatLayout when not loading */}
+      {!isLoading && !switchState.isPending && (
+        <TeamChatLayout
+          teamChatId={teamChatId}
+          mobile={mobile}
+          // onLoadMore={handleLoadMore}
+          hasMore={chatState.hasMoreMessages}
+          isLoading={isLoading}
+          isTransitioning={switchState.isPending}
+        />
+      )}
+    </div>
     );
   },
 );

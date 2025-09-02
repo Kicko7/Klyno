@@ -45,9 +45,10 @@ interface IProps {
   onOpenChange?: (open: boolean) => void;
   open?: boolean;
   updating?: boolean;
+  sessionId?: string;
 }
 
-const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open }) => {
+const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId }) => {
   const { t } = useTranslation('components');
   const { styles, theme } = useStyles();
   const [model, provider, updateAgentConfig] = useAgentStore((s) => [
@@ -65,7 +66,11 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open }) => {
         key: menuKey(provider.id, model.id),
         label: <ModelItemRender {...model} {...model.abilities} />,
         onClick: async () => {
-          await updateAgentConfig({ model: model.id, provider: provider.id });
+          if (sessionId) {
+            await updateAgentConfig({ model: model.id, provider: provider.id }, sessionId);
+          } else {
+            await updateAgentConfig({ model: model.id, provider: provider.id });
+          }
         },
       }));
 

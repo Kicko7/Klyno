@@ -23,12 +23,10 @@ export class TeamChatService {
   // Create a new team chat
   createTeamChat = async (data: Omit<NewTeamChat, 'userId' | 'id'>) => {
     return this.db.transaction(async (trx) => {
-      // Ensure required fields
       if (!data.organizationId) {
         throw new Error('organizationId is required');
       }
 
-      // Create metadata with additional tracking info
       const metadata = {
         ...(data.metadata || {}),
         memberAccess: [
@@ -41,17 +39,21 @@ export class TeamChatService {
         ],
       };
 
-      const newChat = await trx
-        .insert(teamChats)
-        .values({
-          ...data,
-          userId: this.userId,
-          id: idGenerator('team_chats'),
-          metadata,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .returning();
+      // Base insert values
+      const insertData: any = {
+        ...data,
+        id: idGenerator('team_chats'),
+        metadata,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // Only set userId if not in folder
+      if (!data.isInFolder) {
+        insertData.userId = this.userId;
+      }
+
+      const newChat = await trx.insert(teamChats).values(insertData).returning();
 
       return newChat[0];
     });
@@ -511,7 +513,6 @@ export class TeamChatService {
     });
   };
 
-
   // Update an existing message
   updateMessage = async (
     teamChatId: string,
@@ -529,12 +530,7 @@ export class TeamChatService {
         },
         updatedAt: new Date(),
       })
-      .where(
-        and(
-          eq(teamChatMessages.id, messageId),
-          eq(teamChatMessages.teamChatId, teamChatId),
-        ),
-      )
+      .where(and(eq(teamChatMessages.id, messageId), eq(teamChatMessages.teamChatId, teamChatId)))
       .returning();
 
     if (result.length === 0) {
@@ -547,12 +543,7 @@ export class TeamChatService {
   async deleteMessage(teamChatId: string, messageId: string): Promise<void> {
     const result = await this.db
       .delete(teamChatMessages)
-      .where(
-        and(
-          eq(teamChatMessages.id, messageId),
-          eq(teamChatMessages.teamChatId, teamChatId)
-        )
-      );
+      .where(and(eq(teamChatMessages.id, messageId), eq(teamChatMessages.teamChatId, teamChatId)));
 
     if (result.rowCount === 0) {
       throw new Error('Message not found or already deleted');

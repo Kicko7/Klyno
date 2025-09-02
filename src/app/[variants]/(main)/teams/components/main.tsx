@@ -57,7 +57,14 @@ const Main = () => {
 
   return (
     <div className={` ${theme.appearance == "dark" ? "bg-black":"bg-white"} w-full h-full text-white`}>
-      {!currentOrganization && !isLoading ? (
+      {isLoading ? (
+        <Flexbox align="center" justify="center" style={{ minHeight: '100vh', width: '100%' }}>
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+            <Typography.Text className="text-slate-400">Loading organizations...</Typography.Text>
+          </div>
+        </Flexbox>
+      ) : !currentOrganization ? (
         <Flexbox align="center" justify="center" style={{ minHeight: '40vh', width: '100%' }}>
           <Empty
             description="You are not part of any organization yet."
