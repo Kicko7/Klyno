@@ -607,7 +607,9 @@ const PricingPage = () => {
                     border: plan.popular ? `2px solid ${plan.color}` : `1px solid ${theme.colorBorder}`,
                     position: "relative",
                     overflow: "visible",
-                    height: "fit-content",
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
                   }}
                 >
                   {plan.popular && (
@@ -630,7 +632,7 @@ const PricingPage = () => {
                     </div>
                   )}
 
-                  <div style={{ padding: theme.paddingXL }}>
+                  <div style={{ padding: theme.paddingXL, display: "flex", flexDirection: "column", height: "100%" }}>
                     {/* Plan Header */}
                     <div style={{ textAlign: "center", marginBottom: theme.marginXL }}>
                       <div
@@ -707,7 +709,7 @@ const PricingPage = () => {
                     </div>
 
                     {/* Features */}
-                    <div style={{ marginBottom: theme.marginXL }}>
+                    <div style={{ marginBottom: theme.marginXL, flex: 1 }}>
                       <Typography.Title level={5} style={{ marginBottom: theme.marginMD }}>
                         Compute Credits
                       </Typography.Title>
@@ -749,27 +751,6 @@ const PricingPage = () => {
                           </div>
                         ))}
                       </div>
-                      {/* 
-                      <Typography.Title level={5} style={{ marginBottom: theme.marginMD }}>
-                        Advanced Features
-                      </Typography.Title>
-                      <div>
-                        {plan.features.slice(9).map((feature: string, featureIndex: number) => (
-                          <div
-                            key={featureIndex}
-                            style={{
-                              display: "flex",
-                              alignItems: "flex-start",
-                              gap: theme.marginSM,
-                              marginBottom: theme.marginSM,
-                              fontSize: theme.fontSizeSM,
-                            }}
-                          >
-                            <CheckCircle size={14} style={{ color: theme.colorSuccess, flexShrink: 0, marginTop: 2 }} />
-                            <span style={{ color: theme.colorText, lineHeight: 1.4 }}>{feature}</span>
-                          </div>
-                        ))}
-                      </div> */}
                     </div>
 
                     {/* CTA Button */}
@@ -786,6 +767,7 @@ const PricingPage = () => {
                         backgroundColor: plan.popular ? plan.color : undefined,
                         borderColor: plan.popular ? plan.color : undefined,
                         fontWeight: 600,
+                        marginTop: "auto",
                       }}
                     >
                       {plan.monthlyPriceId && plan.yearlyPriceId 
@@ -990,7 +972,9 @@ const PricingPage = () => {
               border: plan.popular ? `2px solid ${plan.color}` : `1px solid ${theme.colorBorder}`,
               position: "relative",
               overflow: "visible",
-              height: "fit-content",
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
             {plan.popular && (
@@ -1133,26 +1117,7 @@ const PricingPage = () => {
                   ))}
                 </div>
 
-                <Typography.Title level={5} style={{ marginBottom: theme.marginMD }}>
-                  Advanced Features
-                </Typography.Title>
-                <div>
-                  {plan.features.slice(9).map((feature: string, featureIndex: number) => (
-                    <div
-                      key={featureIndex}
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: theme.marginSM,
-                        marginBottom: theme.marginSM,
-                        fontSize: theme.fontSizeSM,
-                      }}
-                    >
-                      <CheckCircle size={14} style={{ color: theme.colorSuccess, flexShrink: 0, marginTop: 2 }} />
-                      <span style={{ color: theme.colorText, lineHeight: 1.4 }}>{feature}</span>
-                    </div>
-                  ))}
-                </div>
+             
               </div>
 
               {/* CTA Button */}
