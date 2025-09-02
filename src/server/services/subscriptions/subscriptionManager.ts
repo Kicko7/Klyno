@@ -101,6 +101,13 @@ export class SubscriptionManager {
     cancelAtPeriodEnd: boolean = false,
     canceledAt?: Date,
   ) {
+    console.log("🔍 upsertSubscription", {
+      userId,
+      stripeSubscriptionId,
+      stripeCustomerId,
+      stripePriceId,
+      plan,
+    })
     return db.transaction(async (tx) => {
       // Check if subscription already exists
       const existingSubscription = await tx

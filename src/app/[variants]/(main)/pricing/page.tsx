@@ -38,6 +38,9 @@ const PricingPage = () => {
   } = useUserSubscription()
 
   // Handle checkout for a specific plan
+
+ 
+
   const handleCheckout = async (plan: any) => {
     const priceId = billingCycle === "monthly" ? plan.monthlyPriceId : plan.yearlyPriceId
 
@@ -53,17 +56,15 @@ const PricingPage = () => {
       const isUpgrade = hasActiveSubscription;
 
       const messageText = isUpgrade 
-        ? `Upgrading to ${plan.name}...` 
+        ? "Opening subscription management..." 
         : "Creating checkout session...";
       
       message.loading(messageText, 0)
 
       let result: any;
       if(isUpgrade) {
-         result = await lambdaClient.stripe.upgradeSubscriptionImmediately.mutate({
-          currentSubscriptionId: subscriptionInfo?.subscription?.stripeSubscriptionId as string,
-          newPriceId: priceId,
-        })
+         // For upgrades, redirect to Stripe Customer Portal where users can manage their subscription
+         result = await lambdaClient.stripe.createBillingPortalSession.mutate()
       }
       else {
         result = await lambdaClient.stripe.createSubscriptionCheckoutSession.mutate({
@@ -76,7 +77,7 @@ const PricingPage = () => {
       if (result && (result.url || result.id)) {
         message.destroy()
         const successText = isUpgrade 
-          ? `Redirecting to upgrade checkout...` 
+          ? `Redirecting to subscription management...` 
           : "Redirecting to checkout...";
         message.success(successText)
         
@@ -109,6 +110,15 @@ const PricingPage = () => {
       setCheckoutLoading(null)
     }
   }
+
+
+  // const handleUpgrade = async (plan: any) => {
+  //   const priceId = billingCycle === "monthly" ? plan.monthlyPriceId : plan.yearlyPriceId
+  //   if (!priceId) {
+  //     message.error("This plan is not available for purchase. Please contact sales for pricing information.")
+  //     return
+  //   }
+  // }
 
   // Map Stripe plans to UI format, fallback to hardcoded plans if no Stripe data
   const plans =

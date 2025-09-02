@@ -211,6 +211,8 @@ export const stripeRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const checkoutService = new StripeCheckoutService();
-      return await checkoutService.createSubscriptionUpgradeSession(ctx.userId, input.newPriceId, input.currentSubscriptionId);
+      return await checkoutService.upgradeSubscriptionImmediately(ctx.userId, input.currentSubscriptionId,input.newPriceId );
     }),
+
+
 });

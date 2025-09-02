@@ -300,48 +300,96 @@ export class StripeCheckoutService {
     newPriceId: string,
   ) {
     try {
-      // Ensure user has a Stripe customer
       const customerId = await this.ensureCustomer(userId);
 
-      // Verify the current subscription exists and belongs to the user
-      const currentSubscription = await this.stripe.subscriptions.retrieve(currentSubscriptionId);
+      const currentSubscription = await this.stripe.subscriptions.retrieve(
+        currentSubscriptionId,
+        {
+          expand: ['items.data.price']
+        }
+      );
+
       if (currentSubscription.customer !== customerId) {
         throw new Error('Current subscription does not belong to this user');
       }
 
-      // Verify the new price is a recurring price
+      if (!['active', 'trialing'].includes(currentSubscription.status)) {
+        throw new Error(`Cannot upgrade subscription with status: ${currentSubscription.status}`);
+      }
+
       const newPrice = await this.stripe.prices.retrieve(newPriceId);
       if (!newPrice.recurring) {
         throw new Error('Only recurring prices are supported for subscription upgrades');
       }
 
-      // Update the subscription to the new price
-      const updatedSubscription = await this.stripe.subscriptions.update(currentSubscriptionId, {
-        items: [
-          {
-            id: currentSubscription.items.data[0].id,
-            price: newPriceId,
-          },
-        ],
-        metadata: {
-          ...currentSubscription.metadata,
-          action: 'upgrade',
-          upgradeDate: new Date().toISOString(),
-          previousPriceId: currentSubscription.items.data[0].price.id,
-        },
-        // Enable proration for immediate plan changes
-        proration_behavior: 'create_prorations',
-      });
+      const currentPriceId = currentSubscription.items.data[0].price.id;
+      if (currentPriceId === newPriceId) {
+        throw new Error('Customer is already subscribed to this price');
+      }
 
-      console.log(`✅ Subscription ${currentSubscriptionId} immediately upgraded for user ${userId} to price ${newPriceId}`);
-      return updatedSubscription;
-    } catch (error) {
-      console.error('Error immediately upgrading subscription:', error);
+      const currentQuantity = currentSubscription.items.data[0].quantity || 1;
+
+      const updatedSubscription = await this.stripe.subscriptions.update(
+        currentSubscriptionId,
+        {
+          items: [
+            {
+              id: currentSubscription.items.data[0].id,
+              price: newPriceId,
+              quantity: currentQuantity,
+            },
+          ],
+          metadata: {
+            ...currentSubscription.metadata,
+            action: 'upgrade',
+            upgradeDate: new Date().toISOString(),
+            previousPriceId: currentPriceId,
+            userId: userId,
+          },
+          proration_behavior: 'always_invoice',
+        }
+      );
+
+      // Check if the update was successful
+      if (updatedSubscription.items.data[0].price.id !== newPriceId) {
+        throw new Error('Subscription update failed - price was not changed');
+      }
+
+      console.log(`✅ Subscription ${currentSubscriptionId} immediately upgraded for user ${userId}`);
+      console.log(`   From: ${currentPriceId} → To: ${newPriceId}`);
+      console.log(`   Status: ${updatedSubscription.status}`);
+
+      return {
+        subscription: updatedSubscription,
+        success: true,
+        message: 'Subscription upgraded successfully',
+        details: {
+          previousPriceId: currentPriceId,
+          newPriceId: newPriceId,
+          prorationCreated: true,
+          immediatePayment: true
+        }
+      };
+
+    } catch (error: any) {
+      console.error('❌ Error upgrading subscription:', error);
+
+      // More specific error handling
+      if (error.type === 'StripeCardError') {
+        throw new Error(`Payment failed: ${error.message}`);
+      } else if (error.type === 'StripeInvalidRequestError') {
+        throw new Error(`Invalid request: ${error.message}`);
+      } else if (error.message?.includes('does not belong to this user')) {
+        throw new Error('Unauthorized: Subscription does not belong to this user');
+      }
+
       throw new Error(
-        `Failed to immediately upgrade subscription: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to upgrade subscription: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }
+
+
 
   /**
    * Get or create a Stripe customer ID for a user
