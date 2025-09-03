@@ -1,5 +1,13 @@
 import { ActionIcon, ActionIconProps } from '@lobehub/ui';
-import { Compass, DollarSign, FolderClosed, MessageSquare, Users } from 'lucide-react';
+import {
+  Compass,
+  DollarSign,
+  FolderClosed,
+  MessageSquare,
+  Share2,
+  User,
+  Users,
+} from 'lucide-react';
 import Link from 'next/link';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -72,7 +80,7 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
             size={ICON_SIZE}
             title={t('tab.files')}
             tooltipProps={{ placement: 'right' }}
-        />
+          />
         </Link>
       )}
       <Link aria-label={t('tab.pricing')} href={'/pricing'}>
@@ -81,6 +89,15 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
           icon={DollarSign}
           size={ICON_SIZE}
           title={t('tab.pricing')}
+          tooltipProps={{ placement: 'right' }}
+        />
+      </Link>
+      <Link aria-label={'affiliate'} href={'/affiliate'}>
+        <ActionIcon
+          active={false}
+          icon={Share2}
+          size={ICON_SIZE}
+          title={'Affilate'}
           tooltipProps={{ placement: 'right' }}
         />
       </Link>

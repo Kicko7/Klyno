@@ -9,7 +9,8 @@ import { S3 } from '@/server/modules/S3';
 import { AgentService } from '@/server/services/agent';
 
 export class UserService {
-  createUser = async (id: string, params: UserJSON) => {
+  createUser = async (id: string, params: UserJSON, affiliateRef?: string) => {
+    console.log('createUser', id, params, affiliateRef);
     // Check if user already exists
     const res = await UserModel.findById(serverDB, id);
 
@@ -42,6 +43,7 @@ export class UserService {
       lastName: params.last_name,
       phone: phone?.phone_number,
       username: params.username,
+      affiliateId: affiliateRef || '',
     });
 
     // 3. Create an inbox session for the user
@@ -130,7 +132,7 @@ export class UserService {
       const fileBuffer = Buffer.from(file);
       return fileBuffer;
     } catch (error) {
-      pino.error('Failed to get user avatar:', error);
+      pino.error(`Failed to get user avatar: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 }

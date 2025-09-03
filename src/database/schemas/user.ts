@@ -30,6 +30,7 @@ export const users = pgTable('users', {
 
   preference: jsonb('preference').$defaultFn(() => DEFAULT_PREFERENCE),
 
+  affiliateId: text('affiliate_id').default(''),
   ...timestamps,
 });
 

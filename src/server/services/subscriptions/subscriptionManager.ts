@@ -9,6 +9,7 @@ import { userSubscriptions } from '@/database/schemas/userSubscriptions';
 import { userUsageQuotas } from '@/database/schemas/userUsageQuotas';
 
 import { PlanMapper } from './planMapper';
+import { affiliate, affiliateInfo } from '@/database/schemas';
 
 // Helper function to map Stripe status to our internal status
 function mapStripeStatus(
@@ -125,7 +126,7 @@ export class SubscriptionManager {
 
       if (existingSubscription.length > 0) {
         // Update existing subscription
-        await tx
+        const subscription = await tx
           .update(userSubscriptions)
           .set({
             planId: plan.id,
@@ -147,10 +148,34 @@ export class SubscriptionManager {
             fileStorageRemaining: plan.fileStorageLimitGB * 1024, // Convert GB to MB
             fileStorageUsed: 0,
           })
-          .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId));
+          .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId))
+          .returning();
+
+        const user = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
+        if (user[0].affiliateId) {
+          console.log('🔍 user[0].affiliateId', user[0].affiliateId);
+
+          const price = plan.price;
+          console.log('🔍 price', price);
+          const twoPercent = price * 0.02
+          console.log('two percent',twoPercent)
+          const link = process.env.APP_URL + '/signup?ref=' + user[0].affiliateId;
+          console.log('🔍 link', link);
+          const affiliateinfo = await tx.select().from(affiliateInfo).where(eq(affiliateInfo.link, link)).limit(1);
+          if (affiliateinfo.length > 0) {
+            console.log("Updating Info")
+            await tx.update(affiliateInfo).set({
+              totalRevenue: (affiliateinfo[0].totalRevenue || 0) + twoPercent,
+            }).where(eq(affiliateInfo.id, affiliateinfo[0].id));
+            await tx.update(affiliate).set({
+              planPurchaseId: subscription[0].id,
+            }).where(eq(affiliate.affiliateUserId, userId));
+
+          }
+        }
       } else {
         // Create new subscription
-        await tx.insert(userSubscriptions).values({
+        const subscription = await tx.insert(userSubscriptions).values({
           id: `sub_${userId}_${Date.now()}`,
           userId,
           stripeSubscriptionId,
@@ -171,10 +196,34 @@ export class SubscriptionManager {
           balance: plan.monthlyCredits,
           fileStorageRemaining: plan.fileStorageLimitGB * 1024,
           fileStorageUsed: 0,
-        });
+        }).returning();
+
+        const user = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
+        if (user[0].affiliateId) {
+          console.log('🔍 user[0].affiliateId', user[0].affiliateId);
+          const ownerRefLink = await db.select().from(affiliate).where(eq(affiliate.affiliateUserId, user[0].id)).limit(1);
+
+
+          const price = plan.price;
+          console.log('🔍 price', price);
+          const twoPercent = Math.round(price * 0.02);
+          console.log('two percent',twoPercent)
+          const link = process.env.APP_URL + '/signup?ref=' + user[0].affiliateId;
+          console.log('🔍 link', link);
+          const affiliateinfo = await db.select().from(affiliateInfo).where(eq(affiliateInfo.link, ownerRefLink[0].link)).limit(1);
+          if (affiliateinfo.length > 0) {
+            console.log("Updating Info")
+            await tx.update(affiliateInfo).set({
+              totalRevenue: (affiliateinfo[0].totalRevenue || 0) + twoPercent,
+            }).where(eq(affiliateInfo.link, ownerRefLink[0].link));
+            await tx.update(affiliate).set({
+              planPurchaseId: subscription[0].id,
+            }).where(eq(affiliate.affiliateUserId, userId));
+
+          }
+        }
       }
 
-      // Update user's Stripe customer ID if not set
       await tx
         .update(users)
         .set({ stripeCustomerId: stripeCustomerId })

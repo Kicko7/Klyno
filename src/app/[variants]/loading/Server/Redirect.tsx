@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { memo, useEffect } from 'react';
 
+import { useAffiliateStore } from '@/store/affiliate/store';
 import { useUserStore } from '@/store/user';
 import { authSelectors } from '@/store/user/selectors';
 
@@ -20,11 +21,23 @@ const Redirect = memo<RedirectProps>(({ setLoadingStage }) => {
     s.isUserStateInit,
     s.isOnboard,
   ]);
+  const affiliateRef = localStorage.getItem('affiliateRef');
+  const addAffiliateRef = useAffiliateStore((state) => state.addAffiliateRef);
+  const updateUserAffiliateRef = useAffiliateStore((state) => state.updateUserAffiliateRef);
 
   const navToChat = () => {
     setLoadingStage(AppLoadingStage.GoToChat);
     router.replace('/chat');
   };
+
+  const handleAffiliateRef = async () => {
+    const user = useUserStore.getState().user;
+    if(user && affiliateRef) {
+      const affiliate = await addAffiliateRef({ link: affiliateRef, userId: user.id });
+      updateUserAffiliateRef({ affiliateId: affiliate?.id, userId: user.id });
+      localStorage.removeItem('affiliateRef');
+    }
+  }
 
   useEffect(() => {
     // if user auth state is not ready, wait for loading
@@ -49,6 +62,12 @@ const Redirect = memo<RedirectProps>(({ setLoadingStage }) => {
     if (!isOnboard) {
       router.replace('/onboard');
       return;
+    }
+
+    const user = useUserStore.getState().user;
+    console.log('User state initialized', user, affiliateRef);
+    if (user && affiliateRef) {
+     handleAffiliateRef();
     }
 
     // finally go to chat

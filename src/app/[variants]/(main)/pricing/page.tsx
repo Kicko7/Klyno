@@ -9,6 +9,7 @@ import { Center } from "react-layout-kit"
 import { useStripePlans } from "@/hooks/useStripePlans"
 import { useUserSubscription } from "@/hooks/useUserSubscription"
 import { lambdaClient } from "@/libs/trpc/client"
+import { useUserStore } from "@/store/user"
 
 const useStyles = createStyles(({ css }) => ({
   customTabs: css`
@@ -36,6 +37,9 @@ const PricingPage = () => {
     currentPlan,
     nextBillingDate,
   } = useUserSubscription()
+
+  const { user } = useUserStore();
+  console.log('🔍 user', user);
 
   // Handle checkout for a specific plan
 

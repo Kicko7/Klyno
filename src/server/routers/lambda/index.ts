@@ -27,6 +27,7 @@ import { threadRouter } from './thread';
 import { topicRouter } from './topic';
 import { userRouter } from './user';
 import { sharedFolderRouter } from './sharedFolder';
+import { affiliateRouter } from './affiliate';
 
 export const lambdaRouter = router({
   agent: agentRouter,
@@ -53,7 +54,8 @@ export const lambdaRouter = router({
   thread: threadRouter,
   topic: topicRouter,
   user: userRouter,
-  sharedFolder:sharedFolderRouter
+  sharedFolder:sharedFolderRouter,
+  affiliate:affiliateRouter
 });
 
 export type LambdaRouter = typeof lambdaRouter;
