@@ -208,7 +208,7 @@ export const getLLMConfig = () => {
       ENABLED_MISTRAL: !!process.env.MISTRAL_API_KEY,
       MISTRAL_API_KEY: process.env.MISTRAL_API_KEY,
 
-      ENABLED_OPENROUTER: !!process.env.OPENROUTER_API_KEY,
+      ENABLED_OPENROUTER: process.env.ENABLED_OPENROUTER === "true",
       OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
 
       ENABLED_TOGETHERAI: !!process.env.TOGETHERAI_API_KEY,
