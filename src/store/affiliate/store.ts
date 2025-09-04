@@ -4,6 +4,7 @@ import { devtools } from 'zustand/middleware';
 import {
   AffiliateInfoItem,
   AffiliateItem,
+  AffiliateWithdrawalItem,
   NewAffiliate,
   NewAffiliateInfo,
   UserItem,
@@ -21,6 +22,7 @@ export interface AffiliateState {
   loadingCreateAffiliateInfo: boolean;
   affiliateInfoByUserId: AffiliateInfoItem | null;
   fullUser: UserItem | null;
+  withdrawalHistory: AffiliateWithdrawalItem[] | [];
 }
 
 export interface AffiliateAction {
@@ -34,6 +36,7 @@ export interface AffiliateAction {
   getAffiliateInfoByUserId: (userId: string) => Promise<AffiliateInfoItem>;
   getFullUser: (userId: string) => Promise<UserItem>;
   processWithdrawal: (data: { withdrawalId: string, userId: string }) => Promise<any>;
+  getMyWithdrawalHistory: (data: { userId: string }) => Promise<AffiliateWithdrawalItem[]>;
 }
 
 export interface AffiliateStore extends AffiliateState, AffiliateAction {}
@@ -45,6 +48,7 @@ const initialAffiliateState: AffiliateState = {
   loadingCreateAffiliateInfo: false,
   affiliateInfoByUserId: null,
   fullUser: null,
+  withdrawalHistory: [],
 };
 
 export const useAffiliateStore = create<AffiliateStore>()(
@@ -151,6 +155,16 @@ export const useAffiliateStore = create<AffiliateStore>()(
       processWithdrawal: async (data) => {
         try {
           await lambdaClient.affiliate.processWithdrawal.mutate(data);
+        }
+        catch (error) {
+          console.error(error);
+          throw error;
+        }
+      },
+      getMyWithdrawalHistory: async (data) => {
+        try {
+          const history = await lambdaClient.affiliate.getMyWithdrawalHistory.query(data);
+          set({ withdrawalHistory: history });
         }
         catch (error) {
           console.error(error);

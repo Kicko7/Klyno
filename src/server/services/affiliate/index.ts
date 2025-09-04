@@ -131,7 +131,12 @@ export class AffiliateService implements IAffiliateService {
     }
 
     async processWithdrawal(data: { withdrawalId: string, userId: string }) {
-        const updated = await db.update(affiliateWithdrawals).set({ status: 'paid' }).where(eq(affiliateWithdrawals.id, data.withdrawalId));
+        const updated = await db.update(affiliateWithdrawals).set({ status: 'paid',updatedAt: new Date() }).where(eq(affiliateWithdrawals.id, data.withdrawalId));
         return updated;
+    }
+
+    async getMyWithdrawalHistory(data: { userId: string }) {
+        const withdrawalHistory = await db.select().from(affiliateWithdrawals).where(eq(affiliateWithdrawals.userId, data.userId));
+        return withdrawalHistory;
     }
 }

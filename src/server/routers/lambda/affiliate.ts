@@ -65,4 +65,10 @@ export const affiliateRouter = router({
         const service = new AffiliateService();
         return service.processWithdrawal(input);
     }),
+    getMyWithdrawalHistory: authedProcedure.input(z.object({
+        userId: z.string(),
+    })).query(async ({ input }) => {
+        const service = new AffiliateService();
+        return service.getMyWithdrawalHistory(input);
+    }),
 });

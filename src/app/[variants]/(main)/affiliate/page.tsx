@@ -34,11 +34,14 @@ const AffiliatePage = () => {
   const affiliateInfo = useAffiliateStore((state) => state.affiliateInfo);
   const loading = useAffiliateStore((state) => state.loading);
   const withdrawAffiliate = useAffiliateStore((state) => state.withdrawAffiliate);
+  const getMyWithdrawalHistory = useAffiliateStore((state) => state.getMyWithdrawalHistory);
+  const withdraws = useAffiliateStore((state) => state.withdrawalHistory);
 
   const theme = useTheme();
   useEffect(() => {
     getAffiliateInfo();
     getMyAffiliates();
+    getMyWithdrawalHistory({ userId: user?.id as string });
   }, [user?.id]);
 
   const [affiliateLink, setAffiliateLink] = useState('');
@@ -191,32 +194,7 @@ const AffiliatePage = () => {
   );
 
   // Mock withdrawal history data - replace with real data from your API
-  const withdrawalHistory = [
-    {
-      id: '1',
-      amount: 150.00,
-      status: 'completed',
-      requestDate: '2024-01-15',
-      processDate: '2024-01-16',
-      method: 'PayPal'
-    },
-    {
-      id: '2',
-      amount: 75.50,
-      status: 'pending',
-      requestDate: '2024-01-20',
-      processDate: null,
-      method: 'Bank Transfer'
-    },
-    {
-      id: '3',
-      amount: 200.00,
-      status: 'completed',
-      requestDate: '2024-01-10',
-      processDate: '2024-01-12',
-      method: 'PayPal'
-    }
-  ];
+ 
 
   const WithdrawalHistoryModal = () => (
     <div className={`fixed inset-0 flex items-center justify-center z-50 p-4 ${theme.appearance === "dark" ? "bg-black bg-opacity-80" : "bg-white bg-opacity-50"}`}>
@@ -248,36 +226,34 @@ const AffiliatePage = () => {
           </div>
 
           <div className="space-y-4">
-            {withdrawalHistory.map((withdrawal) => (
+            {withdraws?.map((withdrawal) => (
               <div
-                key={withdrawal.id}
+                key={withdrawal?.id}
                 className={`${theme.appearance === "dark" ? "bg-gray-800" : "bg-gray-50"} rounded-lg border ${theme.appearance === "dark" ? "border-gray-700" : "border-gray-200"} p-4`}
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${withdrawal.status === 'completed' ? 'bg-green-100 dark:bg-green-900/20' : 'bg-yellow-100 dark:bg-yellow-900/20'}`}>
-                      {withdrawal.status === 'completed' ? (
+                    <div className={`p-2 rounded-full ${withdrawal?.status === 'paid' ? 'bg-green-100 dark:bg-green-900/20' : 'bg-yellow-100 dark:bg-yellow-900/20'}`}>
+                      {withdrawal?.status === 'paid' ? (
                         <CheckCircle className={`h-5 w-5 ${theme.appearance === "dark" ? "text-green-400" : "text-green-600"}`} />
                       ) : (
                         <Clock className={`h-5 w-5 ${theme.appearance === "dark" ? "text-yellow-400" : "text-yellow-600"}`} />
                       )}
                     </div>
                     <div>
-                      <p className={`font-semibold ${theme.appearance === "dark" ? "text-white" : "text-gray-900"}`}>
-                        ${withdrawal.amount.toFixed(2)}
+                      <p className={`font-semibold ${theme.appearance === "dark" ? "text-white" : "text-gray-900"} relative top-[6px]`}>
+                        ${withdrawal?.amount.toFixed(2)}
                       </p>
-                      <p className={`text-sm ${theme.appearance === "dark" ? "text-gray-400" : "text-gray-600"}`}>
-                        {withdrawal.method}
-                      </p>
+                     
                     </div>
                   </div>
                   <div className="text-right">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      withdrawal.status === 'completed' 
+                      withdrawal.status === 'paid' 
                         ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
                         : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
                     }`}>
-                      {withdrawal.status === 'completed' ? 'Completed' : 'Pending'}
+                      {withdrawal.status === 'paid' ? 'Completed' : 'Pending'}
                     </span>
                   </div>
                 </div>
@@ -288,16 +264,16 @@ const AffiliatePage = () => {
                       Request Date:
                     </p>
                     <p className={`${theme.appearance === "dark" ? "text-white" : "text-gray-900"}`}>
-                      {new Date(withdrawal.requestDate).toLocaleDateString()}
+                      {new Date(withdrawal?.createdAt as Date).toLocaleDateString()}
                     </p>
                   </div>
                   <div>
                     <p className={`${theme.appearance === "dark" ? "text-gray-400" : "text-gray-600"}`}>
-                      {withdrawal.status === 'completed' ? 'Processed Date:' : 'Expected Processing:'}
+                      {withdrawal.status === 'paid' ? 'Processed Date:' : 'Expected Processing:'}
                     </p>
                     <p className={`${theme.appearance === "dark" ? "text-white" : "text-gray-900"}`}>
-                      {withdrawal.processDate 
-                        ? new Date(withdrawal.processDate).toLocaleDateString()
+                      {withdrawal.updatedAt 
+                        ? new Date(withdrawal.updatedAt).toLocaleDateString()
                         : '3-5 business days'
                       }
                     </p>
@@ -307,7 +283,7 @@ const AffiliatePage = () => {
             ))}
           </div>
 
-          {withdrawalHistory.length === 0 && (
+          {withdraws?.length === 0 && (
             <div className={`text-center py-8 ${theme.appearance === "dark" ? "text-gray-400" : "text-gray-600"}`}>
               <History className={`h-12 w-12 mx-auto mb-4 ${theme.appearance === "dark" ? "text-gray-500" : "text-gray-400"}`} />
               <p>No withdrawal requests found</p>
