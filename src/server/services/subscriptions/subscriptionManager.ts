@@ -49,6 +49,7 @@ export interface SubscriptionPlan {
   vectorStorageLimitMB: number;
   price: number;
   interval: 'month' | 'year';
+  actualPrice?: number;
 }
 
 export interface UsageUpdate {
@@ -101,14 +102,11 @@ export class SubscriptionManager {
     currentPeriodEnd: Date,
     cancelAtPeriodEnd: boolean = false,
     canceledAt?: Date,
+    stripePlan?: any,
+    cancelled?: boolean
   ) {
-    console.log("🔍 upsertSubscription", {
-      userId,
-      stripeSubscriptionId,
-      stripeCustomerId,
-      stripePriceId,
-      plan,
-    })
+
+
     return db.transaction(async (tx) => {
       // Check if subscription already exists
       const existingSubscription = await tx
@@ -125,56 +123,84 @@ export class SubscriptionManager {
           existingSubscription[0].vectorStorageLimit !== plan.vectorStorageLimitMB);
 
       if (existingSubscription.length > 0) {
+        let subscription: any;
         // Update existing subscription
-        const subscription = await tx
-          .update(userSubscriptions)
-          .set({
-            planId: plan.id,
-            status,
-            currentPeriodStart,
-            currentPeriodEnd,
-            cancelAtPeriodEnd,
-            canceledAt,
-            planName: plan.name,
-            monthlyCredits: plan.monthlyCredits,
-            fileStorageLimit: plan.fileStorageLimitGB,
-            vectorStorageLimit: plan.vectorStorageLimitMB,
-            amount: plan.price,
-            interval: plan.interval,
-            stripePriceId: stripePriceId,
-            updatedAt: new Date(),
-            // Reset balance and storage for plan renewal/change
-            balance: plan.monthlyCredits,
-            fileStorageRemaining: plan.fileStorageLimitGB * 1024, // Convert GB to MB
-            fileStorageUsed: 0,
-          })
-          .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId))
-          .returning();
-
-        const user = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
-        if (user[0].affiliateId) {
-          console.log('🔍 user[0].affiliateId', user[0].affiliateId);
-
-          const price = plan.price;
-          console.log('🔍 price', price);
-          const twoPercent = price * 0.02
-          console.log('two percent',twoPercent)
-          const link = process.env.APP_URL + '/signup?ref=' + user[0].affiliateId;
-          console.log('🔍 link', link);
-          const affiliateinfo = await tx.select().from(affiliateInfo).where(eq(affiliateInfo.link, link)).limit(1);
-          if (affiliateinfo.length > 0) {
-            console.log("Updating Info")
-            await tx.update(affiliateInfo).set({
-              totalRevenue: (affiliateinfo[0].totalRevenue || 0) + twoPercent,
-            }).where(eq(affiliateInfo.id, affiliateinfo[0].id));
-            await tx.update(affiliate).set({
-              planPurchaseId: subscription[0].id,
-            }).where(eq(affiliate.affiliateUserId, userId));
-
-          }
+        if (cancelled) {
+          subscription = await tx
+            .update(userSubscriptions)
+            .set({
+              planId: plan.id,
+              status:'canceled',
+              currentPeriodStart,
+              currentPeriodEnd,
+              cancelAtPeriodEnd,
+              canceledAt,
+              planName: plan.name,
+              fileStorageLimit: plan.fileStorageLimitGB,
+              vectorStorageLimit: plan.vectorStorageLimitMB,
+              amount: plan.price,
+              stripePriceId: stripePriceId,
+              updatedAt: new Date(),
+            })
+            .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId))
+            .returning();
         }
+        else {
+          subscription = await tx
+            .update(userSubscriptions)
+            .set({
+              planId: plan.id,
+              status,
+              currentPeriodStart,
+              currentPeriodEnd,
+              cancelAtPeriodEnd,
+              canceledAt,
+              planName: plan.name,
+              monthlyCredits: plan.monthlyCredits,
+              fileStorageLimit: plan.fileStorageLimitGB,
+              vectorStorageLimit: plan.vectorStorageLimitMB,
+              amount: plan.price,
+              stripePriceId: stripePriceId,
+              updatedAt: new Date(),
+              // Reset balance and storage for plan renewal/change
+              balance: plan.monthlyCredits,
+              fileStorageRemaining: plan.fileStorageLimitGB * 1024, // Convert GB to MB
+              fileStorageUsed: 0,
+            })
+            .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId))
+            .returning();
+
+            const user = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
+            console.log('🔍 price', plan.price);
+    
+            if (user[0].affiliateId) {
+              console.log('🔍 user[0].affiliateId', user[0].affiliateId);
+    
+              const price = plan.price;
+              console.log('🔍 price', price);
+              const twoPercent = Math.round((price * 0.02) / 100);
+              console.log('two percent', twoPercent)
+              const link = process.env.APP_URL + '/signup?ref=' + user[0].affiliateId;
+              console.log('🔍 link', link);
+              const affiliateinfo = await tx.select().from(affiliateInfo).where(eq(affiliateInfo.link, link)).limit(1);
+              if (affiliateinfo.length > 0) {
+                console.log("Updating Info")
+                await tx.update(affiliateInfo).set({
+                  totalRevenue: (affiliateinfo[0].totalRevenue || 0) + twoPercent,
+                }).where(eq(affiliateInfo.id, affiliateinfo[0].id));
+                await tx.update(affiliate).set({
+                  planPurchaseId: subscription[0].id,
+                }).where(eq(affiliate.affiliateUserId, userId));
+    
+              }
+            }
+        }
+
+       
       } else {
         // Create new subscription
+        const interval = stripePlan?.recurring?.interval;
+
         const subscription = await tx.insert(userSubscriptions).values({
           id: `sub_${userId}_${Date.now()}`,
           userId,
@@ -192,7 +218,7 @@ export class SubscriptionManager {
           fileStorageLimit: plan.fileStorageLimitGB,
           vectorStorageLimit: plan.vectorStorageLimitMB,
           amount: plan.price,
-          interval: plan.interval,
+          interval,
           balance: plan.monthlyCredits,
           fileStorageRemaining: plan.fileStorageLimitGB * 1024,
           fileStorageUsed: 0,
@@ -206,8 +232,8 @@ export class SubscriptionManager {
 
           const price = plan.price;
           console.log('🔍 price', price);
-          const twoPercent = Math.round(price * 0.02);
-          console.log('two percent',twoPercent)
+          const twoPercent = Math.round((price * 0.02) / 100);
+          console.log('two percent', twoPercent)
           const link = process.env.APP_URL + '/signup?ref=' + user[0].affiliateId;
           console.log('🔍 link', link);
           const affiliateinfo = await db.select().from(affiliateInfo).where(eq(affiliateInfo.link, ownerRefLink[0].link)).limit(1);
@@ -1024,19 +1050,6 @@ export class SubscriptionManager {
         .delete(userSubscriptions)
         .where(eq(userSubscriptions.stripeSubscriptionId, subscriptionId));
 
-      // Archive current usage quota
-      const currentUsage = await tx
-        .select()
-        .from(userUsageQuotas)
-        .where(and(eq(userUsageQuotas.userId, userId), gte(userUsageQuotas.periodEnd, new Date())))
-        .limit(1);
-
-      if (currentUsage.length > 0) {
-        await tx
-          .update(userUsageQuotas)
-          .set({ periodEnd: new Date() })
-          .where(eq(userUsageQuotas.id, currentUsage[0].id));
-      }
     });
   }
 

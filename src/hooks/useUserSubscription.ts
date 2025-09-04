@@ -54,25 +54,25 @@ export const useUserSubscription = () => {
       setSubscriptionInfo(null);
     } finally {
       setIsLoading(false);
-    }``
+    } ``
   }, [isSignedIn, user?.id]);
 
   useEffect(() => {
     fetchSubscriptionInfo();
-    
+
     const handleSubscriptionUpdate = () => {
-      console.log('🔄 Subscription update event received, refetching...',subscriptionInfo);
+      console.log('🔄 Subscription update event received, refetching...', subscriptionInfo);
       fetchSubscriptionInfo();
     };
-    
+
     window.addEventListener('update-subscription-info', handleSubscriptionUpdate);
-    
+
     // ✅ Cleanup event listener on unmount
     return () => {
       window.removeEventListener('update-subscription-info', handleSubscriptionUpdate);
     };
   }, [fetchSubscriptionInfo]);
-  
+
 
   const refetch = useCallback(() => {
     fetchSubscriptionInfo();
@@ -133,10 +133,10 @@ export const useUserSubscription = () => {
           setOrganizationSubscriptionInfo((prev) =>
             prev
               ? {
-                  ...prev,
-                  currentCredits: result.data?.balance ?? 0,
-                  subscription: result.data ?? null,
-                }
+                ...prev,
+                currentCredits: result.data?.balance ?? 0,
+                subscription: result.data ?? null,
+              }
               : null,
           );
         } else {
@@ -155,10 +155,10 @@ export const useUserSubscription = () => {
         setSubscriptionInfo((prev) =>
           prev
             ? {
-                ...prev,
-                currentCredits: result.data?.balance ?? 0,
-                subscription: result.data ?? null,
-              }
+              ...prev,
+              currentCredits: result.data?.balance ?? 0,
+              subscription: result.data ?? null,
+            }
             : null,
         );
       } else {
@@ -176,7 +176,14 @@ export const useUserSubscription = () => {
   const subscriptionStatus = subscriptionInfo?.subscription?.status || null;
   const isTrialing = subscriptionInfo?.subscription?.status === 'trialing';
   const currentPlan = subscriptionInfo?.subscription?.planName || null;
-  const nextBillingDate = subscriptionInfo?.subscription?.currentPeriodEnd;
+  const nextBillingDate = subscriptionInfo?.subscription?.currentPeriodStart
+    ? new Date(
+      subscriptionInfo.subscription.currentPeriodStart.getFullYear() + (subscriptionInfo.subscription.interval === 'month' ? 0 : 1),
+      subscriptionInfo.subscription.currentPeriodStart.getMonth() + (subscriptionInfo.subscription.interval === 'month' ? 1 : 0),
+      subscriptionInfo.subscription.currentPeriodStart.getDate()
+    )
+    : undefined;
+
 
   return {
     subscriptionInfo,

@@ -40,6 +40,7 @@ export const userSubscriptions = pgTable('user_subscriptions', {
   currentPeriodEnd: timestamp('current_period_end'),
   cancelAtPeriodEnd: boolean('cancel_at_period_end').default(false),
   canceledAt: timestamp('canceled_at'),
+  canceledPeriodDate: timestamp('canceled_period_date'),
 
   // Usage limits (from plan)
   monthlyCredits: integer('monthly_credits').notNull().default(0),

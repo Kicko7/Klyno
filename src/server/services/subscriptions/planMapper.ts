@@ -15,6 +15,7 @@ export class PlanMapper {
       vectorStorageLimitMB: 50,
       price: 1299, // $12.99 in cents
       interval: 'month',
+      actualPrice: 12.99,
     },
     'team-workspace': {
       id: 'team-workspace',
@@ -24,6 +25,7 @@ export class PlanMapper {
       vectorStorageLimitMB: 40_000,
       price: 4999, // $49.99 in cents
       interval: 'month',
+      actualPrice: 49.99,
     },
     'creator-pro': {
       id: 'creator-pro',
@@ -32,6 +34,7 @@ export class PlanMapper {
       fileStorageLimitGB: 3,
       vectorStorageLimitMB: 150,
       price: 2999, // $29.99 in cents
+      actualPrice: 29.99,
       interval: 'month',
     },
     'enterprise': {
@@ -41,6 +44,7 @@ export class PlanMapper {
       fileStorageLimitGB: 10,
       vectorStorageLimitMB: 500,
       price: 9999, // $99.99 in cents
+      actualPrice: 99.99,
       interval: 'month',
     },
   };

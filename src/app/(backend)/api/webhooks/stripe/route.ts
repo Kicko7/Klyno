@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
     const subscriptionManager = new SubscriptionManager();
 
     // Handle different event types
+    // console.log(event.type,event)
     switch (event.type) {
       case 'checkout.session.completed': {
         console.log(`📋 Processing checkout.session.completed for event ${webhookId}`);
@@ -105,15 +106,23 @@ export async function POST(request: NextRequest) {
         break;
       }
 
-      case 'customer.subscription.created': {
-        console.log(`🆕 Processing customer.subscription.created for event ${webhookId}`);
-        await handleSubscriptionCreated(event, stripe, subscriptionManager);
-        break;
-      }
-
       case 'customer.subscription.updated': {
-        console.log(`📝 Processing customer.subscription.updated for event ${webhookId}`);
-        await handleSubscriptionUpdated(event, stripe, subscriptionManager);
+        console.log(`📝 Processing customer.subscription.updated for event ${webhookId}`, event);
+        const subscription = event.data.object as Stripe.Subscription;
+        const previousAttributes = event.data.previous_attributes;
+
+        // Check if this update is specifically about cancellation
+        const wasCanceledNow =
+          previousAttributes?.cancel_at_period_end === false &&
+          subscription.cancel_at_period_end === true;
+
+        if (wasCanceledNow ) {
+          await handleSubscriptionUpdated(event, stripe, subscriptionManager, true);
+        }
+        else {
+          await handleSubscriptionUpdated(event, stripe, subscriptionManager, false);
+        }
+
         break;
       }
 
@@ -199,6 +208,10 @@ async function handleCheckoutSessionCompleted(
 
       if (session.subscription) {
         const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+        const item = subscription.items.data[0];
+
+        // Full plan/price object
+        const stripePlan = item.price;
         const product = await stripe.products.retrieve(
           subscription.items.data[0].price.product as string,
         );
@@ -227,6 +240,7 @@ async function handleCheckoutSessionCompleted(
             currentPeriodEnd,
             subscription.cancel_at_period_end,
             canceledAt,
+            stripePlan
           );
 
           // For checkout.session.completed, we'll let customer.subscription.created handle credit allocation
@@ -357,6 +371,7 @@ async function handleSubscriptionUpdated(
   event: Stripe.Event,
   stripe: Stripe,
   subscriptionManager: SubscriptionManager,
+  cancelled?: boolean
 ) {
   const subscription = event.data.object as Stripe.Subscription;
   console.log(`📝 Processing subscription update: ${subscription.id}`);
@@ -421,19 +436,6 @@ async function handleSubscriptionUpdated(
           existingSubscription[0].fileStorageLimit !== plan.fileStorageLimitGB ||
           existingSubscription[0].vectorStorageLimit !== plan.vectorStorageLimitMB);
 
-      if (isPlanChange) {
-        console.log(`🔄 Plan change detected for user ${userId}:`);
-        console.log(
-          `   Credits: ${existingSubscription[0].monthlyCredits} → ${plan.monthlyCredits}`,
-        );
-        console.log(
-          `   File Storage: ${existingSubscription[0].fileStorageLimit}GB → ${plan.fileStorageLimitGB}GB`,
-        );
-        console.log(
-          `   Vector Storage: ${existingSubscription[0].vectorStorageLimit}MB → ${plan.vectorStorageLimitMB}MB`,
-        );
-      }
-
       // Update subscription in database
       await subscriptionManager.upsertSubscription(
         userId,
@@ -446,6 +448,8 @@ async function handleSubscriptionUpdated(
         currentPeriodEnd,
         subscription.cancel_at_period_end,
         canceledAt,
+        undefined,
+        cancelled
       );
 
       // Plan change logic: do NOT allocate extra credits mid-cycle to avoid balance inflation
@@ -497,12 +501,6 @@ async function handleSubscriptionDeleted(
 
     if (userId) {
       // Reset usage so stale usage doesn't linger, then remove subscription
-      const now = new Date();
-      await subscriptionManager.resetUsageForNewPeriod(
-        userId,
-        now,
-        new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
-      );
       await subscriptionManager.removeDeletedSubscription(userId, subscription.id);
       console.log(`✅ Subscription ${subscription.id} usage reset and removed for user ${userId}`);
     } else {
