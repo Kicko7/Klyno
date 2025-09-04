@@ -182,7 +182,7 @@ export const NewAffiliate = () => {
                 title: 'Earn Rewards',
                 description: 'Get paid monthly for every successful referral',
                 icon: DollarSign,
-                color: 'yellow',
+                color: 'purple',
               },
             ].map((item, index) => (
               <div key={index} className="text-center">

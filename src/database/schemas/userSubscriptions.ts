@@ -57,7 +57,6 @@ export const userSubscriptions = pgTable('user_subscriptions', {
 
   // Metadata
   metadata: jsonb('metadata'),
-
   ...timestamps,
 });
 

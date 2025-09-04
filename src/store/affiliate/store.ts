@@ -19,6 +19,8 @@ export interface AffiliateState {
   affiliates: affiliates[] | [];
   affiliateInfo: AffiliateInfoItem | null;
   loadingCreateAffiliateInfo: boolean;
+  affiliateInfoByUserId: AffiliateInfoItem | null;
+  fullUser: UserItem | null;
 }
 
 export interface AffiliateAction {
@@ -28,6 +30,10 @@ export interface AffiliateAction {
   countclickAffiliate: (data: { link: string }) => Promise<any>;
   addAffiliateRef: (data: { link: string ,userId: string}) => Promise<any>;
   updateUserAffiliateRef: (data: { affiliateId: string, userId: string }) => Promise<any>;
+  withdrawAffiliate: (data: { affiliateId: string, userId: string }) => Promise<any>;
+  getAffiliateInfoByUserId: (userId: string) => Promise<AffiliateInfoItem>;
+  getFullUser: (userId: string) => Promise<UserItem>;
+  processWithdrawal: (data: { withdrawalId: string, userId: string }) => Promise<any>;
 }
 
 export interface AffiliateStore extends AffiliateState, AffiliateAction {}
@@ -37,6 +43,8 @@ const initialAffiliateState: AffiliateState = {
   affiliates: [],
   affiliateInfo: null,
   loadingCreateAffiliateInfo: false,
+  affiliateInfoByUserId: null,
+  fullUser: null,
 };
 
 export const useAffiliateStore = create<AffiliateStore>()(
@@ -103,6 +111,46 @@ export const useAffiliateStore = create<AffiliateStore>()(
       updateUserAffiliateRef: async (data) => {
         try {
           await lambdaClient.affiliate.updateUserAffiliateRef.mutate(data);
+        }
+        catch (error) {
+          console.error(error);
+          throw error;
+        }
+      },
+      withdrawAffiliate: async (data) => {
+        try {
+          await lambdaClient.affiliate.withdrawAffiliate.mutate(data);
+          set({ affiliateInfo: { ...get().affiliateInfo, totalRevenue: 0 } as AffiliateInfoItem });
+        }
+        catch (error) {
+          console.error(error);
+          throw error;
+        }
+      },
+      getAffiliateInfoByUserId: async (userId) => {
+        try {
+          const affiliateInfo = await lambdaClient.affiliate.getAffiliateInfoByUserId.query({ userId });
+          set({ affiliateInfoByUserId: affiliateInfo[0] });
+        }
+        catch (error) {
+          console.error(error);
+          throw error;
+        }
+      },
+      getFullUser: async (userId) => {
+        try {
+          const fullUser = await lambdaClient.affiliate.getFullUser.query({ userId });
+          set({ fullUser: fullUser[0] });
+          return fullUser[0];
+        }
+        catch (error) {
+          console.error(error);
+          throw error;
+        }
+      },
+      processWithdrawal: async (data) => {
+        try {
+          await lambdaClient.affiliate.processWithdrawal.mutate(data);
         }
         catch (error) {
           console.error(error);

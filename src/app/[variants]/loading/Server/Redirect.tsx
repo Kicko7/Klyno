@@ -74,7 +74,7 @@ const Redirect = memo<RedirectProps>(({ setLoadingStage }) => {
     }
 
     const user = useUserStore.getState().user;
-    console.log('User state initialized', user, affiliateRef);
+    // console.log('User state initialized', user, affiliateRef);
     if (user && affiliateRef) {
      handleAffiliateRef();
     }

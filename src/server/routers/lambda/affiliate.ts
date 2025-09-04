@@ -3,7 +3,12 @@ import { AffiliateService } from "@/server/services/affiliate";
 import { z } from "zod";
 
 export const affiliateRouter = router({
-   
+    getAffiliateInfoByUserId: authedProcedure.input(z.object({
+        userId: z.string(),
+    })).query(async ({ input }) => {
+        const service = new AffiliateService();
+        return service.getAffiliateInfoByUserId(input);
+    }),
 
     getMyAffiliates: authedProcedure.query(async ({ ctx }) => {
         const service = new AffiliateService();
@@ -33,11 +38,31 @@ export const affiliateRouter = router({
         const service = new AffiliateService();
         return service.addAffiliateRef(input);
     }),
-    updateUserAffiliateRef: publicProcedure.input(z.object({
+    updateUserAffiliateRef: authedProcedure.input(z.object({
         affiliateId: z.string(),
         userId: z.string(),
     })).mutation(async ({ input }) => {
         const service = new AffiliateService();
         return service.updateUserAffiliateRef(input);
+    }),
+    withdrawAffiliate: authedProcedure.input(z.object({
+        affiliateId: z.string(),
+        userId: z.string(),
+    })).mutation(async ({ input }) => {
+        const service = new AffiliateService();
+        return service.withdrawAffiliate(input);
+    }),
+    getFullUser: authedProcedure.input(z.object({
+        userId: z.string(),
+    })).query(async ({ input }) => {
+        const service = new AffiliateService();
+        return service.getFullUser(input);
+    }),
+    processWithdrawal: authedProcedure.input(z.object({
+        withdrawalId: z.string(),
+        userId: z.string(),
+    })).mutation(async ({ input }) => {
+        const service = new AffiliateService();
+        return service.processWithdrawal(input);
     }),
 });

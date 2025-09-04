@@ -1,5 +1,5 @@
-import {  integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
-import {  users } from "./user";
+import { integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { users } from "./user";
 import { userSubscriptions } from "./userSubscriptions";
 import { idGenerator } from "../utils/idGenerator";
 
@@ -33,3 +33,16 @@ export type AffiliateItem = typeof affiliate.$inferSelect;
 
 export type AffiliateInfoItem = typeof affiliateInfo.$inferSelect;
 export type NewAffiliateInfo = typeof affiliateInfo.$inferInsert;
+
+
+export const affiliateWithdrawals = pgTable('affiliate_withdrawals', {
+  id: text('id').primaryKey().$defaultFn(() => idGenerator('affiliate_withdrawals')),
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  amount: integer('amount').notNull(),
+  status: text('status', { enum: ['pending', 'paid',] }).notNull().default('pending'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export type AffiliateWithdrawalItem = typeof affiliateWithdrawals.$inferSelect;
+export type NewAffiliateWithdrawal = typeof affiliateWithdrawals.$inferInsert;

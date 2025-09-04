@@ -31,6 +31,7 @@ export const users = pgTable('users', {
   preference: jsonb('preference').$defaultFn(() => DEFAULT_PREFERENCE),
 
   affiliateId: text('affiliate_id').default(''),
+  role: text('role', { enum: ['user', 'admin'] }).default('user'),
   ...timestamps,
 });
 

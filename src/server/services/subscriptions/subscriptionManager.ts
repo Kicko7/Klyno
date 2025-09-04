@@ -115,12 +115,6 @@ export class SubscriptionManager {
         .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId))
         .limit(1);
 
-      const isNewSubscription = existingSubscription.length === 0;
-      const isPlanChange =
-        !isNewSubscription &&
-        (existingSubscription[0].monthlyCredits !== plan.monthlyCredits ||
-          existingSubscription[0].fileStorageLimit !== plan.fileStorageLimitGB ||
-          existingSubscription[0].vectorStorageLimit !== plan.vectorStorageLimitMB);
 
       if (existingSubscription.length > 0) {
         let subscription: any;
@@ -130,7 +124,7 @@ export class SubscriptionManager {
             .update(userSubscriptions)
             .set({
               planId: plan.id,
-              status:'canceled',
+              status: status,
               currentPeriodStart,
               currentPeriodEnd,
               cancelAtPeriodEnd,
@@ -141,6 +135,9 @@ export class SubscriptionManager {
               amount: plan.price,
               stripePriceId: stripePriceId,
               updatedAt: new Date(),
+              canceledPeriodDate: plan.interval === "month"
+                ? new Date(new Date(currentPeriodStart).setMonth(new Date(currentPeriodStart).getMonth() + 1))
+                : new Date(new Date(currentPeriodStart).setFullYear(new Date(currentPeriodStart).getFullYear() + 1)),
             })
             .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId))
             .returning();
@@ -159,7 +156,7 @@ export class SubscriptionManager {
               monthlyCredits: plan.monthlyCredits,
               fileStorageLimit: plan.fileStorageLimitGB,
               vectorStorageLimit: plan.vectorStorageLimitMB,
-              amount: plan.price,
+              amount: stripePlan?.unit_amount,
               stripePriceId: stripePriceId,
               updatedAt: new Date(),
               // Reset balance and storage for plan renewal/change
@@ -170,33 +167,33 @@ export class SubscriptionManager {
             .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId))
             .returning();
 
-            const user = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
-            console.log('🔍 price', plan.price);
-    
-            if (user[0].affiliateId) {
-              console.log('🔍 user[0].affiliateId', user[0].affiliateId);
-    
-              const price = plan.price;
-              console.log('🔍 price', price);
-              const twoPercent = Math.round((stripePlan?.unit_amount * 0.02) / 100);
-              console.log('two percent', twoPercent)
-              const link = process.env.APP_URL + '/signup?ref=' + user[0].affiliateId;
-              console.log('🔍 link', link);
-              const affiliateinfo = await tx.select().from(affiliateInfo).where(eq(affiliateInfo.link, link)).limit(1);
-              if (affiliateinfo.length > 0) {
-                console.log("Updating Info")
-                await tx.update(affiliateInfo).set({
-                  totalRevenue: (affiliateinfo[0].totalRevenue || 0) + twoPercent,
-                }).where(eq(affiliateInfo.id, affiliateinfo[0].id));
-                await tx.update(affiliate).set({
-                  planPurchaseId: subscription[0].id,
-                }).where(eq(affiliate.affiliateUserId, userId));
-    
-              }
+          const user = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
+          console.log('🔍 price', plan.price);
+
+          if (user[0].affiliateId) {
+            console.log('🔍 user[0].affiliateId', user[0].affiliateId);
+
+            const price = plan.price;
+            console.log('🔍 price', price);
+            const twoPercent = Math.round((stripePlan?.unit_amount * 0.02) / 100);
+            console.log('two percent', twoPercent)
+            const link = process.env.APP_URL + '/signup?ref=' + user[0].affiliateId;
+            console.log('🔍 link', link);
+            const affiliateinfo = await tx.select().from(affiliateInfo).where(eq(affiliateInfo.link, link)).limit(1);
+            if (affiliateinfo.length > 0) {
+              console.log("Updating Info")
+              await tx.update(affiliateInfo).set({
+                totalRevenue: (affiliateinfo[0].totalRevenue || 0) + twoPercent,
+              }).where(eq(affiliateInfo.id, affiliateinfo[0].id));
+              await tx.update(affiliate).set({
+                planPurchaseId: subscription[0].id,
+              }).where(eq(affiliate.affiliateUserId, userId));
+
             }
+          }
         }
 
-       
+
       } else {
         // Create new subscription
         const interval = stripePlan?.recurring?.interval;
@@ -786,17 +783,23 @@ export class SubscriptionManager {
       return null;
     }
 
+    if (
+      subscription[0]?.status === "active" &&
+      subscription[0]?.cancelAtPeriodEnd &&
+      subscription[0]?.canceledPeriodDate
+    ) {
+      if (new Date(subscription[0].canceledPeriodDate) < new Date()) {
+        await db.delete(userSubscriptions).where(eq(userSubscriptions.id, subscription[0].id));
+        return null;
+      }
+    }
+
     const usageQuota = await db
       .select()
       .from(userUsageQuotas)
       .where(and(eq(userUsageQuotas.userId, userId), gte(userUsageQuotas.periodEnd, new Date())))
       .limit(1);
 
-    const userCreditsRecord = await db
-      .select()
-      .from(userCredits)
-      .where(eq(userCredits.userId, userId))
-      .limit(1);
 
     return {
       subscription: subscription[0],

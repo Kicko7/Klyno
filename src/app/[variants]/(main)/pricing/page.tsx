@@ -39,8 +39,6 @@ const PricingPage = () => {
   } = useUserSubscription()
 
   const { user } = useUserStore();
-  console.log('🔍 user', user);
-
   // Handle checkout for a specific plan
 
  
@@ -230,13 +228,11 @@ const PricingPage = () => {
 
   // Usage statistics
   const creditsLimit = subscriptionInfo?.subscription?.monthlyCredits ?? 0;
-  const creditsUsedRaw = subscriptionInfo?.usageQuota?.creditsUsed ?? 0
   const creditsUsed =
     (subscriptionInfo?.subscription?.monthlyCredits ?? 0) - (subscriptionInfo?.subscription?.balance ?? 0)
 
   const creditsRemaining = Math.max(creditsLimit - creditsUsed, 0)
 
-  const fileUsedMBRaw = subscriptionInfo?.usageQuota?.fileStorageUsed ?? 0
   const fileLimitMBRaw =
     subscriptionInfo?.usageQuota?.fileStorageLimit ??
     (subscriptionInfo?.subscription?.fileStorageLimit ? subscriptionInfo.subscription.fileStorageLimit * 1024 : 0)
