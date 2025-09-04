@@ -4,7 +4,7 @@ import { notification } from 'antd';
 import { useTheme } from 'antd-style';
 import { CheckCircle, DollarSign, Eye, TrendingUp, Users, X } from 'lucide-react';
 import { redirect, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { useAffiliateStore } from '@/store/affiliate/store';
@@ -29,7 +29,7 @@ interface WithdrawalData {
   };
 }
 
-const AdminWithdrawalPage = () => {
+const AdminWithdrawalPageContent = () => {
   const theme = useTheme();
   const searchParams = useSearchParams();
   const [withdrawalData, setWithdrawalData] = useState<WithdrawalData | null>(null);
@@ -416,6 +416,14 @@ const AdminWithdrawalPage = () => {
         </div>
       )}
     </div>
+  );
+};
+
+const AdminWithdrawalPage = () => {
+  return (
+    <Suspense fallback={<Loading />}>
+      <AdminWithdrawalPageContent />
+    </Suspense>
   );
 };
 
