@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { memo, useEffect } from 'react';
+import { memo, useEffect, useState } from 'react';
 
 import { useAffiliateStore } from '@/store/affiliate/store';
 import { useUserStore } from '@/store/user';
@@ -21,7 +21,7 @@ const Redirect = memo<RedirectProps>(({ setLoadingStage }) => {
     s.isUserStateInit,
     s.isOnboard,
   ]);
-  const affiliateRef = localStorage.getItem('affiliateRef');
+  const [affiliateRef, setAffiliateRef] = useState<string | null>(null);
   const addAffiliateRef = useAffiliateStore((state) => state.addAffiliateRef);
   const updateUserAffiliateRef = useAffiliateStore((state) => state.updateUserAffiliateRef);
 
@@ -36,8 +36,17 @@ const Redirect = memo<RedirectProps>(({ setLoadingStage }) => {
       const affiliate = await addAffiliateRef({ link: affiliateRef, userId: user.id });
       updateUserAffiliateRef({ affiliateId: affiliate?.id, userId: user.id });
       localStorage.removeItem('affiliateRef');
+      setAffiliateRef(null);
     }
   }
+
+  // Safely get affiliateRef from localStorage on client side
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const ref = localStorage.getItem('affiliateRef');
+      setAffiliateRef(ref);
+    }
+  }, []);
 
   useEffect(() => {
     // if user auth state is not ready, wait for loading
