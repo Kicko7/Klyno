@@ -436,6 +436,7 @@ async function handleSubscriptionUpdated(
           existingSubscription[0].fileStorageLimit !== plan.fileStorageLimitGB ||
           existingSubscription[0].vectorStorageLimit !== plan.vectorStorageLimitMB);
 
+          const stripePlan = firstItem.price;
       // Update subscription in database
       await subscriptionManager.upsertSubscription(
         userId,
@@ -448,7 +449,7 @@ async function handleSubscriptionUpdated(
         currentPeriodEnd,
         subscription.cancel_at_period_end,
         canceledAt,
-        undefined,
+        stripePlan,
         cancelled
       );
 

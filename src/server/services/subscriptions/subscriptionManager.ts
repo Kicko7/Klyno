@@ -178,7 +178,7 @@ export class SubscriptionManager {
     
               const price = plan.price;
               console.log('🔍 price', price);
-              const twoPercent = Math.round((price * 0.02) / 100);
+              const twoPercent = Math.round((stripePlan?.unit_amount * 0.02) / 100);
               console.log('two percent', twoPercent)
               const link = process.env.APP_URL + '/signup?ref=' + user[0].affiliateId;
               console.log('🔍 link', link);
@@ -231,8 +231,8 @@ export class SubscriptionManager {
 
 
           const price = plan.price;
-          console.log('🔍 price', price);
-          const twoPercent = Math.round((price * 0.02) / 100);
+          console.log('🔍 Stripe price', stripePlan);
+          const twoPercent = Math.round((stripePlan.unit_amount * 0.02) / 100);
           console.log('two percent', twoPercent)
           const link = process.env.APP_URL + '/signup?ref=' + user[0].affiliateId;
           console.log('🔍 link', link);

@@ -92,15 +92,7 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
           tooltipProps={{ placement: 'right' }}
         />
       </Link>
-      <Link aria-label={'affiliate'} href={'/affiliate'}>
-        <ActionIcon
-          active={false}
-          icon={Share2}
-          size={ICON_SIZE}
-          title={'Affilate'}
-          tooltipProps={{ placement: 'right' }}
-        />
-      </Link>
+      
       {showMarket && (
         <Link aria-label={t('tab.discover')} href={'/discover'}>
           <ActionIcon
@@ -112,6 +104,15 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
           />
         </Link>
       )}
+      <Link aria-label={'affiliate'} href={'/affiliate'}>
+        <ActionIcon
+          active={false}
+          icon={Share2}
+          size={ICON_SIZE}
+          title={'Affilate'}
+          tooltipProps={{ placement: 'right' }}
+        />
+      </Link>
     </Flexbox>
   );
 });
