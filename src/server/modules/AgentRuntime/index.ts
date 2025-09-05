@@ -132,6 +132,7 @@ export const initAgentRuntimeWithUserPayload = (
   subscription?: any,
   model?: string,
 ) => {
+  console.log('subscription', subscription);
   return AgentRuntime.initializeWithProvider(provider, {
     ...getParamsFromPayload(provider, payload, subscription,model),
     ...params,

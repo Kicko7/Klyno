@@ -14,6 +14,7 @@ const TextArea = memo<{ onSend?: () => void }>(({ onSend }) => {
   ]);
   const { send: sendMessage } = useSendMessage();
   const { subscriptionInfo: subscription } = useUserSubscription();
+  // console.log('subscription', subscription);
   return (
     <InputArea
       loading={loading}

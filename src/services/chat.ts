@@ -7,6 +7,7 @@ import { enableAuth } from '@/const/auth';
 import { INBOX_GUIDE_SYSTEMROLE } from '@/const/guide';
 import { INBOX_SESSION_ID } from '@/const/session';
 import { DEFAULT_AGENT_CONFIG } from '@/const/settings';
+import { getFAQModel } from '@/const/faq';
 import { TracePayload, TraceTagMap } from '@/const/trace';
 import { isDeprecatedEdition, isDesktop, isServerMode } from '@/const/version';
 import {
@@ -171,9 +172,14 @@ class ChatService {
     options?: FetchOptions,
     subscription?: any,
   ) => {
+    // Use a specific free model for welcome questions
+    const isWelcomeQuestion = options?.isWelcomeQuestion;
+    const faqConfig = getFAQModel();
+    
     const payload = merge(
       {
-        model: DEFAULT_AGENT_CONFIG.model,
+        model: isWelcomeQuestion ? faqConfig.model : DEFAULT_AGENT_CONFIG.model,
+        provider: isWelcomeQuestion ? faqConfig.provider : DEFAULT_AGENT_CONFIG.provider,
         stream: true,
         ...DEFAULT_AGENT_CONFIG.params,
       },

@@ -142,7 +142,7 @@
     "messages": "Messages",
     "sessions": "Assistants",
     "today": "Today's New",
-    "topics": "Topics"
+    "topics": "Chats"
   },
   "defaultAgent": "Default Assistant",
   "defaultSession": "Default Assistant",
@@ -204,7 +204,7 @@
       "sessionGroups": "Groups",
       "sessions": "Assistants",
       "skips": "Duplicates skipped",
-      "topics": "Topics",
+      "topics": "Chats",
       "type": "Data Type",
       "update": "Record Updated"
     },

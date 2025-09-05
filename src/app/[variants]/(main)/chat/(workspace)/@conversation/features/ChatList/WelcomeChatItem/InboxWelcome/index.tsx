@@ -7,7 +7,6 @@ import { Trans, useTranslation } from 'react-i18next';
 import { Center, Flexbox } from 'react-layout-kit';
 
 import { BRANDING_NAME } from '@/const/branding';
-import { isCustomBranding } from '@/const/version';
 import { useGreeting } from '@/hooks/useGreeting';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
 
@@ -81,7 +80,7 @@ const InboxWelcome = memo(() => {
         {showWelcomeSuggest && (
           <>
             <AgentsSuggest mobile={mobile} />
-            {!isCustomBranding && <QuestionSuggest mobile={mobile} />}
+            <QuestionSuggest mobile={mobile} />
           </>
         )}
       </Flexbox>

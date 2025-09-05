@@ -1,17 +1,15 @@
 'use client';
 
-import { ActionIcon, Block } from '@lobehub/ui';
+import { Block } from '@lobehub/ui';
 import { createStyles } from 'antd-style';
 import { shuffle } from 'lodash-es';
-import { ArrowRight } from 'lucide-react';
-import Link from 'next/link';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Flexbox } from 'react-layout-kit';
 
 import { BRANDING_NAME } from '@/const/branding';
-import { USAGE_DOCUMENTS } from '@/const/url';
 import { useSendMessage } from '@/features/ChatInput/useSend';
+import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { useChatStore } from '@/store/chat';
 
 const useStyles = createStyles(({ css, token, responsive }) => ({
@@ -53,10 +51,16 @@ const qa = shuffle([
   'q13',
   'q14',
   'q15',
+    'q16',
+  'q17',
+  'q18',
+  'q19',
+  'q20',
 ]);
 
 const QuestionSuggest = memo<{ mobile?: boolean }>(({ mobile }) => {
   const [updateInputMessage] = useChatStore((s) => [s.updateInputMessage]);
+  const { subscriptionInfo } = useUserSubscription();
 
   const { t } = useTranslation('welcome');
   const { styles } = useStyles();
@@ -66,13 +70,6 @@ const QuestionSuggest = memo<{ mobile?: boolean }>(({ mobile }) => {
     <Flexbox gap={8} width={'100%'}>
       <Flexbox align={'center'} horizontal justify={'space-between'}>
         <div className={styles.title}>{t('guide.questions.title')}</div>
-        <Link href={USAGE_DOCUMENTS} target={'_blank'}>
-          <ActionIcon
-            icon={ArrowRight}
-            size={{ blockSize: 24, size: 16 }}
-            title={t('guide.questions.moreBtn')}
-          />
-        </Link>
       </Flexbox>
       <Flexbox gap={8} horizontal wrap={'wrap'}>
         {qa.slice(0, mobile ? 2 : 5).map((item) => {
@@ -87,11 +84,11 @@ const QuestionSuggest = memo<{ mobile?: boolean }>(({ mobile }) => {
               key={item}
               onClick={() => {
                 updateInputMessage(text);
-                sendMessage({ isWelcomeQuestion: true });
+                sendMessage({ isWelcomeQuestion: true }, subscriptionInfo);
               }}
               variant={'outlined'}
             >
-              {t(text)}
+              {text}
             </Block>
           );
         })}
