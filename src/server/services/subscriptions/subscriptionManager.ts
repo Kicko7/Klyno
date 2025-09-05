@@ -789,7 +789,11 @@ export class SubscriptionManager {
       subscription[0]?.canceledPeriodDate
     ) {
       if (new Date(subscription[0].canceledPeriodDate) < new Date()) {
-        await db.delete(userSubscriptions).where(eq(userSubscriptions.id, subscription[0].id));
+        // await db.delete(userSubscriptions).where(eq(userSubscriptions.id, subscription[0].id));
+        await db.update(userSubscriptions).set({
+          status: 'canceled',
+          updatedAt: new Date(),
+        }).where(eq(userSubscriptions.id, subscription[0].id));
         return null;
       }
     }

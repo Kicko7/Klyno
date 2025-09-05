@@ -27,7 +27,7 @@ const DefaultMode = memo(() => {
   useFetchSessions();
 
   const defaultSessions = useSessionStore(sessionSelectors.defaultSessions, isEqual);
-  // console.log(defaultSessions, 'defaultSessions');
+  console.log(defaultSessions, 'defaultSessions');
   const customSessionGroups = useSessionStore(sessionSelectors.customSessionGroups, isEqual);
   const pinnedSessions = useSessionStore(sessionSelectors.pinnedSessions, isEqual);
 
@@ -64,7 +64,7 @@ const DefaultMode = memo(() => {
         })),
         {
           // Passing empty array to avoid showing the default list because of teams organization
-          children: <SessionList dataSource={ []} />,
+          children: <SessionList dataSource={defaultSessions.filter((session) => session.meta.title !== 'Team Chat')} />,
           extra: <Actions openConfigModal={() => setConfigGroupModalOpen(true)} />,
           key: SessionDefaultGroup.Default,
           label: t('defaultList'),

@@ -404,7 +404,7 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
           teamChatId={teamChatId}
           mobile={mobile}
           // onLoadMore={handleLoadMore}
-          hasMore={chatState.hasMoreMessages}
+          // hasMore={chatState.hasMoreMessages}
           isLoading={isLoading}
           isTransitioning={switchState.isPending}
         />
