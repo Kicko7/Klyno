@@ -17,6 +17,7 @@ import { useGlobalStore } from '@/store/global';
 import { SidebarTabKey } from '@/store/global/initialState';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
 import { useSessionStore } from '@/store/session';
+import { useTeamChatStore } from '@/store/teamChat';
 
 const ICON_SIZE: ActionIconProps['size'] = {
   blockSize: 40,
@@ -39,6 +40,7 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
   const isTeamsActive = tab === SidebarTabKey.Teams;
   const isDiscoverActive = tab === SidebarTabKey.Discover;
 
+  const setActiveTeamChat = useTeamChatStore((state) => state.setActiveTeamChat);
   return (
     <Flexbox gap={8}>
       <Link
@@ -49,7 +51,7 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
           if (e.metaKey || e.ctrlKey) {
             return;
           }
-
+          setActiveTeamChat(null);
           // Otherwise, prevent default and switch session within the current tab
           e.preventDefault();
           switchBackToChat(useSessionStore.getState().activeId);
@@ -70,6 +72,9 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
           size={ICON_SIZE}
           title={t('tab.teams')}
           tooltipProps={{ placement: 'right' }}
+          onClick={() => {
+            setActiveTeamChat(null);
+          }}
         />
       </Link>
       {enableKnowledgeBase && (
@@ -80,6 +85,9 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
             size={ICON_SIZE}
             title={t('tab.files')}
             tooltipProps={{ placement: 'right' }}
+            onClick={() => {
+              setActiveTeamChat(null);
+            }}
           />
         </Link>
       )}
@@ -90,6 +98,9 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
           size={ICON_SIZE}
           title={t('tab.pricing')}
           tooltipProps={{ placement: 'right' }}
+          onClick={() => {
+            setActiveTeamChat(null);
+          }}
         />
       </Link>
       
@@ -101,6 +112,9 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
             size={ICON_SIZE}
             title={t('tab.discover')}
             tooltipProps={{ placement: 'right' }}
+            onClick={() => {
+              setActiveTeamChat(null);
+            }}
           />
         </Link>
       )}
@@ -111,6 +125,9 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
           size={ICON_SIZE}
           title={'Affilate'}
           tooltipProps={{ placement: 'right' }}
+          onClick={() => {
+            setActiveTeamChat(null);
+          }}
         />
       </Link>
     </Flexbox>

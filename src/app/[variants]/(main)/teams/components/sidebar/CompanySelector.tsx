@@ -38,6 +38,8 @@ const CompanySelector = () => {
   const selectedOrganization =
     organizations?.find((org) => org.id === selectedOrganizationId) || organizations?.[0] || null;
 
+    const setActiveTeamChat = useTeamChatStore((state) => state.setActiveTeamChat);
+
   // When organizations load and no org is selected, select the first
   useEffect(() => {
     if (organizations && organizations.length > 0 && !selectedOrganizationId) {
@@ -136,6 +138,7 @@ const CompanySelector = () => {
                         : 'hover:bg-slate-100 text-black hover:text-black'
                   }`}
                   onClick={() => {
+                    setActiveTeamChat(null);
                     setSelectedOrganizationId(org.id);
                     setCurrentOrganizationId(org.id);
                   }}
