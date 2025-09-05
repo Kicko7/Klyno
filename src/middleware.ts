@@ -53,6 +53,10 @@ export const config = {
     '/affiliate',
     '/pay',
     '/pay(.*)',
+    '/privacy',
+    '/privacy(.*)',
+    '/terms',
+    '/terms(.*)',
     // ↓ cloud ↓
   ],
 };

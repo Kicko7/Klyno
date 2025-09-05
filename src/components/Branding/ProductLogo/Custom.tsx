@@ -20,15 +20,16 @@ const CustomTextLogo = memo<FlexboxProps & { size: number }>(({ size, style, ...
   return (
     <Flexbox
       height={size}
+      className='flex items-center justify-center'
       style={{
-        fontSize: size / 1.5,
+        fontSize: size / 1.2,
         fontWeight: 'bolder',
         userSelect: 'none',
         ...style,
       }}
       {...rest}
     >
-      {BRANDING_NAME}
+      {BRANDING_NAME.slice(0,1).toUpperCase()}
     </Flexbox>
   );
 });

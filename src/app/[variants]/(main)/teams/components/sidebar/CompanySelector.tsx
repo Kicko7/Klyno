@@ -114,7 +114,12 @@ const CompanySelector = () => {
               theme.appearance === "dark" 
                 ? 'hover:bg-slate-800 text-slate-200 hover:text-white' 
                 : 'hover:bg-slate-100 text-black hover:text-black'
-            }`}>
+            }`}
+            onClick={() => {
+              setActiveTeamChat(null);
+              router.push('/teams/integrations');
+            }}
+            >
               <Grid3X3 className={`w-4 h-4 ${theme.appearance === "dark" ? 'text-slate-200' : "text-black"}`} />
               <span>My integrations</span>
             </div>
