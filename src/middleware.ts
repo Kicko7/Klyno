@@ -57,6 +57,8 @@ export const config = {
     '/privacy(.*)',
     '/terms',
     '/terms(.*)',
+    '/onboard',
+    '/onboard(.*)',
     // ↓ cloud ↓
   ],
 };

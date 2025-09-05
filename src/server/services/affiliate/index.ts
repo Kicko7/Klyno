@@ -84,6 +84,12 @@ export class AffiliateService implements IAffiliateService {
         if (!ownerId) {
             return;
         }
+
+        const checkAffiliate = await db.select().from(affiliate).where(eq(affiliate.affiliateUserId, data.userId));
+        console.log('checkAffiliate', checkAffiliate);
+        if (checkAffiliate.length > 0) {
+            return;
+        }
         const newAffiliate: NewAffiliate = {
             link: link,
             ownerId: ownerId,
@@ -138,5 +144,10 @@ export class AffiliateService implements IAffiliateService {
     async getMyWithdrawalHistory(data: { userId: string }) {
         const withdrawalHistory = await db.select().from(affiliateWithdrawals).where(eq(affiliateWithdrawals.userId, data.userId));
         return withdrawalHistory;
+    }
+    
+    async updateUserOnboarded(data: { userId: string }) {
+        const updated = await db.update(users).set({ isOnboarded: true }).where(eq(users.id, data.userId));
+        return updated;
     }
 }

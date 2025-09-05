@@ -35,6 +35,9 @@ export const affiliateRouter = router({
         link: z.string(),
         userId: z.string(),
     })).mutation(async ({ input }) => {
+        if(!input.userId) {
+            return;
+        }
         const service = new AffiliateService();
         return service.addAffiliateRef(input);
     }),
@@ -70,5 +73,11 @@ export const affiliateRouter = router({
     })).query(async ({ input }) => {
         const service = new AffiliateService();
         return service.getMyWithdrawalHistory(input);
+    }),
+    updateUserOnboarded: authedProcedure.input(z.object({
+        userId: z.string(),
+    })).mutation(async ({ input }) => {
+        const service = new AffiliateService();
+        return service.updateUserOnboarded(input);
     }),
 });

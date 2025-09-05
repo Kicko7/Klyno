@@ -7,7 +7,6 @@ import { useEffect } from 'react';
 export default function SignUpWrapper({ affiliateRef }: { affiliateRef?: string }) {
   const countclickAffiliate = useAffiliateStore((state) => state.countclickAffiliate);
   
-  console.log('SignUpWrapper affiliateRef:', affiliateRef);
   
   useEffect(() => {
     if (affiliateRef) {
@@ -26,7 +25,7 @@ export default function SignUpWrapper({ affiliateRef }: { affiliateRef?: string 
             rootBox: 'mx-auto',
           },
         }}
-        fallbackRedirectUrl="/"
+        fallbackRedirectUrl="/onboard"
         path="/signup"
         routing="path"
         signInUrl="/login"

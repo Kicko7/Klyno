@@ -37,6 +37,7 @@ export interface AffiliateAction {
   getFullUser: (userId: string) => Promise<UserItem>;
   processWithdrawal: (data: { withdrawalId: string, userId: string }) => Promise<any>;
   getMyWithdrawalHistory: (data: { userId: string }) => Promise<AffiliateWithdrawalItem[]>;
+  updateUserOnboarded: (data: { userId: string }) => Promise<any>;
 }
 
 export interface AffiliateStore extends AffiliateState, AffiliateAction {}
@@ -165,6 +166,15 @@ export const useAffiliateStore = create<AffiliateStore>()(
         try {
           const history = await lambdaClient.affiliate.getMyWithdrawalHistory.query(data);
           set({ withdrawalHistory: history });
+        }
+        catch (error) {
+          console.error(error);
+          throw error;
+        }
+      },
+      updateUserOnboarded: async (data) => {
+        try {
+          await lambdaClient.affiliate.updateUserOnboarded.mutate(data);
         }
         catch (error) {
           console.error(error);

@@ -6,6 +6,7 @@ import { ReactNode, forwardRef, memo } from 'react';
 import { Flexbox, FlexboxProps } from 'react-layout-kit';
 
 import { BRANDING_LOGO_URL, BRANDING_NAME } from '@/const/branding';
+import { usePathname } from 'next/navigation';
 
 const useStyles = createStyles(({ css }) => {
   return {
@@ -17,6 +18,23 @@ const useStyles = createStyles(({ css }) => {
 });
 
 const CustomTextLogo = memo<FlexboxProps & { size: number }>(({ size, style, ...rest }) => {
+  if(usePathname().includes('about')){
+    return (
+      <Flexbox
+        height={size}
+        className='flex items-center justify-center'
+        style={{
+          fontSize: size / 1.2,
+          fontWeight: 'bolder',
+          userSelect: 'none',
+          ...style,
+        }}
+        {...rest}
+      >
+        {BRANDING_NAME.slice(0,1).toUpperCase()}
+      </Flexbox>
+    );
+  }
   return (
     <Flexbox
       height={size}
@@ -29,7 +47,7 @@ const CustomTextLogo = memo<FlexboxProps & { size: number }>(({ size, style, ...
       }}
       {...rest}
     >
-      {BRANDING_NAME.slice(0,1).toUpperCase()}
+      {BRANDING_NAME}
     </Flexbox>
   );
 });
