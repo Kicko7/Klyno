@@ -201,5 +201,6 @@ export const useUserSubscription = () => {
     setOwnerId,
     ownerId,
     updateOrganizationSubscriptionInfo,
+    fetchSubscriptionInfo,
   };
 };

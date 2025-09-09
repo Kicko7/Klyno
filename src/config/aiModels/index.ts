@@ -57,14 +57,35 @@ import { default as zhipu } from './zhipu';
 
 type ModelsMap = Record<string, AiFullModelCard[]>;
 
-const buildDefaultModelList = (map: ModelsMap): LobeDefaultAiModelListItem[] => {
+const buildDefaultModelList = (map: ModelsMap, subscription?: any): LobeDefaultAiModelListItem[] => {
+  // Console log the subscription data for debugging
+  // console.log('🔍 buildDefaultModelList subscription data:', subscription);
+  
   let models: LobeDefaultAiModelListItem[] = [];
 
   Object.entries(map).forEach(([provider, providerModels]) => {
-    const newModels = providerModels.map((model) => ({
+    let filteredModels = providerModels;
+    
+    // Special handling for OpenRouter models based on subscription status
+    if (provider === 'openrouter') {
+      if (!subscription) {
+        console.log("No Subscription - filtering for free models only")
+        filteredModels = providerModels.filter(model => {
+          const isEnabled = model.enabled;
+          const hasFreeInName = model.displayName?.toLowerCase().includes('free');
+          console.log(`Model: ${model.displayName}, enabled: ${isEnabled}, hasFree: ${hasFreeInName}`);
+          return isEnabled && hasFreeInName;
+        });
+      } else {
+        console.log("Has Subscription - showing all enabled models")
+        filteredModels = providerModels.filter(model => model.enabled);      
+      }
+    }
+    
+    const newModels = filteredModels.map((model) => ({
       ...model,
       abilities: model.abilities ?? {},
-      enabled: model.enabled || false,
+      enabled: true, // All filtered models should be enabled
       providerId: provider,
       source: 'builtin',
     }));
@@ -74,6 +95,7 @@ const buildDefaultModelList = (map: ModelsMap): LobeDefaultAiModelListItem[] => 
   return models;
 };
 
+// Static model list (default export)
 export const LOBE_DEFAULT_MODEL_LIST = buildDefaultModelList({
   ai21,
   ai360,
@@ -130,6 +152,66 @@ export const LOBE_DEFAULT_MODEL_LIST = buildDefaultModelList({
   zeroone,
   zhipu,
 });
+
+// Dynamic model list function that accepts subscription
+export const getModelListWithSubscription = (subscription?: any): LobeDefaultAiModelListItem[] => {
+  return buildDefaultModelList({
+    ai21,
+    ai360,
+    anthropic,
+    azure,
+    azureai,
+    baichuan,
+    bedrock,
+    cloudflare,
+    cohere,
+    deepseek,
+    fireworksai,
+    giteeai,
+    github,
+    google,
+    groq,
+    higress,
+    huggingface,
+    hunyuan,
+    infiniai,
+    internlm,
+    jina,
+    lmstudio,
+    minimax,
+    mistral,
+    modelscope,
+    moonshot,
+    novita,
+    nvidia,
+    ollama,
+    openai,
+    openrouter,
+    perplexity,
+    ppio,
+    qiniu,
+    qwen,
+    sambanova,
+    search1api,
+    sensenova,
+    siliconcloud,
+    spark,
+    stepfun,
+    taichu,
+    tencentcloud,
+    togetherai,
+    upstage,
+    v0,
+    vertexai,
+    vllm,
+    volcengine,
+    wenxin,
+    xai,
+    xinference,
+    zeroone,
+    zhipu,
+  }, subscription);
+};
 
 export { default as ai21 } from './ai21';
 export { default as ai360 } from './ai360';

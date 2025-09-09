@@ -247,6 +247,7 @@ const openrouterChatModels: AIChatModelCard[] = [
     },
     releasedAt: '2025-04-17',
     type: 'chat',
+    enabled: true,
   },
   {
     abilities: {
@@ -267,6 +268,7 @@ const openrouterChatModels: AIChatModelCard[] = [
     },
     releasedAt: '2025-04-17',
     type: 'chat',
+    enabled: true,
   },
   {
     abilities: {
@@ -286,6 +288,7 @@ const openrouterChatModels: AIChatModelCard[] = [
     },
     releasedAt: '2025-04-17',
     type: 'chat',
+    enabled: true,
   },
   {
     abilities: {
@@ -304,6 +307,7 @@ const openrouterChatModels: AIChatModelCard[] = [
     },
     releasedAt: '2025-04-14',
     type: 'chat',
+    enabled: true,
   },
   {
     abilities: {
@@ -323,6 +327,7 @@ const openrouterChatModels: AIChatModelCard[] = [
     },
     releasedAt: '2025-04-14',
     type: 'chat',
+    enabled: true,
   },
   {
     abilities: {
@@ -536,6 +541,7 @@ const openrouterChatModels: AIChatModelCard[] = [
     },
     releasedAt: '2024-03-07',
     type: 'chat',
+    enabled: true,
   },
   {
     abilities: {
@@ -555,6 +561,7 @@ const openrouterChatModels: AIChatModelCard[] = [
     },
     releasedAt: '2024-11-05',
     type: 'chat',
+    enabled: true,
   },
   {
     abilities: {
@@ -575,6 +582,7 @@ const openrouterChatModels: AIChatModelCard[] = [
     },
     releasedAt: '2024-06-20',
     type: 'chat',
+    enabled: true,
   },
   {
     abilities: {
@@ -599,6 +607,7 @@ const openrouterChatModels: AIChatModelCard[] = [
       extendParams: ['enableReasoning', 'reasoningBudgetToken'],
     },
     type: 'chat',
+    enabled: true,
   },
   {
     abilities: {
@@ -621,6 +630,7 @@ const openrouterChatModels: AIChatModelCard[] = [
       extendParams: ['enableReasoning', 'reasoningBudgetToken'],
     },
     type: 'chat',
+    enabled: true,
   },
   {
     abilities: {
@@ -663,6 +673,7 @@ const openrouterChatModels: AIChatModelCard[] = [
     },
     releasedAt: '2024-02-29',
     type: 'chat',
+    enabled: true,
   },
   {
     abilities: {
@@ -679,6 +690,7 @@ const openrouterChatModels: AIChatModelCard[] = [
       output: 0.3,
     },
     type: 'chat',
+    enabled: true,
   },
   {
     abilities: {
@@ -698,6 +710,7 @@ const openrouterChatModels: AIChatModelCard[] = [
     },
     releasedAt: '2025-02-05',
     type: 'chat',
+    enabled: true,
   },
   {
     abilities: {
@@ -729,6 +742,7 @@ const openrouterChatModels: AIChatModelCard[] = [
       output: 0.162,
     },
     type: 'chat',
+    enabled: true,
   },
   {
     abilities: {
@@ -744,6 +758,7 @@ const openrouterChatModels: AIChatModelCard[] = [
       output: 0.4,
     },
     type: 'chat',
+    enabled: true,
   },
   {
     abilities: {
@@ -759,6 +774,7 @@ const openrouterChatModels: AIChatModelCard[] = [
       output: 0.3,
     },
     type: 'chat',
+    enabled: true,
   },
   {
     abilities: {
