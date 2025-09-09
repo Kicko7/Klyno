@@ -15,15 +15,16 @@ import {
   Typography,
   message,
 } from 'antd';
-import { Search, UserPlus } from 'lucide-react';
+import { useTheme } from 'antd-style';
+import { Search, Trash2, UserPlus } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import React, { useEffect, useMemo, useState } from 'react';
 
 import { renderEmail } from '@/libs/emails/render-email';
 import { OrganizationInvitation } from '@/libs/emails/templates/organization-invitation';
 import { useOrganizationStore } from '@/store/organization/store';
+
 import AddOrganizationMemberModal from './AddOrganizationMemberModal';
-import { useTheme } from 'antd-style';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -34,6 +35,8 @@ interface MembersProps {
 
 const Members: React.FC<MembersProps> = ({ organizationId }) => {
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<{ id: string; email: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -45,6 +48,7 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
     organizations,
     inviteMember,
     isInviting,
+    removeMember,
   } = useOrganizationStore();
 
   const currentOrganization = organizationId
@@ -52,16 +56,32 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
     : organizations[0];
 
   useEffect(() => {
-    if (currentOrganization?.id) {
+    if (currentOrganization?.id && !isFetchingMembers) {
+      console.log('🔄 Fetching members for organization:', currentOrganization.id);
       fetchOrganizationMembers(currentOrganization.id);
     }
-  }, [currentOrganization?.id, fetchOrganizationMembers]);
+  }, [currentOrganization?.id]); // Remove fetchOrganizationMembers from dependencies
 
   // Filter members based on search term
   const filteredMembers = useMemo(() => {
-    if (!searchTerm) return organizationMembers;
+    // Debug: Log the raw organization members to check for duplicates
+    // Check for duplicates by userId
+    const userIds = organizationMembers.map((member: any) => member.userId);
+    const uniqueUserIds = [...new Set(userIds)];
 
-    return organizationMembers.filter(
+    // Deduplicate members by userId (keep the first occurrence)
+    const deduplicatedMembers = organizationMembers.reduce((acc: any[], member: any) => {
+      const existingMember = acc.find((m) => m.userId === member.userId);
+      if (!existingMember) {
+        acc.push(member);
+      } else {
+      }
+      return acc;
+    }, []);
+
+    if (!searchTerm) return deduplicatedMembers;
+
+    return deduplicatedMembers.filter(
       (member: any) =>
         member.userId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         member.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -122,7 +142,38 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
     if (size) setPageSize(size);
   };
 
-  const theme = useTheme()
+  const handleRemoveClick = (memberId: string, memberEmail: string) => {
+    setMemberToRemove({ id: memberId, email: memberEmail });
+    setShowRemoveModal(true);
+  };
+
+  const [isRemovingMember, setIsRemovingMember] = useState(false);
+  
+  const handleRemoveMember = async () => {
+    if (!currentOrganization?.id || !memberToRemove) return;
+
+    try {
+      setIsRemovingMember(true);
+      await removeMember(currentOrganization.id, memberToRemove.id);
+      message.success(`Successfully removed ${memberToRemove.email} from the organization`);
+      // Refresh the members list
+      fetchOrganizationMembers(currentOrganization.id);
+      setShowRemoveModal(false);
+      setMemberToRemove(null);
+    } catch (error) {
+      console.error('Error removing member:', error);
+      message.error('Failed to remove member. Please try again.');
+    } finally {
+      setIsRemovingMember(false);
+    }
+  };
+
+  const handleCancelRemove = () => {
+    setShowRemoveModal(false);
+    setMemberToRemove(null);
+  };
+
+  const theme = useTheme();
 
   if (!currentOrganization) {
     return (
@@ -135,8 +186,12 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
     );
   }
 
+  const isAdmin = currentOrganization.memberRole === 'owner';
+
   return (
-    <div className={`min-h-screen ${theme.appearance == "dark" ? 'bg-black text-white':'bg-white text-black'}`}>
+    <div
+      className={`min-h-screen ${theme.appearance == 'dark' ? 'bg-black text-white' : 'bg-white text-black'}`}
+    >
       <div className="p-6 w-full h-full">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
@@ -148,14 +203,16 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
               Manage members and their roles in your organization
             </Text>
           </div>
+          {isAdmin && (
           <Button
             type="primary"
             icon={<UserPlus className="w-4 h-4" />}
             onClick={handleInviteMember}
             className="bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-lg"
           >
-            Invite Member
-          </Button>
+              Invite Member
+            </Button>
+          )}
         </div>
 
         {/* Search Bar */}
@@ -218,6 +275,20 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
                     ) : (
                       <Tag color="green">Active</Tag>
                     )}
+
+                    {/* Remove member button - only show for non-admin members */}
+
+                    {(member.role || member.memberRole) !== 'owner' && isAdmin && (
+                      <Button
+                        type="text"
+                        danger
+                        icon={<Trash2 className="w-4 h-4" />}
+                        size="small"
+                        className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                        title="Remove member"
+                        onClick={() => handleRemoveClick(member.userId, member.email)}
+                      />
+                    )}
                   </div>
                 </List.Item>
               )}
@@ -279,6 +350,39 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
         }}
         organizationId={currentOrganization?.id}
       />
+
+      {/* Remove Member Confirmation Modal */}
+      <Modal
+        title="Remove Member"
+        open={showRemoveModal}
+        onOk={handleRemoveMember}
+        onCancel={handleCancelRemove}
+        okText="Yes, Remove"
+        cancelText="Cancel"
+        okButtonProps={{
+          danger: true,
+          loading: isRemovingMember,
+          className: 'bg-red-600 hover:bg-red-700 border-red-600',
+        }}
+        cancelButtonProps={{
+          disabled: isRemovingMember,
+          className: 'border-gray-500 text-gray-300 hover:border-gray-400',
+        }}
+        centered
+        className="text-white"
+      >
+        <div className="text-center py-4">
+          <div className="text-red-400 mb-4">
+            <Trash2 className="w-12 h-12 mx-auto mb-2" />
+          </div>
+          <p className="text-lg mb-2">Are you sure you want to remove this member?</p>
+          <p className="text-gray-400">
+            <strong className="text-black">{memberToRemove?.email}</strong> will be removed from the
+            organization.
+          </p>
+          <p className="text-sm text-gray-500 mt-2">This action cannot be undone.</p>
+        </div>
+      </Modal>
     </div>
   );
 };

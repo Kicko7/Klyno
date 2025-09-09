@@ -30,6 +30,7 @@ export interface OrganizationAction {
     role: 'admin' | 'member';
     teamId: string;
   }) => Promise<void>;
+  removeMember: (organizationId: string, memberId: string) => Promise<void>;
   setSelectedOrganizationId: (id: string) => void;
 }
 
@@ -123,6 +124,17 @@ export const useOrganizationStore = create<OrganizationStore>()(
           set({ isInviting: false });
         } catch (error) {
           set({ error, isInviting: false });
+        }
+      },
+      removeMember: async (organizationId: string, memberId: string) => {
+        try {
+          await lambdaClient.organization.removeMember.mutate({
+            organizationId,
+            memberId,
+          });
+        } catch (error) {
+          set({ error });
+          throw error;
         }
       },
       setSelectedOrganizationId: (id: string) => {

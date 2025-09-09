@@ -146,6 +146,7 @@ const CompanySelector = () => {
                     setActiveTeamChat(null);
                     setSelectedOrganizationId(org.id);
                     setCurrentOrganizationId(org.id);
+                    router.push(`/teams`);
                   }}
                 >
                   <ShowCompany org={org} />
