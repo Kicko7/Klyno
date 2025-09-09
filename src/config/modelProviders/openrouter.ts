@@ -325,7 +325,7 @@ const OpenRouter: ModelProviderCard = {
   id: 'openrouter',
   modelList: { showModelFetcher: true },
   modelsUrl: 'https://openrouter.ai/models',
-  name: 'OpenRouter',
+  name: 'KlynoAI',
   settings: {
     // OpenRouter don't support browser request
     // https://github.com/lobehub/lobe-chat/issues/5900
@@ -335,6 +335,7 @@ const OpenRouter: ModelProviderCard = {
     },
     sdkType: 'openai',
     searchMode: 'params',
+    // showApiKey: false,
     showModelFetcher: true,
   },
   url: 'https://openrouter.ai',
