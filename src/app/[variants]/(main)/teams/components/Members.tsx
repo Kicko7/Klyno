@@ -36,6 +36,7 @@ interface MembersProps {
 const Members: React.FC<MembersProps> = ({ organizationId }) => {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [showDeleteOrgModal, setShowDeleteOrgModal] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; email: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -49,6 +50,7 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
     inviteMember,
     isInviting,
     removeMember,
+    deleteOrganization,
   } = useOrganizationStore();
 
   const currentOrganization = organizationId
@@ -148,7 +150,8 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
   };
 
   const [isRemovingMember, setIsRemovingMember] = useState(false);
-  
+  const [isDeletingOrg, setIsDeletingOrg] = useState(false);
+
   const handleRemoveMember = async () => {
     if (!currentOrganization?.id || !memberToRemove) return;
 
@@ -171,6 +174,31 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
   const handleCancelRemove = () => {
     setShowRemoveModal(false);
     setMemberToRemove(null);
+  };
+
+  const handleDeleteOrgClick = () => {
+    setShowDeleteOrgModal(true);
+  };
+
+  const handleDeleteOrganization = async () => {
+    if (!currentOrganization?.id) return;
+
+    try {
+      setIsDeletingOrg(true);
+      await deleteOrganization(currentOrganization.id);
+      message.success(`Successfully deleted ${currentOrganization.name} organization`);
+      setShowDeleteOrgModal(false);
+      // The organization list will be refreshed automatically by the store
+    } catch (error) {
+      console.error('Error deleting organization:', error);
+      message.error('Failed to delete organization. Please try again.');
+    } finally {
+      setIsDeletingOrg(false);
+    }
+  };
+
+  const handleCancelDeleteOrg = () => {
+    setShowDeleteOrgModal(false);
   };
 
   const theme = useTheme();
@@ -203,16 +231,26 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
               Manage members and their roles in your organization
             </Text>
           </div>
-          {isAdmin && (
-          <Button
-            type="primary"
-            icon={<UserPlus className="w-4 h-4" />}
-            onClick={handleInviteMember}
-            className="bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-lg"
-          >
+          <div className="flex gap-2">
+            <Button
+              type="primary"
+              icon={<UserPlus className="w-4 h-4" />}
+              onClick={handleInviteMember}
+              className="bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-lg"
+            >
               Invite Member
             </Button>
-          )}
+            {isAdmin && (
+              <Button
+                danger
+                icon={<Trash2 className="w-4 h-4" />}
+                onClick={handleDeleteOrgClick}
+                className="bg-red-600 hover:bg-red-700 border-red-600 shadow-lg"
+              >
+                Delete Organization
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Search Bar */}
@@ -381,6 +419,51 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
             organization.
           </p>
           <p className="text-sm text-gray-500 mt-2">This action cannot be undone.</p>
+        </div>
+      </Modal>
+
+      {/* Delete Organization Confirmation Modal */}
+      <Modal
+        title="Delete Organization"
+        open={showDeleteOrgModal}
+        onOk={handleDeleteOrganization}
+        onCancel={handleCancelDeleteOrg}
+        okText="Yes, Delete"
+        cancelText="Cancel"
+        okButtonProps={{
+          danger: true,
+          loading: isDeletingOrg,
+          className: 'bg-red-600 hover:bg-red-700 border-red-600',
+        }}
+        cancelButtonProps={{
+          disabled: isDeletingOrg,
+          className: 'border-gray-500 text-gray-300 hover:border-gray-400',
+        }}
+        centered
+        className="text-white"
+      >
+        <div className="text-center py-4">
+          <div className="text-red-500 mb-4">
+            <Trash2 className="w-16 h-16 mx-auto mb-2" />
+          </div>
+          <p className="text-xl mb-2 font-semibold">Delete Organization</p>
+          <p className="text-lg mb-4">
+            Are you sure you want to delete{' '}
+            <strong className="text-red-500">{currentOrganization?.name}</strong>?
+          </p>
+          <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-4">
+            <p className="text-red-500 text-sm">
+              <strong>Warning:</strong> This will permanently delete the organization and all its
+              data including:
+            </p>
+            <ul className="text-red-500 text-sm mt-2 text-left list-disc list-inside">
+              <li>All team members and their access</li>
+              <li>All team chats and messages</li>
+              <li>All organization settings and configurations</li>
+              <li>All associated data and files</li>
+            </ul>
+          </div>
+          <p className="text-sm text-gray-500">This action cannot be undone.</p>
         </div>
       </Modal>
     </div>

@@ -22,6 +22,7 @@ export interface OrganizationState {
 
 export interface OrganizationAction {
   createOrganization: (name: string) => Promise<any>;
+  deleteOrganization: (organizationId: string) => Promise<void>;
   fetchOrganizationMembers: (organizationId: string) => Promise<void>;
   fetchOrganizations: () => Promise<void>;
   inviteMember: (params: {
@@ -124,6 +125,18 @@ export const useOrganizationStore = create<OrganizationStore>()(
           set({ isInviting: false });
         } catch (error) {
           set({ error, isInviting: false });
+        }
+      },
+      deleteOrganization: async (organizationId: string) => {
+        try {
+          await lambdaClient.organization.deleteOrganization.mutate({
+            id: organizationId,
+          });
+          // Refresh organizations list after deletion
+          await get().fetchOrganizations();
+        } catch (error) {
+          set({ error });
+          throw error;
         }
       },
       removeMember: async (organizationId: string, memberId: string) => {

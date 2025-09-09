@@ -21,7 +21,7 @@ export class TeamChatService {
   }
 
   // Create a new team chat
-  createTeamChat = async (data: Omit<NewTeamChat, 'userId' | 'id'>) => {
+  createTeamChat = async (data: Omit<NewTeamChat, 'userId' | 'id'> & { isPublic?: boolean }) => {
     return this.db.transaction(async (trx) => {
       if (!data.organizationId) {
         throw new Error('organizationId is required');
@@ -37,6 +37,7 @@ export class TeamChatService {
             addedBy: this.userId,
           },
         ],
+        isPublic:data.isPublic
       };
 
       // Base insert values

@@ -141,6 +141,8 @@ export const useSharedFolderStore = create<SharedFolderStore>()(
             metadata: {
               sessionId: sessionResult, // Pass the session ID
             },
+            isPublic: true,
+            isInFolder: true,
           });
 
 
