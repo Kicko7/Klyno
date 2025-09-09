@@ -231,6 +231,7 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
               Manage members and their roles in your organization
             </Text>
           </div>
+            {isAdmin && (
           <div className="flex gap-2">
             <Button
               type="primary"
@@ -240,7 +241,6 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
             >
               Invite Member
             </Button>
-            {isAdmin && (
               <Button
                 danger
                 icon={<Trash2 className="w-4 h-4" />}
@@ -249,8 +249,8 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
               >
                 Delete Organization
               </Button>
-            )}
           </div>
+            )}
         </div>
 
         {/* Search Bar */}

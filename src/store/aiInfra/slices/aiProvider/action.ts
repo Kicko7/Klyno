@@ -179,6 +179,7 @@ export const createAiProviderSlice: StateCreator<
 
         // Use subscription-based model list instead of default
         const modelListWithSubscription = getModelListWithSubscription(subscription);
+        console.log('🔍 useFetchAiProviderRuntimeState model list:', modelListWithSubscription);
         // console.log('🔍 useFetchAiProviderRuntimeState subscription data:', subscription);
         // console.log('🔍 useFetchAiProviderRuntimeState model list:', modelListWithSubscription);
         

@@ -69,7 +69,7 @@ const buildDefaultModelList = (map: ModelsMap, subscription?: any): LobeDefaultA
     // Special handling for OpenRouter models based on subscription status
     if (provider === 'openrouter') {
       if (!subscription) {
-        console.log("No Subscription - filtering for free models only")
+        console.log("No Subscription - filtering for enabled free models only")
         filteredModels = providerModels.filter(model => {
           const isEnabled = model.enabled;
           const hasFreeInName = model.displayName?.toLowerCase().includes('free');
@@ -80,12 +80,15 @@ const buildDefaultModelList = (map: ModelsMap, subscription?: any): LobeDefaultA
         console.log("Has Subscription - showing all enabled models")
         filteredModels = providerModels.filter(model => model.enabled);      
       }
+    } else {
+      // For all other providers, only show enabled models
+      filteredModels = providerModels.filter(model => model.enabled);
     }
     
     const newModels = filteredModels.map((model) => ({
       ...model,
       abilities: model.abilities ?? {},
-      enabled: true, // All filtered models should be enabled
+      enabled: true, // All filtered models should be enabled since they passed the filter
       providerId: provider,
       source: 'builtin',
     }));
