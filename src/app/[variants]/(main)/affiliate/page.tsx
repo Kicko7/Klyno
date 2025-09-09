@@ -422,7 +422,7 @@ const AffiliatePage = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <StatCard
                 title="Total Clicks"
                 value={affiliateInfo?.totalClicks?.toLocaleString() || 0}
@@ -441,12 +441,12 @@ const AffiliatePage = () => {
                 icon={DollarSign}
                 color="yellow"
               />
-              <StatCard
+              {/* <StatCard
                 title="Conversion Rate"
                 value={`${affiliateInfo?.conversionRate}%` || 0}
                 icon={TrendingUp}
                 color="purple"
-              />
+              /> */}
             </div>
           </div>
 

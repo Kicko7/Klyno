@@ -341,17 +341,17 @@ const OnBoardAssistant = ({
             setRetryTrigger(Date.now());
           }, retryDelay);
         } else {
-          console.log('Max retries reached, no results found');
+          // console.log('Max retries reached, no results found');
           setFilteredAssistants([]);
         }
       } else {
-        console.log('Final filtered assistants:', finalResults.length);
+        // console.log('Final filtered assistants:', finalResults.length);
         setFilteredAssistants(finalResults);
         // Reset retry count on success
         setRetryCount(0);
       }
     } else {
-      console.log('No results found at all, setting empty array');
+      // console.log('No results found at all, setting empty array');
       // No results at all, retry if we haven't exceeded max retries
       if (retryCount < maxRetries && !isLoading) {
         console.log(`No results found, retrying in ${retryDelay}ms... (Attempt ${retryCount + 1}/${maxRetries})`);
@@ -360,7 +360,7 @@ const OnBoardAssistant = ({
           setRetryTrigger(Date.now());
         }, retryDelay);
       } else if (retryCount >= maxRetries) {
-        console.log('Max retries reached, no results found');
+        // console.log('Max retries reached, no results found');
         setFilteredAssistants([]);
       }
     }
@@ -474,6 +474,7 @@ const OnBoardAssistant = ({
       message.success(`Successfully created ${sessionIds.length} assistant sessions!`);
 
       // Navigate to the main chat page or first session
+      updateUserOnboarded({ userId: user?.id || '' });
       if (sessionIds.length > 0) {
         router.push('/chat');
       }

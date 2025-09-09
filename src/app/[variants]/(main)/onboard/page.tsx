@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { useAffiliateStore } from '@/store/affiliate/store';
 import { useUserStore } from '@/store/user';
 
+import Loading from '../chat/loading';
 import OnBoard from './components/OnBoard';
 import OnBoardAssistant from './components/OnBoardAssistant';
 
@@ -221,7 +222,7 @@ const useStyles = createStyles(({ css, token }) => ({
 }));
 
 export default function Onboard() {
-  const [acitveTab, setActiveTab] = useState<string>('onboard');
+  const [activeTab, setActiveTab] = useState<string>('onboard');
   const { styles } = useStyles();
 
   const interests = [
@@ -277,7 +278,6 @@ export default function Onboard() {
 
   // Load user from store
   const user = useUserStore((state) => state.user);
-  const isLoaded = useUserStore((state) => state.isLoaded);
 
   const handleNext = () => {
     setActiveTab('onboard-assistant');
@@ -296,25 +296,25 @@ export default function Onboard() {
     const handleAffiliateRef = async () => {
       if (user && affiliateRef) {
         const affiliate = await addAffiliateRef({ link: affiliateRef, userId: user.id });
-        updateUserAffiliateRef({ affiliateId: affiliate?.id, userId: user.id });
-        localStorage.removeItem('affiliateRef');
-        setAffiliateRef(null);
+        if (affiliate && affiliate?.id) {
+          updateUserAffiliateRef({ affiliateId: affiliate?.id, userId: user.id });
+          localStorage.removeItem('affiliateRef');
+          setAffiliateRef(null);
+        }
       }
     };
     handleAffiliateRef();
   }, [user]);
 
   // Show loading state while user is being loaded
-  if (!isLoaded) {
+  if (!user) {
     return (
       <div className={styles.container}>
         <div className={styles.mainContent}>
           <div className={styles.contentWrapper}>
             <div style={{ textAlign: 'center' }}>
               <div className={styles.logoIcon}>🤯</div>
-              <div style={{ marginTop: '16px', fontSize: '18px', color: '#666' }}>
-                Loading...
-              </div>
+              <div style={{ marginTop: '16px', fontSize: '18px', color: '#666' }}>Loading...</div>
             </div>
           </div>
         </div>
@@ -324,16 +324,18 @@ export default function Onboard() {
 
   return (
     <div className="w-full overflow-auto">
-      {acitveTab === 'onboard-assistant' ? (
+      {!user ? (
+        <Loading />
+      ) : activeTab === 'onboard-assistant' ? (
         <OnBoardAssistant
           selectedInterests={selectedInterests}
           setActiveTab={setActiveTab}
           handleNext={handleNext}
-          activeTab={acitveTab}
+          activeTab={activeTab}
         />
       ) : (
         <OnBoard
-          activeTab={acitveTab}
+          activeTab={activeTab}
           setActiveTab={setActiveTab}
           interests={interests}
           selectedInterests={selectedInterests}

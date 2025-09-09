@@ -79,31 +79,42 @@ export class AffiliateService implements IAffiliateService {
     }
 
     async addAffiliateRef(data: { link: string, userId: string, }) {
-        const link = process.env.APP_URL + '/signup?ref=' + data.link;
-        const ownerId = await db.select().from(affiliateInfo).where(eq(affiliateInfo.link, link)).then(res => res[0].ownerId);
-        if (!ownerId) {
-            return;
-        }
+        try {
+            const link = process.env.APP_URL + '/signup?ref=' + data.link;
+            const ownerId = await db.select().from(affiliateInfo).where(eq(affiliateInfo.link, link)).then(res => res[0].ownerId);
+            if (!ownerId) {
+                return;
+            }
 
-        const checkAffiliate = await db.select().from(affiliate).where(eq(affiliate.affiliateUserId, data.userId));
-        console.log('checkAffiliate', checkAffiliate);
-        if (checkAffiliate.length > 0) {
+            const user = await db.select().from(users).where(eq(users.id, data.userId));
+            if (!user) {
+                return;
+            }
+            const checkAffiliate = await db.select().from(affiliate).where(eq(affiliate.affiliateUserId, data.userId));
+            if (checkAffiliate.length > 0) {
+                return;
+            }
+            const newAffiliate: NewAffiliate = {
+                link: link,
+                ownerId: ownerId,
+                affiliateUserId: data.userId,
+            };
+            const [inserted] = await db.insert(affiliate).values(newAffiliate).returning();
+            if (inserted) {
+                const affiliates = await db.select().from(affiliateInfo).where(eq(affiliateInfo.link, link));
+                await db.update(affiliateInfo).set({ totalSignups: (affiliates[0].totalSignups || 0) + 1 }).where(eq(affiliateInfo.link, link));
+            }
+            return inserted;
+        } catch (error) {
+            console.log('error', error);
             return;
         }
-        const newAffiliate: NewAffiliate = {
-            link: link,
-            ownerId: ownerId,
-            affiliateUserId: data.userId,
-        };
-        const [inserted] = await db.insert(affiliate).values(newAffiliate).returning();
-        if (inserted) {
-            const affiliates = await db.select().from(affiliateInfo).where(eq(affiliateInfo.link, link));
-            await db.update(affiliateInfo).set({ totalSignups: (affiliates[0].totalSignups || 0) + 1 }).where(eq(affiliateInfo.link, link));
-        }
-        return inserted;
     }
 
     async updateUserAffiliateRef(data: { affiliateId: string, userId: string }) {
+        if (!data.userId || !data.affiliateId) {
+            return;
+        }
         const updated = await db.update(users).set({ affiliateId: data.affiliateId }).where(eq(users.id, data.userId));
         return updated;
     }
@@ -131,13 +142,13 @@ export class AffiliateService implements IAffiliateService {
         });
 
         await db.update(affiliateInfo).set({ totalRevenue: 0 }).where(eq(affiliateInfo.id, data.affiliateId));
-      
+
         return inserted;
         // return updated;
     }
 
     async processWithdrawal(data: { withdrawalId: string, userId: string }) {
-        const updated = await db.update(affiliateWithdrawals).set({ status: 'paid',updatedAt: new Date() }).where(eq(affiliateWithdrawals.id, data.withdrawalId));
+        const updated = await db.update(affiliateWithdrawals).set({ status: 'paid', updatedAt: new Date() }).where(eq(affiliateWithdrawals.id, data.withdrawalId));
         return updated;
     }
 
@@ -145,7 +156,7 @@ export class AffiliateService implements IAffiliateService {
         const withdrawalHistory = await db.select().from(affiliateWithdrawals).where(eq(affiliateWithdrawals.userId, data.userId));
         return withdrawalHistory;
     }
-    
+
     async updateUserOnboarded(data: { userId: string }) {
         const updated = await db.update(users).set({ isOnboarded: true }).where(eq(users.id, data.userId));
         return updated;

@@ -45,6 +45,9 @@ export const affiliateRouter = router({
         affiliateId: z.string(),
         userId: z.string(),
     })).mutation(async ({ input }) => {
+        if(!input.userId || !input.affiliateId) {
+            return;
+        }
         const service = new AffiliateService();
         return service.updateUserAffiliateRef(input);
     }),
