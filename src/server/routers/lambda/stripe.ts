@@ -214,5 +214,14 @@ export const stripeRouter = router({
       return await checkoutService.upgradeSubscriptionImmediately(ctx.userId, input.currentSubscriptionId,input.newPriceId );
     }),
 
+    handleMetredBilling: authedProcedure
+    .mutation(async ({ ctx, input }) => {
+      const priceId = process.env.STRIPE_ADDITIONAL_USER_PRICE_ID;
+      if (!priceId) {
+        throw new Error('STRIPE_ADDITIONAL_USER_PRICE_ID is not set');
+      }
+      const checkoutService = new StripeCheckoutService();
+      return await checkoutService.handleMetredBilling(ctx.userId, priceId);
+    }),
 
 });

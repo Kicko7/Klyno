@@ -389,7 +389,38 @@ export class StripeCheckoutService {
     }
   }
 
+  async handleMetredBilling(
+    userId: string,
+    priceId: string,
+  ) {
+    try {
+      const customerId = await this.ensureCustomer(userId);
 
+      const subscription = await this.stripe.subscriptions.retrieve(customerId, {
+        expand: ['items'],
+      });
+
+      // Find the metered billing item (Additional Users Team Workspace)
+      const meteredItem = subscription.items.data.find((item: any) => 
+        item.price.id === priceId // Your metered price ID
+      );
+      if (!meteredItem) {
+        throw new Error('Metered billing item not found');
+      }
+
+      await this.stripe.subscriptionItems.createUsageRecord(meteredItem.id, {
+        quantity: 1, // +1 additional user
+        timestamp: Math.floor(Date.now() / 1000),
+        action: 'increment',
+      });
+      // if (!price.recurring) {
+    } catch (error) {
+      console.error('Error handling metred billing:', error);
+      throw new Error(
+        `Failed to handle metred billing: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
 
   /**
    * Get or create a Stripe customer ID for a user

@@ -231,16 +231,16 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
               Manage members and their roles in your organization
             </Text>
           </div>
-            {isAdmin && (
-          <div className="flex gap-2">
-            <Button
-              type="primary"
-              icon={<UserPlus className="w-4 h-4" />}
-              onClick={handleInviteMember}
-              className="bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-lg"
-            >
-              Invite Member
-            </Button>
+          {isAdmin && (
+            <div className="flex gap-2">
+              <Button
+                type="primary"
+                icon={<UserPlus className="w-4 h-4" />}
+                onClick={handleInviteMember}
+                className="bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-lg"
+              >
+                Invite Member
+              </Button>
               <Button
                 danger
                 icon={<Trash2 className="w-4 h-4" />}
@@ -249,8 +249,8 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
               >
                 Delete Organization
               </Button>
-          </div>
-            )}
+            </div>
+          )}
         </div>
 
         {/* Search Bar */}

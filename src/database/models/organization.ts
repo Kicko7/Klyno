@@ -17,6 +17,9 @@ import {
   teams,
 } from '../schemas/organization';
 import { users } from '../schemas/user';
+import { lambdaClient } from '@/libs/trpc/client';
+import { SubscriptionManager } from '@/server/services/subscriptions/subscriptionManager';
+import { StripeCheckoutService } from '@/server/services/stripe/checkout';
 
 export class OrganizationModel {
   private userId: string;
@@ -213,6 +216,32 @@ export class OrganizationModel {
 
       if (!invitation) {
         return null;
+      }
+
+      // Check existing members
+      const existingMembers = await this.db.query.organizationMembers.findMany({
+        where: (organizationMembers, { eq }) =>
+          eq(organizationMembers.organizationId, invitation.organizationId)
+      });
+
+      if (existingMembers.length > 0) {
+        const subscriptionService = new StripeCheckoutService()
+        if (!process.env.STRIPE_ADDITIONAL_USER_PRICE_ID) {
+          throw new Error('STRIPE_ADDITIONAL_USER_PRICE_ID is not set');
+        }
+        await subscriptionService.handleMetredBilling(userId, process.env.STRIPE_ADDITIONAL_USER_PRICE_ID);
+      }
+
+      // Check if user is already a member
+      const existingMember = existingMembers.find(member => member.userId === userId);
+      if (existingMember) {
+        // User is already a member, just update invitation status
+        await tx
+          .update(organizationInvitations)
+          .set({ status: 'accepted' })
+          .where(eq(organizationInvitations.id, invitation.id));
+
+        return existingMember;
       }
 
       // Update invitation status to accepted
