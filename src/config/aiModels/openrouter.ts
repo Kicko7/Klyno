@@ -795,6 +795,14 @@ const openrouterChatModels: AIChatModelCard[] = [
     releasedAt: '2024-12-11',
     type: 'chat',
   },
+  {
+    contextWindowTokens: 32_768,
+    description: 'GPT-OSS-20B 是 OpenAI 的开源模型，提供高质量的文本生成能力。',
+    displayName: 'GPT-OSS-20B (Free)',
+    enabled: true,
+    id: 'openai/gpt-oss-20b:free',
+    type: 'chat',
+  },
 ];
 
 export const allModels = [...openrouterChatModels];
