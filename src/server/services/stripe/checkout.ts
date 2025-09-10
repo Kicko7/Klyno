@@ -389,38 +389,80 @@ export class StripeCheckoutService {
     }
   }
 
-  async handleMetredBilling(
-    userId: string,
+  async handleMeteredBilling(
+    newUserId: string,
     priceId: string,
+    subscriptionId: string,
   ) {
     try {
-      const customerId = await this.ensureCustomer(userId);
-
-      const subscription = await this.stripe.subscriptions.retrieve(customerId, {
+      // Retrieve the owner's subscription
+      const subscription = await this.stripe.subscriptions.retrieve(subscriptionId, {
         expand: ['items'],
       });
-
-      // Find the metered billing item (Additional Users Team Workspace)
-      const meteredItem = subscription.items.data.find((item: any) => 
-        item.price.id === priceId // Your metered price ID
-      );
-      if (!meteredItem) {
-        throw new Error('Metered billing item not found');
+  
+      if (subscription.status !== 'active') {
+        throw new Error(`Subscription is not active. Current status: ${subscription.status}`);
       }
-
-      await this.stripe.subscriptionItems.createUsageRecord(meteredItem.id, {
-        quantity: 1, // +1 additional user
-        timestamp: Math.floor(Date.now() / 1000),
-        action: 'increment',
+  
+      // Determine the billing interval from existing subscription items
+      const baseItem = subscription.items.data[0];
+      const billingInterval = baseItem.price.recurring?.interval;
+  
+      if (!priceId) {
+        throw new Error(`No metered price configured for interval: ${billingInterval}`);
+      }
+  
+      // Find existing metered item
+      let meteredItem = subscription.items.data.find((item: any) =>
+        item.price.id === priceId
+      );
+  
+      // If metered item doesn't exist, add it to the subscription
+      if (!meteredItem) {
+        // console.log(`Adding metered item for ${billingInterval} billing to subscription...`);
+  
+        try {
+          const newSubscriptionItem = await this.stripe.subscriptionItems.create({
+            subscription: subscriptionId,
+            price: priceId,
+          });
+  
+          meteredItem = newSubscriptionItem;
+        } catch (flexibleBillingError) {
+          console.error('Error adding metered item to subscription:', flexibleBillingError);
+          throw new Error(
+            `Cannot add metered item to subscription. Please enable flexible billing mode or ensure all items have the same ${billingInterval} interval.`
+          );
+        }
+      }
+  
+      // ✅ NEW: Record usage with meter events (instead of usage records)
+      const meterEvent = await this.stripe.billing.meterEvents.create({
+        event_name: "team_workspace_additional_members", // must match your configured meter event in Stripe
+        payload: {
+          stripe_customer_id: subscription.customer as string,
+          value: "1", // +1 additional user
+          user_id: newUserId, // optional extra field for debugging
+        },
       });
-      // if (!price.recurring) {
+  
+      // console.log(`Added metered usage for user ${newUserId} to ${billingInterval} subscription ${subscriptionId}`);
+  
+      return {
+        success: true,
+        subscriptionId: subscription.id,
+        newUserId: newUserId,
+        billingInterval: billingInterval,
+      };
+  
     } catch (error) {
-      console.error('Error handling metred billing:', error);
+      console.error('Error handling metered billing:', error);
       throw new Error(
-        `Failed to handle metred billing: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to handle metered billing: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }
+  
 
   /**
    * Get or create a Stripe customer ID for a user

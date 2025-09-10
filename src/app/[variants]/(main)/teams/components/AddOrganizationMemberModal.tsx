@@ -5,6 +5,7 @@ import { UserPlus } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useEffect, useState } from 'react';
 
+import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { renderEmail } from '@/libs/emails/render-email';
 import { OrganizationInvitation } from '@/libs/emails/templates/organization-invitation';
 import { lambdaClient } from '@/libs/trpc/client';
@@ -54,8 +55,6 @@ const AddOrganizationMemberModal = ({
           organizationId,
         });
 
-        console.log('Raw organization members from API:', orgMembers);
-
         // Transform organization members to existing users format
         const existingUsersList: ExistingUser[] = orgMembers.map((member: any) => ({
           id: member.userId,
@@ -64,9 +63,7 @@ const AddOrganizationMemberModal = ({
         }));
 
         setExistingUsers(existingUsersList);
-        console.log('Transformed existing organization members:', existingUsersList);
       } catch (error) {
-        console.error('Error fetching existing users:', error);
         setExistingUsers([]);
       } finally {
         setLoadingUsers(false);
@@ -75,6 +72,8 @@ const AddOrganizationMemberModal = ({
 
     fetchExistingUsers();
   }, [organizationId, open]);
+
+  const { subscriptionInfo } = useUserSubscription();
 
   const handleSubmit = async (values: any) => {
     try {
@@ -178,8 +177,26 @@ const AddOrganizationMemberModal = ({
       }
     }
 
-    setFormValues(values);
-    setConfirmModalOpen(true);
+    if (!subscriptionInfo?.subscription || subscriptionInfo?.subscription?.status !== 'active') {
+      message.warning('You need to subscribe to add members to your organization.');
+      return;
+    }
+
+    if (subscriptionInfo?.subscription?.planName === 'Team Workspace') {
+      if (
+        existingUsers.length >= 3 &&
+        subscriptionInfo?.subscription?.planName === 'Team Workspace'
+      ) {
+        message.warning('You have reached the maximum number of members for your organization.');
+        setFormValues(values);
+        setConfirmModalOpen(true);
+        return;
+      } else {
+        handleSubmit(values);
+      }
+    } else if (subscriptionInfo?.subscription?.planName.includes('Enterprise')) {
+      handleSubmit(values);
+    }
   };
 
   const handleConfirmOk = () => {
@@ -254,16 +271,16 @@ const AddOrganizationMemberModal = ({
                 showSearch
                 optionFilterProp="label"
                 labelInValue
-               options={existingUsers.map((user) => ({
-                 label: `${user.name} (${user.email})`,
-                 value: user.id,
-                 render: (
-                   <div className="flex flex-col min-w-0">
-                     <span className="font-medium truncate">{user.name}</span>
-                     <span className="text-sm text-gray-400 truncate">{user.email}</span>
-                   </div>
-                 ),
-               }))}
+                options={existingUsers.map((user) => ({
+                  label: `${user.name} (${user.email})`,
+                  value: user.id,
+                  render: (
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium truncate">{user.name}</span>
+                      <span className="text-sm text-gray-400 truncate">{user.email}</span>
+                    </div>
+                  ),
+                }))}
                 optionRender={(option) => option.data.render}
               />
             </Form.Item>
@@ -317,67 +334,69 @@ const AddOrganizationMemberModal = ({
         )}
       </Modal>
 
-       {/* Confirmation Modal - Separated */}
-       <Modal
-         title={inviteMode === 'existing' ? 'Confirm Member Addition' : 'Confirm Email Invitation'}
-         open={confirmModalOpen}
-         onOk={handleConfirmOk}
-         onCancel={handleConfirmCancel}
-         okText={inviteMode === 'existing' ? 'Yes, Add Member' : 'Yes, Send Invitation'}
-         cancelText="Cancel"
-         okType="primary"
-         centered
-         width={500}
-         confirmLoading={loading}
-         maskClosable={false}
-         destroyOnClose
-       >
-         <div>
-           <p>
-             {inviteMode === 'existing' 
-               ? 'Are you sure you want to add this member to your organization?'
-               : 'Are you sure you want to send an invitation to this email address?'
-             }
-           </p>
-           <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded">
-             <p className="text-yellow-800 font-medium">
-               ⚠️ {inviteMode === 'existing' 
-                 ? 'You will be charged for this user'
-                 : 'You will be charged when the user accepts'
-               }
-             </p>
-             <p className="text-sm text-yellow-700 mt-1">
-               {inviteMode === 'existing'
-                 ? 'Adding this user will result in additional charges to your account.'
-                 : 'Charges will apply once the invited user accepts the invitation and joins your organization.'
-               }
-             </p>
-           </div>
-           {formValues && (
-             <div className="mt-3 p-2 bg-gray-50 rounded">
-               {inviteMode === 'existing' ? (
-                 <>
-                   <p className="text-sm">
-                     <strong>User:</strong> {existingUsers.find(u => u.id === formValues.userId?.value)?.name || 'Unknown User'}
-                   </p>
-                   <p className="text-sm">
-                     <strong>Email:</strong> {existingUsers.find(u => u.id === formValues.userId?.value)?.email || 'Unknown Email'}
-                   </p>
-                 </>
-               ) : (
-                 <>
-                   <p className="text-sm">
-                     <strong>Email:</strong> {formValues.email}
-                   </p>
-                 </>
-               )}
-               <p className="text-sm">
-                 <strong>Role:</strong> {formValues.role}
-               </p>
-             </div>
-           )}
-         </div>
-       </Modal>
+      {/* Confirmation Modal - Separated */}
+      <Modal
+        title={inviteMode === 'existing' ? 'Confirm Member Addition' : 'Confirm Email Invitation'}
+        open={confirmModalOpen}
+        onOk={handleConfirmOk}
+        onCancel={handleConfirmCancel}
+        okText={inviteMode === 'existing' ? 'Yes, Add Member' : 'Yes, Send Invitation'}
+        cancelText="Cancel"
+        okType="primary"
+        centered
+        width={500}
+        confirmLoading={loading}
+        maskClosable={false}
+        destroyOnClose
+      >
+        <div>
+          <p>
+            {inviteMode === 'existing'
+              ? 'Are you sure you want to add this member to your organization?'
+              : 'Are you sure you want to send an invitation to this email address?'}
+          </p>
+          <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded">
+            <p className="text-yellow-800 font-medium">
+              ⚠️{' '}
+              {inviteMode === 'existing'
+                ? 'You will be charged $5 for this user'
+                : 'You will be charged $5 when the user accepts'}
+            </p>
+            <p className="text-sm text-yellow-700 mt-1">
+              {inviteMode === 'existing'
+                ? 'Adding this user will result in a $5 charge to your account.'
+                : 'A $5 charge will apply once the invited user accepts the invitation and joins your organization.'}
+            </p>
+          </div>
+          {formValues && (
+            <div className="mt-3 p-2 bg-gray-50 rounded">
+              {inviteMode === 'existing' ? (
+                <>
+                  <p className="text-sm">
+                    <strong>User:</strong>{' '}
+                    {existingUsers.find((u) => u.id === formValues.userId?.value)?.name ||
+                      'Unknown User'}
+                  </p>
+                  <p className="text-sm">
+                    <strong>Email:</strong>{' '}
+                    {existingUsers.find((u) => u.id === formValues.userId?.value)?.email ||
+                      'Unknown Email'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm">
+                    <strong>Email:</strong> {formValues.email}
+                  </p>
+                </>
+              )}
+              <p className="text-sm">
+                <strong>Role:</strong> {formValues.role}
+              </p>
+            </div>
+          )}
+        </div>
+      </Modal>
     </>
   );
 };

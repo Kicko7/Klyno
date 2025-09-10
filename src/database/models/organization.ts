@@ -224,12 +224,42 @@ export class OrganizationModel {
           eq(organizationMembers.organizationId, invitation.organizationId)
       });
 
-      if (existingMembers.length > 0) {
+
+      const adminMember = existingMembers.find(member =>
+        member.role === 'owner'
+      );
+
+      if (!adminMember) {
+        throw new Error('No admin member found');
+      }
+
+      const userSubscription = await this.db.query.userSubscriptions.findFirst({
+        where: (userSubscriptions, { eq }) => eq(userSubscriptions.userId, adminMember.userId),
+      });
+
+      if (!userSubscription || !userSubscription?.stripeSubscriptionId) {
+        throw new Error('No Owner subscription found');
+      }
+
+      if (existingMembers.length >= 3 && userSubscription?.planName === 'Team Workspace') {
         const subscriptionService = new StripeCheckoutService()
-        if (!process.env.STRIPE_ADDITIONAL_USER_PRICE_ID) {
+        if (!process.env.STRIPE_ADDITIONAL_USER_YEARLY_PRICE_ID || !process.env.STRIPE_ADDITIONAL_USER_MONTHLY_PRICE_ID) {
           throw new Error('STRIPE_ADDITIONAL_USER_PRICE_ID is not set');
         }
-        await subscriptionService.handleMetredBilling(userId, process.env.STRIPE_ADDITIONAL_USER_PRICE_ID);
+
+        if (userSubscription.interval === 'month') {
+          const res = await subscriptionService.handleMeteredBilling(userId, process.env.STRIPE_ADDITIONAL_USER_MONTHLY_PRICE_ID, userSubscription.stripeSubscriptionId);
+          if (!res.success) {
+            throw new Error('Failed to handle metered billing');
+          }
+        }
+        else {
+          const res = await subscriptionService.handleMeteredBilling(userId, process.env.STRIPE_ADDITIONAL_USER_YEARLY_PRICE_ID, userSubscription.stripeSubscriptionId);
+          if (!res.success) {
+            throw new Error('Failed to handle metered billing');
+          }
+        }
+
       }
 
       // Check if user is already a member
