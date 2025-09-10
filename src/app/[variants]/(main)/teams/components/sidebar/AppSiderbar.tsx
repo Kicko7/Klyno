@@ -180,8 +180,21 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
 
       // Create new chat and get its ID
       const newChatId = await createTeamChat(currentOrganization.id);
+
       // Generate a topic ID for the new chat
       const topicId = `topic_${newChatId}_${Date.now()}`;
+
+      // Set active chat in store
+      setActiveTeamChat(newChatId, topicId);
+
+      // Navigate with chat ID and topic in URL
+      const query = new URLSearchParams({
+        view: 'chat',
+        chatId: newChatId,
+        topic: topicId,
+      }).toString();
+
+      router.push(`/teams?${query}`);
     } catch (error) {
       console.error('Failed to create new team chat:', error);
     } finally {
