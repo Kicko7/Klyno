@@ -21,10 +21,11 @@ import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
 import { MessageRoleType } from '@/types/message';
 import { CreateMessageParams } from '@/types/message';
+import { calculateCreditsByPlan } from '@/utils/calculateCredits';
 import { nanoid } from '@/utils/uuid';
 
 import TeamChatInputFooter from './TeamChatInputFooter';
-import { calculateCreditsByPlan } from '@/utils/calculateCredits';
+import { aiModelSelectors, getAiInfraStoreState } from '@/store/aiInfra';
 
 const leftActions = [
   'model',
@@ -235,7 +236,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         : { clientMessageId: userMessageId };
 
       // Add user message to local store
-     const message =  await teamChatStore.addMessage(teamChatId, {
+      const message = await teamChatStore.addMessage(teamChatId, {
         id: userMessageId,
         content: messageToSend,
         messageType: 'user',
@@ -244,7 +245,13 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         isLocal: true,
       });
 
-      await sendWebSocketMessage(messageToSend, 'user', userMetadata, userMessageId,message.createdAt);
+      await sendWebSocketMessage(
+        messageToSend,
+        'user',
+        userMetadata,
+        userMessageId,
+        message.createdAt,
+      );
       // Send message via WebSocket
       // console.log('Sending message to WebSocket');
 
@@ -450,7 +457,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       clientMessageId: assistantMessageId,
     };
 
-   const message =  await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
+    const message = await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
       content: finalMessage,
       metadata: { ...baseMetadata, isThinking: false, isLocal: true },
     });
@@ -469,8 +476,20 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
 
     // console.log('🔍 Context:', context);
 
+    console.log('🔍 Context:', context);
+    console.log('🔍 Agent Config:', agentConfig);
+    console.log('🔍 Organization Subscription Info:', organizationSubscriptionInfo);
+    const aiInfraStoreState = getAiInfraStoreState();
+    const modelInfo = aiModelSelectors.getEnabledModelById(agentConfig.model, agentConfig.provider)(aiInfraStoreState) as any;
+    const agentPricing = modelInfo?.pricing as any;
+    
     if (context?.usage?.totalTokens && !agentConfig.model.includes('free')) {
-      const credits = calculateCreditsByPlan(context.usage as any,agentConfig.pricing as any,organizationSubscriptionInfo?.subscription?.planName || '');
+      const credits = calculateCreditsByPlan(
+        context.usage as any,
+        agentPricing as any,
+        organizationSubscriptionInfo?.subscription?.planName || '',
+      );
+      console.log('🔍 Credits:', credits);
       await updateOrganizationSubscriptionInfo(credits);
     }
   };
