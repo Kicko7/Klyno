@@ -15,6 +15,7 @@ import TeamChat from './TeamChat';
 import TeamWelcome from './TeamWelcome';
 import { AppSidebar } from './sidebar/AppSiderbar';
 import { useTheme } from 'antd-style';
+import DefaultModelsForOrganization from './DefaultModelsForOrganization';
 
 const Main = () => {
   const searchParams = useSearchParams();
@@ -46,6 +47,13 @@ const Main = () => {
         </div>
       );
     }
+
+    if (view === 'default-models-for-organization') {
+      return <div className="h-full w-full overflow-auto">
+        <DefaultModelsForOrganization organizationId={organizationId || currentOrganization?.id} />
+      </div>;
+    }
+
     // Default content - TeamWelcome with Welcome to Klyno AI
     return (
       <div className="h-full w-full bg-black">

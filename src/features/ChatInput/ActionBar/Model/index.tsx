@@ -75,7 +75,6 @@ const ModelSwitch = memo(() => {
     aiModelSelectors.isModelHasExtendParams(model || 'gpt-4', provider || 'openai'),
   );
 
-
   return (
     <Flexbox align={'center'} className={isModelHasExtendParams ? styles.container : ''} horizontal>
       <ModelSwitchPanel sessionId={sessionId}>

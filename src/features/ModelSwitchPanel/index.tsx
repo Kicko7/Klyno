@@ -3,8 +3,8 @@ import { createStyles } from 'antd-style';
 import type { ItemType } from 'antd/es/menu/interface';
 import { LucideArrowRight, LucideBolt } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { type ReactNode, memo, useMemo } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { type ReactNode, memo, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Flexbox } from 'react-layout-kit';
 
@@ -12,9 +12,12 @@ import { ModelItemRender, ProviderItemRender } from '@/components/ModelSelect';
 import { isDeprecatedEdition } from '@/const/version';
 import ActionDropdown from '@/features/ChatInput/ActionBar/components/ActionDropdown';
 import { useEnabledChatModels } from '@/hooks/useEnabledChatModels';
+import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/slices/chat';
+import { useOrganizationStore } from '@/store/organization/store';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
+import { useTeamChatStore } from '@/store/teamChat';
 import { EnabledProviderWithModels } from '@/types/aiProvider';
 
 const useStyles = createStyles(({ css, prefixCls }) => ({
@@ -60,7 +63,51 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
   const router = useRouter();
   const enabledList = useEnabledChatModels();
 
+  const pathname = usePathname();
+  const isTeamChat = pathname.includes('teams');
+  const activeTeamChatId = useTeamChatStore((state) => state.activeTeamChatId);
+  const { defaultModels, selectedOrganizationId, getDefaultModels } = useOrganizationStore();
+  const {subscriptionInfo} = useUserSubscription()
+
+  useEffect(() => {
+    if (selectedOrganizationId && activeTeamChatId) {
+      getDefaultModels(selectedOrganizationId);
+    }
+  }, [activeTeamChatId]);
+
   const items = useMemo<ItemType[]>(() => {
+    // Filter models based on team chat, subscription, and organization default models
+    let filteredEnabledList = enabledList;
+
+    if (isTeamChat) {
+      // In team chat: show organization default models, if empty then show all models
+      if (selectedOrganizationId && defaultModels.length > 0) {
+        const orgDefaultModels = defaultModels;
+        filteredEnabledList = enabledList
+          .map((provider) => ({
+            ...provider,
+            children: provider.children.filter((model) => orgDefaultModels.includes(model.id)),
+          }))
+          .filter((provider) => provider.children.length > 0);
+      }
+      // If no default models, show all enabled models (filteredEnabledList remains as enabledList)
+    } else {
+      console.log('🔍 subscriptionInfo', subscriptionInfo);
+      // Not in team chat: check subscription
+      if (!subscriptionInfo || subscriptionInfo.subscription?.status !== 'active') {
+        // No subscription: show only free models
+        filteredEnabledList = enabledList
+          .map((provider) => ({
+            ...provider,
+            children: provider.children.filter((model) => 
+              model.id.toLowerCase().includes('free')
+            ),
+          }))
+          .filter((provider) => provider.children.length > 0);
+      }
+      // If subscribed, show all enabled models (filteredEnabledList remains as enabledList)
+    }
+
     const getModelItems = (provider: EnabledProviderWithModels) => {
       const items = provider.children.map((model) => ({
         key: menuKey(provider.id, model.id),
@@ -96,13 +143,17 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
       return items;
     };
 
-    if (enabledList.length === 0)
+    if (filteredEnabledList.length === 0)
       return [
         {
           key: `no-provider`,
           label: (
             <Flexbox gap={8} horizontal style={{ color: theme.colorTextTertiary }}>
-              {t('ModelSwitchPanel.emptyProvider')}
+              {isTeamChat
+                ? 'No models available for this organization'
+                : (!subscriptionInfo 
+                    ? 'No free models available' 
+                    : t('ModelSwitchPanel.emptyProvider'))}
               <Icon icon={LucideArrowRight} />
             </Flexbox>
           ),
@@ -113,7 +164,7 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
       ];
 
     // otherwise show with provider group
-    return enabledList.map((provider) => ({
+    return filteredEnabledList.map((provider) => ({
       children: getModelItems(provider),
       key: provider.id,
       label: (
@@ -139,7 +190,19 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
       ),
       type: 'group',
     }));
-  }, [enabledList]);
+  }, [
+    enabledList,
+    isTeamChat,
+    selectedOrganizationId,
+    defaultModels,
+    subscriptionInfo,
+    t,
+    theme.colorTextTertiary,
+    router,
+    showLLM,
+    updateAgentConfig,
+    sessionId,
+  ]);
 
   const icon = <div className={styles.tag}>{children}</div>;
 

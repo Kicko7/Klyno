@@ -58,37 +58,16 @@ import { default as zhipu } from './zhipu';
 type ModelsMap = Record<string, AiFullModelCard[]>;
 
 const buildDefaultModelList = (map: ModelsMap, subscription?: any): LobeDefaultAiModelListItem[] => {
-  // Console log the subscription data for debugging
-  // console.log('🔍 buildDefaultModelList subscription data:', subscription);
-  
   let models: LobeDefaultAiModelListItem[] = [];
 
   Object.entries(map).forEach(([provider, providerModels]) => {
     let filteredModels = providerModels;
-    
-    // Special handling for OpenRouter models based on subscription status
-    if (provider === 'openrouter') {
-      if (!subscription) {
-        // console.log("No Subscription - filtering for enabled free models only")
-        filteredModels = providerModels.filter(model => {
-          const isEnabled = model.enabled;
-          const hasFreeInName = model.displayName?.toLowerCase().includes('free');
-          // console.log(`Model: ${model.displayName}, enabled: ${isEnabled}, hasFree: ${hasFreeInName}`);
-          return isEnabled && hasFreeInName;
-        });
-      } else {
-        // console.log("Has Subscription - showing all enabled models")
-        filteredModels = providerModels.filter(model => model.enabled);      
-      }
-    } else {
-      // For all other providers, only show enabled models
-      filteredModels = providerModels.filter(model => model.enabled);
-    }
-    
+    filteredModels = providerModels.filter(model => model.enabled);
+
     const newModels = filteredModels.map((model) => ({
       ...model,
       abilities: model.abilities ?? {},
-      enabled: true, // All filtered models should be enabled since they passed the filter
+      enabled: true,
       providerId: provider,
       source: 'builtin',
     }));
@@ -157,6 +136,7 @@ export const LOBE_DEFAULT_MODEL_LIST = buildDefaultModelList({
 });
 
 // Dynamic model list function that accepts subscription
+// this function is used to get the model list with subscription
 export const getModelListWithSubscription = (subscription?: any): LobeDefaultAiModelListItem[] => {
   return buildDefaultModelList({
     ai21,

@@ -330,4 +330,13 @@ export class OrganizationService {
   async getOrganizationById(organizationId: string) {
     return this.organizationModel.getOrganizationById(organizationId);
   }
+
+  async updateOrganizationDefaultModels(organizationId: string, defaultModels: string[]) {
+    return this.organizationModel.updateOrganizationDefaultModels(organizationId, defaultModels);
+  }
+
+  async getDefaultModels(organizationId: string) {
+    return this.organizationModel.getDefaultModels(organizationId);
+  }
+  
 }

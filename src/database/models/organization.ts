@@ -430,4 +430,15 @@ export class OrganizationModel {
     });
     return organization;
   }
+
+  async updateOrganizationDefaultModels(organizationId: string, defaultModels: string[]) {
+    await this.db.update(organizations).set({ defaultModels }).where(eq(organizations.id, organizationId));
+  }
+
+  async getDefaultModels(organizationId: string) {
+    const organization = await this.db.query.organizations.findFirst({
+      where: (organizations, { eq }) => eq(organizations.id, organizationId),
+    });
+    return organization?.defaultModels || [];
+  }
 }

@@ -16,6 +16,7 @@ export interface OrganizationState {
   organizations: any[];
   CreateOrgModal: boolean;
   selectedOrganizationId?: string;
+  defaultModels: string[];
   showCreateOrgModal: () => void;
   hideCreateOrgModal: () => void;
 }
@@ -33,6 +34,8 @@ export interface OrganizationAction {
   }) => Promise<void>;
   removeMember: (organizationId: string, memberId: string) => Promise<void>;
   setSelectedOrganizationId: (id: string) => void;
+  updateOrganizationDefaultModels: (organizationId: string, defaultModels: string[]) => Promise<void>;
+  getDefaultModels: (organizationId: string) => Promise<string[]>;
 }
 
 export interface OrganizationStore extends OrganizationState, OrganizationAction {}
@@ -49,6 +52,7 @@ const initialOrganizationState: OrganizationState = {
   selectedOrganizationId: undefined,
   showCreateOrgModal: () => {},
   hideCreateOrgModal: () => {},
+  defaultModels: [],
 };
 
 export const useOrganizationStore = create<OrganizationStore>()(
@@ -152,6 +156,18 @@ export const useOrganizationStore = create<OrganizationStore>()(
       },
       setSelectedOrganizationId: (id: string) => {
         set({ selectedOrganizationId: id });
+      },
+      updateOrganizationDefaultModels: async (organizationId: string, defaultModels: string[]) => {
+        await lambdaClient.organization.updateOrganizationDefaultModels.mutate({
+          organizationId,
+          defaultModels,
+        });
+        set({ defaultModels: defaultModels });
+      },
+      getDefaultModels: async (organizationId: string) => {
+        const defaultModels = await lambdaClient.organization.getDefaultModels.query({ organizationId });
+        set({ defaultModels: defaultModels });
+        return defaultModels;
       },
     }),
     {

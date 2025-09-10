@@ -399,34 +399,34 @@ export class StripeCheckoutService {
       const subscription = await this.stripe.subscriptions.retrieve(subscriptionId, {
         expand: ['items'],
       });
-  
+
       if (subscription.status !== 'active') {
         throw new Error(`Subscription is not active. Current status: ${subscription.status}`);
       }
-  
+
       // Determine the billing interval from existing subscription items
       const baseItem = subscription.items.data[0];
       const billingInterval = baseItem.price.recurring?.interval;
-  
+
       if (!priceId) {
         throw new Error(`No metered price configured for interval: ${billingInterval}`);
       }
-  
+
       // Find existing metered item
       let meteredItem = subscription.items.data.find((item: any) =>
         item.price.id === priceId
       );
-  
+
       // If metered item doesn't exist, add it to the subscription
       if (!meteredItem) {
         // console.log(`Adding metered item for ${billingInterval} billing to subscription...`);
-  
+
         try {
           const newSubscriptionItem = await this.stripe.subscriptionItems.create({
             subscription: subscriptionId,
             price: priceId,
           });
-  
+
           meteredItem = newSubscriptionItem;
         } catch (flexibleBillingError) {
           console.error('Error adding metered item to subscription:', flexibleBillingError);
@@ -435,7 +435,7 @@ export class StripeCheckoutService {
           );
         }
       }
-  
+
       // ✅ NEW: Record usage with meter events (instead of usage records)
       const meterEvent = await this.stripe.billing.meterEvents.create({
         event_name: "team_workspace_additional_members", // must match your configured meter event in Stripe
@@ -445,16 +445,16 @@ export class StripeCheckoutService {
           user_id: newUserId, // optional extra field for debugging
         },
       });
-  
+
       // console.log(`Added metered usage for user ${newUserId} to ${billingInterval} subscription ${subscriptionId}`);
-  
+
       return {
         success: true,
         subscriptionId: subscription.id,
         newUserId: newUserId,
         billingInterval: billingInterval,
       };
-  
+
     } catch (error) {
       console.error('Error handling metered billing:', error);
       throw new Error(
@@ -462,7 +462,7 @@ export class StripeCheckoutService {
       );
     }
   }
-  
+
 
   /**
    * Get or create a Stripe customer ID for a user

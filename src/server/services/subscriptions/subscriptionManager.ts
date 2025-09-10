@@ -805,6 +805,10 @@ export class SubscriptionManager {
       .limit(1);
 
 
+    if (subscription[0].status !== 'active') {
+      return null;
+    }
+
     return {
       subscription: subscription[0],
       usageQuota: usageQuota[0] || null,

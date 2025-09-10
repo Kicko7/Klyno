@@ -54,6 +54,12 @@ const CompanySelector = () => {
     }
   };
 
+  const handleDefaultModelsForOrganizationClick = () => {
+    if (selectedOrganization?.id) {
+      router.push(`/teams?view=default-models-for-organization&organizationId=${selectedOrganization.id}`);
+    }
+  };
+
   const ShowCompany = ({ org }: { org: any }) => {
     if (!org) {
       return (
@@ -168,6 +174,22 @@ const CompanySelector = () => {
             </div>
 
             {/* Pages Section - Fixed hover states */}
+            
+            {/* Only show Default Models For Organization for admins */}
+            {selectedOrganization?.memberRole === 'owner' && (
+              <div className={`border-t ${theme.appearance === "dark" ? 'border-slate-700' : 'border-slate-200'} mt-2 pt-2`}>
+                <div className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${
+                  theme.appearance === "dark" 
+                    ? 'hover:bg-slate-800 text-slate-200 hover:text-white' 
+                    : 'hover:bg-slate-100 text-black hover:text-black'
+                }`}
+                onClick={handleDefaultModelsForOrganizationClick}
+                >
+                  <FileText className={`w-4 h-4 ${theme.appearance === "dark" ? "text-slate-200" : 'text-black'}`} />
+                  <span>Default Models For Organization</span>
+                </div>
+              </div>
+            )}
             <div className={`border-t ${theme.appearance === "dark" ? 'border-slate-700' : 'border-slate-200'} mt-2 pt-2`}>
               <div className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${
                 theme.appearance === "dark" 
