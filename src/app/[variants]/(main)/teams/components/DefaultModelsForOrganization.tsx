@@ -6,6 +6,7 @@ import { Search, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { allModels as openRouterModels } from '@/config/aiModels/openrouter';
+import { useEnabledChatModels } from '@/hooks/useEnabledChatModels';
 import { useOrganizationStore } from '@/store/organization/store';
 import { ChatModelCard } from '@/types/llm';
 
@@ -31,8 +32,9 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
   const [hasChanges, setHasChanges] = useState(false);
   const [organizationDefaultModels, setOrganizationDefaultModels] = useState<string[]>([]);
   const { getDefaultModels, updateOrganizationDefaultModels } = useOrganizationStore();
+  const enabledChatModels = useEnabledChatModels();
 
-  // Load OpenRouter models from static config
+  // Load OpenRouter models from static config and enabled models from settings
   useEffect(() => {
     const loadModels = async () => {
       setLoading(true);
@@ -41,13 +43,47 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
         // Get organization default models from API
         const orgDefaultModels = await getDefaultModels(organizationId);
 
-        // Filter only enabled models from the static config
-        const allEnabledModels = openRouterModels
-          .filter((model) => model.enabled === true)
-          .map((model) => ({
+        // Get only OpenRouter enabled models from settings
+        const settingsEnabledModels = enabledChatModels
+          .filter(provider => provider.id === 'openrouter')
+          .flatMap(provider => provider.children)
+          .filter(model => model.id);
+
+        // Get OpenRouter models from static config
+        const staticOpenRouterModels = openRouterModels
+          .filter((model) => model.enabled === true);
+
+        // Merge static config models with settings enabled models, removing duplicates
+        const allModelsMap = new Map<string, ModelWithEnabled>();
+        
+        // Add static config models first
+        staticOpenRouterModels.forEach(model => {
+          allModelsMap.set(model.id, {
             ...model,
             enabled: orgDefaultModels.length === 0 ? true : orgDefaultModels.includes(model.id),
-          }));
+          });
+        });
+
+        // Add settings enabled models (will override static config if duplicate)
+        settingsEnabledModels.forEach(model => {
+          if (model.id && !allModelsMap.has(model.id)) {
+            // Convert AiModelForSelect to ChatModelCard format
+            allModelsMap.set(model.id, {
+              id: model.id,
+              displayName: model.displayName || model.id,
+              description: '',
+              enabled: orgDefaultModels.length === 0 ? true : orgDefaultModels.includes(model.id),
+              contextWindowTokens: model.contextWindowTokens || 0,
+              maxOutput: 0,
+              pricing: {
+                input: 0,
+                output: 0,
+              },
+            });
+          }
+        });
+
+        const allEnabledModels = Array.from(allModelsMap.values());
 
         setModels(allEnabledModels);
         setFilteredModels(allEnabledModels);
@@ -60,7 +96,7 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
     };
 
     loadModels();
-  }, [organizationId]);
+  }, [organizationId, enabledChatModels]);
 
   // Filter models based on search term and category
   useEffect(() => {
@@ -139,6 +175,7 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
   const filteredEnabledCount = filteredModels.filter((model) => model.enabled).length;
   const filteredTotalCount = filteredModels.length;
 
+  const currentOrganization = useOrganizationStore((state) => state.organizations.find((organization) => organization.id === organizationId));
 
   const categories = [
     { key: 'all', label: 'All Models', count: models.length },
@@ -186,7 +223,7 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
           <Settings className="w-6 h-6 text-blue-500" />
           <Title level={2} className="!mb-0">
             <span className={`${theme.appearance === 'dark' ? 'text-white' : 'text-black'}`}>
-            Default Models for Organization
+            Default Models for Organization {currentOrganization?.name}
             </span>
           </Title>
         </div>

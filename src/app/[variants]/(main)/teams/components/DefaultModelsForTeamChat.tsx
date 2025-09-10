@@ -6,6 +6,7 @@ import { Search, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { allModels as openRouterModels } from '@/config/aiModels/openrouter';
+import { useEnabledChatModels } from '@/hooks/useEnabledChatModels';
 import { lambdaClient } from '@/libs/trpc/client';
 import { useOrganizationStore } from '@/store/organization/store';
 import { ChatModelCard } from '@/types/llm';
@@ -40,6 +41,7 @@ const DefaultModelsForTeamChat = ({
   const [hasChanges, setHasChanges] = useState(false);
   const [teamChatDefaultModels, setTeamChatDefaultModels] = useState<string[]>([]);
   const { getDefaultModels } = useOrganizationStore();
+  const enabledChatModels = useEnabledChatModels();
   async function getTeamChatDefaultModels() {
     const data = await lambdaClient.teamChat.getTeamChatDefaultModels.query({ teamChatId });
     setTeamChatDefaultModels(data || []);
@@ -54,7 +56,7 @@ const DefaultModelsForTeamChat = ({
     return data;
   }
 
-  // Load OpenRouter models from static config
+  // Load OpenRouter models from static config and enabled models from settings
   useEffect(() => {
     const loadModels = async () => {
       if (!open) return;
@@ -81,13 +83,47 @@ const DefaultModelsForTeamChat = ({
             .map((model) => model.id);
         }
 
-        // Filter only enabled models from the static config
-        const allEnabledModels = openRouterModels
-          .filter((model) => model.enabled === true)
-          .map((model) => ({
+        // Get only OpenRouter enabled models from settings
+        const settingsEnabledModels = enabledChatModels
+          .filter(provider => provider.id === 'openrouter')
+          .flatMap(provider => provider.children)
+          .filter(model => model.id);
+
+        // Get OpenRouter models from static config
+        const staticOpenRouterModels = openRouterModels
+          .filter((model) => model.enabled === true);
+
+        // Merge static config models with settings enabled models, removing duplicates
+        const allModelsMap = new Map<string, ModelWithEnabled>();
+        
+        // Add static config models first
+        staticOpenRouterModels.forEach(model => {
+          allModelsMap.set(model.id, {
             ...model,
             enabled: modelsToUse.includes(model.id),
-          }));
+          });
+        });
+
+        // Add settings enabled models (will override static config if duplicate)
+        settingsEnabledModels.forEach(model => {
+          if (model.id && !allModelsMap.has(model.id)) {
+            // Convert AiModelForSelect to ChatModelCard format
+            allModelsMap.set(model.id, {
+              id: model.id,
+              displayName: model.displayName || model.id,
+              description: '',
+              enabled: modelsToUse.includes(model.id),
+              contextWindowTokens: model.contextWindowTokens || 0,
+              maxOutput: 0,
+              pricing: {
+                input: 0,
+                output: 0,
+              },
+            });
+          }
+        });
+
+        const allEnabledModels = Array.from(allModelsMap.values());
 
         setModels(allEnabledModels as any);
         setFilteredModels(allEnabledModels as any);
@@ -100,7 +136,7 @@ const DefaultModelsForTeamChat = ({
     };
 
     loadModels();
-  }, [teamChatId, organizationId, open]);
+  }, [teamChatId, organizationId, open, enabledChatModels]);
 
   // Filter models based on search term and category
   useEffect(() => {
