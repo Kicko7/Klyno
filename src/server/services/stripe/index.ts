@@ -81,10 +81,17 @@ export class StripeService {
         if (product.prices.length < 2) continue; // Skip products without both monthly and yearly prices
 
         const monthlyPrice = product.prices.find(
-          (price) => price.recurring.interval === 'month' && price.recurring.interval_count === 1,
+          (price) =>
+            price.recurring?.interval === 'month' &&
+            price.recurring?.interval_count === 1 &&
+            price.recurring?.usage_type === 'licensed', // ✅ exclude metered
         );
+        
         const yearlyPrice = product.prices.find(
-          (price) => price.recurring.interval === 'year' && price.recurring.interval_count === 1,
+          (price) =>
+            price.recurring?.interval === 'year' &&
+            price.recurring?.interval_count === 1 &&
+            price.recurring?.usage_type === 'licensed', // ✅ exclude metered
         );
 
         if (!monthlyPrice || !yearlyPrice) continue;

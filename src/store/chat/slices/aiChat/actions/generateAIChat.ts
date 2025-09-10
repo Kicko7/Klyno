@@ -30,6 +30,7 @@ import { MessageSemanticSearchChunk } from '@/types/rag';
 import { setNamespace } from '@/utils/storeDebug';
 
 import { chatSelectors, topicSelectors } from '../../../selectors';
+import { calculateCreditsByPlan } from '@/utils/calculateCredits';
 
 const n = setNamespace('ai');
 
@@ -554,18 +555,18 @@ export const generateAIChat: StateCreator<
     preprocessMsgs = !chatConfig.inputTemplate
       ? preprocessMsgs
       : preprocessMsgs.map((m) => {
-          if (m.role === 'user') {
-            try {
-              return { ...m, content: compiler({ text: m.content }) };
-            } catch (error) {
-              console.error(error);
+        if (m.role === 'user') {
+          try {
+            return { ...m, content: compiler({ text: m.content }) };
+          } catch (error) {
+            console.error(error);
 
-              return m;
-            }
+            return m;
           }
+        }
 
-          return m;
-        });
+        return m;
+      });
 
     // 3. add systemRole
     if (agentConfig.systemRole) {
@@ -622,16 +623,23 @@ export const generateAIChat: StateCreator<
         { traceId, observationId, toolCalls, reasoning, grounding, usage, speed },
       ) => {
 
-        // console.log('🔍 onFinish called with parameters:',usage);
-        console.log(provider,model,'[PROVIDER]',usage)
-        if (usage?.totalTokens && !model.includes('free')) {
+        const aiInfraStoreState = getAiInfraStoreState();
+        const modelInfo = aiModelSelectors.getEnabledModelById(model, provider)(aiInfraStoreState) as any;
+
+        // Get model details
+        const modelName = modelInfo?.displayName || model;
+        const modelPricing = modelInfo?.pricing;
+        const credits = calculateCreditsByPlan(usage as any, modelPricing as any, subscription?.subscription?.planName);
+        console.log(credits, '[CREDITS]');
+
+        if (!model.includes('free')) {
           console.log("deducting")
           const currentUser = getUserStoreState().user?.id;
           if (currentUser) {
             const result =
               await lambdaClient.subscription.updateOrganizationSubscriptionInfo.mutate({
                 ownerId: currentUser,
-                creditsUsed: usage?.totalTokens || 0,
+                creditsUsed: credits || 0,
               });
             if (result.success) {
               window.dispatchEvent(
@@ -687,8 +695,8 @@ export const generateAIChat: StateCreator<
         });
       },
       onMessageHandle: async (chunk) => {
-    
-        
+
+
         switch (chunk.type) {
           case 'grounding': {
             // if there is no citations, then stop

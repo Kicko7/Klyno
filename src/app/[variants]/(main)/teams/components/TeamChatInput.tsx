@@ -24,6 +24,7 @@ import { CreateMessageParams } from '@/types/message';
 import { nanoid } from '@/utils/uuid';
 
 import TeamChatInputFooter from './TeamChatInputFooter';
+import { calculateCreditsByPlan } from '@/utils/calculateCredits';
 
 const leftActions = [
   'model',
@@ -469,7 +470,8 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     // console.log('🔍 Context:', context);
 
     if (context?.usage?.totalTokens && !agentConfig.model.includes('free')) {
-      await updateOrganizationSubscriptionInfo(context.usage.totalTokens);
+      const credits = calculateCreditsByPlan(context.usage as any,agentConfig.pricing as any,organizationSubscriptionInfo?.subscription?.planName || '');
+      await updateOrganizationSubscriptionInfo(credits);
     }
   };
 

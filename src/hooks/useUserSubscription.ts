@@ -40,6 +40,7 @@ export const useUserSubscription = () => {
 
       if (result.success) {
         setSubscriptionInfo(result.data);
+        console.log(result.data, '[SUBSCRIPTION INFO]');
       } else {
         console.error(`[useUserSubscription] Failed to fetch subscription info:`, result.error);
         setError(result.error || 'Failed to fetch subscription info');

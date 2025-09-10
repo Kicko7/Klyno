@@ -69,7 +69,7 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
   const activeTeamChatId = useTeamChatStore((state) => state.activeTeamChatId);
   const { defaultModels, selectedOrganizationId, getDefaultModels } = useOrganizationStore();
   const currentOrganization = useOrganizationStore((state) => state.organizations.find((organization) => organization.id === selectedOrganizationId));
-  console.log(currentOrganization)
+  // console.log(currentOrganization)
   const { subscriptionInfo } = useUserSubscription();
   const [teamChatDefaultModels, setTeamChatDefaultModels] = useState<string[]>([]);
 

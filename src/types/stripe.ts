@@ -5,6 +5,7 @@ export interface StripePrice {
   recurring: {
     interval: 'month' | 'year';
     interval_count: number;
+    usage_type: 'licensed' | 'metered';
   };
 }
 
