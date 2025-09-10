@@ -4,7 +4,7 @@ import type { ItemType } from 'antd/es/menu/interface';
 import { LucideArrowRight, LucideBolt } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { type ReactNode, memo, useEffect, useMemo } from 'react';
+import { type ReactNode, memo, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Flexbox } from 'react-layout-kit';
 
@@ -13,6 +13,7 @@ import { isDeprecatedEdition } from '@/const/version';
 import ActionDropdown from '@/features/ChatInput/ActionBar/components/ActionDropdown';
 import { useEnabledChatModels } from '@/hooks/useEnabledChatModels';
 import { useUserSubscription } from '@/hooks/useUserSubscription';
+import { lambdaClient } from '@/libs/trpc/client';
 import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/slices/chat';
 import { useOrganizationStore } from '@/store/organization/store';
@@ -67,10 +68,22 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
   const isTeamChat = pathname.includes('teams');
   const activeTeamChatId = useTeamChatStore((state) => state.activeTeamChatId);
   const { defaultModels, selectedOrganizationId, getDefaultModels } = useOrganizationStore();
-  const {subscriptionInfo} = useUserSubscription()
+  const currentOrganization = useOrganizationStore((state) => state.organizations.find((organization) => organization.id === selectedOrganizationId));
+  console.log(currentOrganization)
+  const { subscriptionInfo } = useUserSubscription();
+  const [teamChatDefaultModels, setTeamChatDefaultModels] = useState<string[]>([]);
+
+  async function getTeamChatDefaultModels() {
+    const data = await lambdaClient.teamChat.getTeamChatDefaultModels.query({
+      teamChatId: activeTeamChatId as string,
+    });
+    setTeamChatDefaultModels(data || []);
+    return data;
+  }
 
   useEffect(() => {
     if (selectedOrganizationId && activeTeamChatId) {
+      getTeamChatDefaultModels();
       getDefaultModels(selectedOrganizationId);
     }
   }, [activeTeamChatId]);
@@ -81,27 +94,35 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
 
     if (isTeamChat) {
       // In team chat: show organization default models, if empty then show all models
-      if (selectedOrganizationId && defaultModels.length > 0) {
-        const orgDefaultModels = defaultModels;
+
+      if (teamChatDefaultModels.length > 0) {
         filteredEnabledList = enabledList
           .map((provider) => ({
             ...provider,
-            children: provider.children.filter((model) => orgDefaultModels.includes(model.id)),
+            children: provider.children.filter((model) => teamChatDefaultModels.includes(model.id)),
           }))
           .filter((provider) => provider.children.length > 0);
+      } else {
+        if (selectedOrganizationId && defaultModels.length > 0) {
+          const orgDefaultModels = defaultModels;
+          filteredEnabledList = enabledList
+            .map((provider) => ({
+              ...provider,
+              children: provider.children.filter((model) => orgDefaultModels.includes(model.id)),
+            }))
+            .filter((provider) => provider.children.length > 0);
+        }
       }
+
       // If no default models, show all enabled models (filteredEnabledList remains as enabledList)
     } else {
-      console.log('🔍 subscriptionInfo', subscriptionInfo);
       // Not in team chat: check subscription
       if (!subscriptionInfo || subscriptionInfo.subscription?.status !== 'active') {
         // No subscription: show only free models
         filteredEnabledList = enabledList
           .map((provider) => ({
             ...provider,
-            children: provider.children.filter((model) => 
-              model.id.toLowerCase().includes('free')
-            ),
+            children: provider.children.filter((model) => model.id.toLowerCase().includes('free')),
           }))
           .filter((provider) => provider.children.length > 0);
       }
@@ -151,9 +172,9 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
             <Flexbox gap={8} horizontal style={{ color: theme.colorTextTertiary }}>
               {isTeamChat
                 ? 'No models available for this organization'
-                : (!subscriptionInfo 
-                    ? 'No free models available' 
-                    : t('ModelSwitchPanel.emptyProvider'))}
+                : !subscriptionInfo
+                  ? 'No free models available'
+                  : t('ModelSwitchPanel.emptyProvider')}
               <Icon icon={LucideArrowRight} />
             </Flexbox>
           ),
@@ -176,6 +197,9 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
             source={provider.source}
           />
           {showLLM && (
+            (isTeamChat && currentOrganization?.memberRole === 'owner') ||
+            (!isTeamChat && subscriptionInfo?.subscription?.status === 'active')
+          ) && (
             <Link
               href={isDeprecatedEdition ? '/settings/llm' : `/settings/provider/${provider.id}`}
             >

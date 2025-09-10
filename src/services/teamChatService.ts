@@ -550,4 +550,19 @@ export class TeamChatService {
       throw new Error('Message not found or already deleted');
     }
   }
+  updateTeamChatDefaultModels = async (teamChatId: string, defaultModels: string[]) => {
+    const result = await this.db
+      .update(teamChats)
+      .set({ defaultModels })
+      .where(eq(teamChats.id, teamChatId))
+      .returning();
+    return result[0].defaultModels;
+  };
+  getTeamChatDefaultModels = async (teamChatId: string) => {
+    const result = await this.db
+      .select()
+      .from(teamChats)
+      .where(eq(teamChats.id, teamChatId));
+    return result[0].defaultModels;
+  };
 }

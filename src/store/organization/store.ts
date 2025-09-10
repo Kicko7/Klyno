@@ -16,6 +16,7 @@ export interface OrganizationState {
   organizations: any[];
   CreateOrgModal: boolean;
   selectedOrganizationId?: string;
+  currentOrganization?: any;
   defaultModels: string[];
   showCreateOrgModal: () => void;
   hideCreateOrgModal: () => void;

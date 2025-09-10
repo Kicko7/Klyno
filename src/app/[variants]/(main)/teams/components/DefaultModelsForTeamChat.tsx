@@ -6,21 +6,30 @@ import { Search, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { allModels as openRouterModels } from '@/config/aiModels/openrouter';
+import { lambdaClient } from '@/libs/trpc/client';
 import { useOrganizationStore } from '@/store/organization/store';
 import { ChatModelCard } from '@/types/llm';
 
 const { Title, Text } = Typography;
 const { Search: AntdSearch } = Input;
 
-interface DefaultModelsForOrganizationProps {
+interface DefaultModelsForTeamChatProps {
+  teamChatId: string;
   organizationId: string;
+  open: boolean;
+  onClose: () => void;
 }
 
 interface ModelWithEnabled extends ChatModelCard {
   enabled: boolean;
 }
 
-const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrganizationProps) => {
+const DefaultModelsForTeamChat = ({
+  teamChatId,
+  organizationId,
+  open,
+  onClose,
+}: DefaultModelsForTeamChatProps) => {
   const { message } = App.useApp();
   const theme = useTheme();
   const [models, setModels] = useState<ModelWithEnabled[]>([]);
@@ -29,28 +38,59 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [hasChanges, setHasChanges] = useState(false);
-  const [organizationDefaultModels, setOrganizationDefaultModels] = useState<string[]>([]);
-  const { getDefaultModels, updateOrganizationDefaultModels } = useOrganizationStore();
+  const [teamChatDefaultModels, setTeamChatDefaultModels] = useState<string[]>([]);
+  const { getDefaultModels } = useOrganizationStore();
+  async function getTeamChatDefaultModels() {
+    const data = await lambdaClient.teamChat.getTeamChatDefaultModels.query({ teamChatId });
+    setTeamChatDefaultModels(data || []);
+    return data;
+  }
+
+  async function updateTeamChatDefaultModels(defaultModels: string[]) {
+    const data = await lambdaClient.teamChat.updateTeamChatDefaultModels.mutate({
+      teamChatId,
+      defaultModels,
+    });
+    return data;
+  }
 
   // Load OpenRouter models from static config
   useEffect(() => {
     const loadModels = async () => {
+      if (!open) return;
+
       setLoading(true);
 
       try {
-        // Get organization default models from API
-        const orgDefaultModels = await getDefaultModels(organizationId);
+        // Get team chat default models from API
+        const teamDefaultModels = await getTeamChatDefaultModels();
+        let modelsToUse = teamDefaultModels || [];
+
+        // If no team chat default models, check organization default models
+        if (modelsToUse.length === 0) {
+          const orgDefaultModels = await getDefaultModels(organizationId);
+          console.log('🔍 No team chat defaults, using org defaults:', orgDefaultModels);
+          modelsToUse = orgDefaultModels || [];
+        }
+
+        // If no organization default models either, use all enabled models
+        if (modelsToUse.length === 0) {
+          console.log('🔍 No org defaults either, using all enabled models');
+          modelsToUse = openRouterModels
+            .filter((model) => model.enabled === true)
+            .map((model) => model.id);
+        }
 
         // Filter only enabled models from the static config
         const allEnabledModels = openRouterModels
           .filter((model) => model.enabled === true)
           .map((model) => ({
             ...model,
-            enabled: orgDefaultModels.length === 0 ? true : orgDefaultModels.includes(model.id),
+            enabled: modelsToUse.includes(model.id),
           }));
 
-        setModels(allEnabledModels);
-        setFilteredModels(allEnabledModels);
+        setModels(allEnabledModels as any);
+        setFilteredModels(allEnabledModels as any);
       } catch (error) {
         console.error('Error loading OpenRouter models:', error);
         message.error('Failed to load models. Please try again.');
@@ -60,7 +100,7 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
     };
 
     loadModels();
-  }, [organizationId]);
+  }, [teamChatId, organizationId, open]);
 
   // Filter models based on search term and category
   useEffect(() => {
@@ -91,7 +131,6 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
     }
 
     setFilteredModels(filtered);
-    setOrganizationDefaultModels(models.filter((model) => model.enabled).map((model) => model.id));
   }, [models, searchTerm, selectedCategory]);
 
   const handleModelToggle = (modelId: string, enabled: boolean) => {
@@ -119,8 +158,8 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
       // Get all enabled model IDs
       const enabledModelIds = models.filter((model) => model.enabled).map((model) => model.id);
 
-      // Update organization default models
-      await updateOrganizationDefaultModels(organizationId, enabledModelIds);
+      // Update team chat default models
+      await updateTeamChatDefaultModels(enabledModelIds);
 
       message.success('Changes saved successfully!');
       setHasChanges(false);
@@ -138,7 +177,6 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
   // Count for currently filtered models
   const filteredEnabledCount = filteredModels.filter((model) => model.enabled).length;
   const filteredTotalCount = filteredModels.length;
-
 
   const categories = [
     { key: 'all', label: 'All Models', count: models.length },
@@ -179,20 +217,18 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
   }
 
   return (
-    <div className={`p-6 ${theme.appearance === 'dark' ? 'bg-black' : 'bg-white'}`}>
+    <div className="p-6">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <Settings className="w-6 h-6 text-blue-500" />
           <Title level={2} className="!mb-0">
-            <span className={`${theme.appearance === 'dark' ? 'text-white' : 'text-black'}`}>
-            Default Models for Organization
-            </span>
+            Default Models for Team Chat
           </Title>
         </div>
         <Text type="secondary">
-          Configure which OpenRouter models are available to all members of this organization.
-          Currently {enabledCount} of {totalCount} models are enabled.
+          Configure which OpenRouter models are available for this team chat. Currently{' '}
+          {enabledCount} of {totalCount} models are enabled.
         </Text>
       </div>
 
@@ -218,7 +254,7 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
                   ? 'bg-blue-500 text-white'
                   : theme.appearance === 'dark'
                     ? 'bg-slate-700 text-slate-200 hover:bg-slate-600'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-200'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               {category.label} ({category.count})
@@ -237,18 +273,18 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
           >
             {selectedCategory === 'all'
               ? 'Select All'
-              : `Select All ${selectedCategory === 'free' ? 'Free' : selectedCategory === 'paid' ? 'Paid' : selectedCategory === 'vision' ? 'Vision' : selectedCategory === 'function-call' ? 'Function Call' : selectedCategory === 'reasoning' ? 'Reasoning' : ''} Models`}
+              : `Select All ${selectedCategory === 'free' ? 'Free' : selectedCategory === 'paid' ? 'Paid' : ''} Models`}
           </Checkbox>
           <Text type="secondary">
             {selectedCategory === 'all'
               ? `${enabledCount} of ${totalCount} models selected`
-              : `${filteredEnabledCount} of ${filteredTotalCount} ${selectedCategory === 'free' ? 'free' : selectedCategory === 'paid' ? 'paid' : selectedCategory === 'vision' ? 'vision' : selectedCategory === 'function-call' ? 'function call' : selectedCategory === 'reasoning' ? 'reasoning' : ''} models selected`}
+              : `${filteredEnabledCount} of ${filteredTotalCount} ${selectedCategory === 'free' ? 'free' : selectedCategory === 'paid' ? 'paid' : ''} models selected`}
           </Text>
         </div>
 
         <button
           onClick={handleMakeChanges}
-          disabled={!hasChanges || enabledCount === 0}
+          disabled={!hasChanges || enabledCount === 0 || isLoading}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
             hasChanges && enabledCount > 0
               ? 'bg-blue-500 text-white hover:bg-blue-600'
@@ -337,13 +373,12 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
       {/* Footer */}
       <div className="mt-6 p-4 bg-gray-50 dark:bg-slate-800 rounded-lg">
         <Text type="secondary" className="text-sm">
-          <strong>Note:</strong> Only enabled models will be available to organization members when
-          they create new chats. Changes are saved automatically and apply to all current and future
-          members.
+          <strong>Note:</strong> Only enabled models will be available for this team chat. Changes
+          are saved automatically and apply to all team members.
         </Text>
       </div>
     </div>
   );
 };
 
-export default DefaultModelsForOrganization;
+export default DefaultModelsForTeamChat;

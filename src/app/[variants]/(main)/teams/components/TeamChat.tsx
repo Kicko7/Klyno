@@ -23,6 +23,7 @@ import { useTeamChatStore } from '@/store/teamChat';
 import TeamChatSessionHydration from '../features/TeamChatSessionHydration';
 import TeamChatWorkspace from '../features/TeamChatWorkspace';
 import AddMemberModal from './AddMemberModal';
+import DefaultModelsForTeamChatModal from './DefaultModelsForTeamChatModal';
 import TeamChatContent from './TeamChatContent';
 import TeamMain from './TeamMain';
 
@@ -34,6 +35,7 @@ const TeamChat = memo(() => {
   const { organizations, selectedOrganizationId } = useOrganizationStore();
   const currentOrganization = organizations?.find((org) => org.id === selectedOrganizationId);
   const [showMemberModal, setShowMemberModal] = useState(false);
+  const [showDefaultModelsModal, setShowDefaultModelsModal] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
 
   // Use dedicated team chat store
@@ -132,7 +134,6 @@ const TeamChat = memo(() => {
         console.error('❌ Invalid organization selected for chat creation');
         return;
       }
-      console.log('🚀 Creating new team chat...');
       await createTeamChat(currentOrganization.id, 'Team Chat', {
         organizationId: currentOrganization.id,
       });
@@ -176,44 +177,10 @@ const TeamChat = memo(() => {
                     gap: '8px',
                   }}
                 >
-                  {/* {teamChats.find((chat) => chat.id === activeTeamChatId)?.title ||
-                    'Loading chat...'} */}
                   {isLoading && <span className="animate-pulse">•••</span>}
                 </div>
               </Flexbox>
             )}
-            {/* <ModelSwitchPanel
-              sessionId={
-                teamChats.find((chat) => chat.id === activeTeamChatId)?.metadata?.sessionId
-              }
-            >
-              <ModelTag model={model} />
-            </ModelSwitchPanel> */}
-            {/* {Object.keys(memoizedActiveUsers).length > 0 && !isLoading && (
-              <Flexbox gap={8} horizontal style={{ marginLeft: 12 }}>
-                {Object.entries(memoizedActiveUsers)
-                  .slice(0, 3)
-                  .map(([userId, userData]) => (
-                    <Tooltip
-                      key={userId}
-                      title={`${userData.username || 'User'} (Active)`}
-                      placement="bottom"
-                    >
-                      <Avatar
-                        avatar={userData.avatar}
-                        size={24}
-                        style={{
-                          border: '2px solid #4CAF50',
-                          boxShadow: '0 0 0 2px rgba(76, 175, 80, 0.2)',
-                        }}
-                      />
-                    </Tooltip>
-                  ))}
-                {Object.keys(memoizedActiveUsers).length > 3 && (
-                  <Tag>+{Object.keys(memoizedActiveUsers).length - 3} active</Tag>
-                )}
-              </Flexbox>
-            )} */}
           </Flexbox>
         }
         right={
@@ -224,6 +191,14 @@ const TeamChat = memo(() => {
               size={DESKTOP_HEADER_ICON_SIZE}
               title="Add Team Members"
             />
+            {currentOrganization?.memberRole === 'owner' && (
+              <ActionIcon
+                icon={ModelTag}
+                onClick={() => setShowDefaultModelsModal(true)}
+                size={DESKTOP_HEADER_ICON_SIZE}
+                title="Assign Default Models"
+              />
+            )}
             <HeaderAction />
           </Flexbox>
         }
@@ -301,6 +276,14 @@ const TeamChat = memo(() => {
         open={showMemberModal}
         onClose={() => setShowMemberModal(false)}
         teamId={activeTeamChatId || undefined}
+      />
+
+      {/* Default Models Modal */}
+      <DefaultModelsForTeamChatModal
+        teamChatId={activeTeamChatId || undefined}
+        organizationId={currentOrganization?.id}
+        open={showDefaultModelsModal}
+        onClose={() => setShowDefaultModelsModal(false)}
       />
 
       {/* Team Chat Session Hydration for URL params */}

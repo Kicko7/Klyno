@@ -55,6 +55,8 @@ export const teamChats = pgTable('team_chats', {
       memberAccess: [],
     }),
 
+    defaultModels: jsonb('default_models').$type<string[]>().default([]),
+
   ...timestamps,
 });
 

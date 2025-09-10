@@ -403,6 +403,18 @@ export const teamChatRouter = router({
       await ctx.teamChatService.deleteMessage(input.teamChatId, input.messageId);
       return { success: true };
     }),
+  updateTeamChatDefaultModels: teamChatProcedure
+    .input(z.object({ teamChatId: z.string(), defaultModels: z.array(z.string()) }))
+    .mutation(async ({ input, ctx }) => {
+      const teamChat = await ctx.teamChatService.updateTeamChatDefaultModels(input.teamChatId, input.defaultModels);
+      return teamChat;
+    }),
+  getTeamChatDefaultModels: teamChatProcedure
+    .input(z.object({ teamChatId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const teamChat = await ctx.teamChatService.getTeamChatDefaultModels(input.teamChatId);
+      return teamChat;
+    }),
 });
 
 export type TeamChatRouter = typeof teamChatRouter;
