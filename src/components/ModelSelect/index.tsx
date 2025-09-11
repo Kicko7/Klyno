@@ -1,5 +1,7 @@
 import { IconAvatarProps, ModelIcon, ProviderIcon } from '@lobehub/icons';
 import { Avatar, Icon, Tag, Text, Tooltip } from '@lobehub/ui';
+
+import CustomProviderIcon from '@/components/ProviderIcons/CustomProviderIcon';
 import { createStyles, useResponsive } from 'antd-style';
 import {
   Infinity,
@@ -210,7 +212,7 @@ export const ProviderItemRender = memo<ProviderItemRenderProps>(
         {source === 'custom' && !!logo ? (
           <Avatar avatar={logo} size={20} style={{ filter: 'grayscale(1)' }} title={name} />
         ) : (
-          <ProviderIcon provider={provider} size={20} type={'mono'} />
+          <CustomProviderIcon provider={provider} size={20} type={'mono'} />
         )}
         {name}
       </Flexbox>

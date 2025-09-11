@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { memo } from 'react';
 import { Center, Flexbox } from 'react-layout-kit';
 
+import CustomOpenRouterIcon from '@/components/ProviderIcons/CustomOpenRouterIcon';
 import { AiProviderListItem, AiProviderSourceEnum } from '@/types/aiProvider';
 
 export const useStyles = createStyles(({ css, token }) => ({
@@ -37,6 +38,7 @@ export const useStyles = createStyles(({ css, token }) => ({
 }));
 
 const ProviderItem = memo<AiProviderListItem>(({ id, name, source, enabled, logo }) => {
+  // console.log('name', name,'id', id);
   const { styles, cx } = useStyles();
   const pathname = usePathname();
 
@@ -57,6 +59,8 @@ const ProviderItem = memo<AiProviderListItem>(({ id, name, source, enabled, logo
             size={24}
             style={{ borderRadius: 6 }}
           />
+        ) : id === 'openrouter' ? (
+          <CustomOpenRouterIcon size={24} style={{ borderRadius: 6 }} type={'avatar'} />
         ) : (
           <ProviderIcon provider={id} size={24} style={{ borderRadius: 6 }} type={'avatar'} />
         )}
