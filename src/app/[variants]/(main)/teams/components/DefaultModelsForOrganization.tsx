@@ -1,7 +1,7 @@
 'use client';
 
 import { App, Card, Checkbox, Input, Skeleton, Switch, Typography } from 'antd';
-import { useTheme } from 'antd-style';
+import { createStyles, useTheme } from 'antd-style';
 import { Search, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -21,8 +21,45 @@ interface ModelWithEnabled extends ChatModelCard {
   enabled: boolean;
 }
 
+const useStyles = createStyles(({ token, css }) => ({
+  saveButton: css`
+    padding: ${token.paddingSM}px ${token.padding}px;
+    border-radius: ${token.borderRadius}px;
+    font-weight: ${token.fontWeightStrong};
+    transition: all ${token.motionDurationMid} ${token.motionEaseInOut};
+    border: none;
+    cursor: pointer;
+    
+    &:disabled {
+      background-color: ${token.colorFillTertiary};
+      color: ${token.colorTextDisabled};
+      cursor: not-allowed;
+    }
+    
+    &:not(:disabled) {
+      background-color: #1890ff;
+      color: #ffffff;
+      border: 1px solid #1890ff;
+      box-shadow: 0 2px 0 rgba(0, 0, 0, 0.045);
+      
+      &:hover {
+        background-color: #40a9ff;
+        border-color: #40a9ff;
+        box-shadow: 0 4px 8px rgba(24, 144, 255, 0.3);
+      }
+      
+      &:active {
+        background-color: #096dd9;
+        border-color: #096dd9;
+        box-shadow: 0 2px 0 rgba(0, 0, 0, 0.045);
+      }
+    }
+  `,
+}));
+
 const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrganizationProps) => {
   const { message } = App.useApp();
+  const { styles } = useStyles();
   const theme = useTheme();
   const [models, setModels] = useState<ModelWithEnabled[]>([]);
   const [filteredModels, setFilteredModels] = useState<ModelWithEnabled[]>([]);
@@ -216,7 +253,7 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
   }
 
   return (
-    <div className={`p-6 ${theme.appearance === 'dark' ? 'bg-black' : 'bg-white'}`}>
+    <div className={`p-6 ${theme.appearance === 'dark' ? 'bg-black' : 'bg-white'} h-full`}>
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
@@ -286,11 +323,7 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
         <button
           onClick={handleMakeChanges}
           disabled={!hasChanges || enabledCount === 0}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            hasChanges && enabledCount > 0
-              ? 'bg-blue-500 text-white hover:bg-blue-600'
-              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-          }`}
+          className={styles.saveButton}
         >
           {isLoading ? 'Saving...' : 'Make Changes'}
         </button>

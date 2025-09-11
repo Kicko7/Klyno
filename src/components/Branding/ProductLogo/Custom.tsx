@@ -18,6 +18,8 @@ const useStyles = createStyles(({ css }) => {
 });
 
 const CustomTextLogo = memo<FlexboxProps & { size: number }>(({ size, style, ...rest }) => {
+  const theme = useTheme()
+
   if(usePathname().includes('about')){
     return (
       <Flexbox
@@ -43,7 +45,7 @@ const CustomTextLogo = memo<FlexboxProps & { size: number }>(({ size, style, ...
         fontSize: size / 1.2,
         fontWeight: 'bolder',
         userSelect: 'none',
-        color: 'black',
+        color: theme.appearance === "dark" ? '':'black',
         ...style,
       }}
       {...rest}
@@ -56,6 +58,7 @@ const CustomTextLogo = memo<FlexboxProps & { size: number }>(({ size, style, ...
 const CustomImageLogo = memo<Omit<ImageProps, 'alt' | 'src'> & { size: number }>(
   ({ size, ...rest }) => {
     // Don't render image if BRANDING_LOGO_URL is empty
+
     if (!BRANDING_LOGO_URL) {
       return <CustomTextLogo size={size} {...rest} />;
     }
