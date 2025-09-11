@@ -91,19 +91,7 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
           />
         </Link>
       )}
-      <Link aria-label={t('tab.pricing')} href={'/pricing'}>
-        <ActionIcon
-          active={false}
-          icon={DollarSign}
-          size={ICON_SIZE}
-          title={t('tab.pricing')}
-          tooltipProps={{ placement: 'right' }}
-          onClick={() => {
-            setActiveTeamChat(null);
-          }}
-        />
-      </Link>
-      
+   
       {showMarket && (
         <Link aria-label={t('tab.discover')} href={'/discover'}>
           <ActionIcon
@@ -118,18 +106,7 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
           />
         </Link>
       )}
-      <Link aria-label={'affiliate'} href={'/affiliate'}>
-        <ActionIcon
-          active={false}
-          icon={Share2}
-          size={ICON_SIZE}
-          title={'Affilate'}
-          tooltipProps={{ placement: 'right' }}
-          onClick={() => {
-            setActiveTeamChat(null);
-          }}
-        />
-      </Link>
+ 
     </Flexbox>
   );
 });

@@ -1,6 +1,6 @@
 import { Icon, ItemType } from '@lobehub/ui';
 import isEqual from 'fast-deep-equal';
-import { ArrowRight, LibraryBig } from 'lucide-react';
+import { ArrowRight, FolderOpen, LibraryBig } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import FileIcon from '@/components/FileIcon';
@@ -89,7 +89,14 @@ export const useControls = ({
         })),
       ],
       key: 'relativeFilesOrKnowledgeBases',
-      label: t('knowledgeBase.relativeFilesOrKnowledgeBases'),
+      label: (
+        <div>
+          <div>{t('knowledgeBase.relativeFilesOrKnowledgeBases')}</div>
+          <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
+            Files you upload will show here if file or knowledge base
+          </div>
+        </div>
+      ),
       type: 'group',
     },
     {
@@ -102,6 +109,15 @@ export const useControls = ({
       label: t('knowledgeBase.viewMore'),
       onClick: () => {
         setModalOpen(true);
+      },
+    },
+    {
+      extra: <Icon icon={ArrowRight} />,
+      icon: FolderOpen,
+      key: 'go-to-files',
+      label: 'Go to Files',
+      onClick: () => {
+        window.location.href = '/files';
       },
     },
   ];

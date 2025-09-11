@@ -33,7 +33,6 @@ const leftActions = [
   'knowledgeBase',
   'params',
   'stt',
-  'tools',
 ] as ActionKeys[];
 
 const rightActions = ['clear'] as ActionKeys[];

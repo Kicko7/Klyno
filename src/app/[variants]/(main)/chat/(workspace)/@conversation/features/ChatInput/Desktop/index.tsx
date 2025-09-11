@@ -18,7 +18,6 @@ const leftActions = [
   'params',
   'history',
   'stt',
-  'tools',
   'mainToken',
 ] as ActionKeys[];
 

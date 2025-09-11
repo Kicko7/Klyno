@@ -86,7 +86,8 @@
     "relativeFilesOrKnowledgeBases": "关联文件/知识库",
     "title": "知识库",
     "uploadGuide": "上传过的文件可以在「知识库」中查看哦",
-    "viewMore": "查看更多"
+    "viewMore": "查看更多",
+    "goToFiles": "前往文件"
   },
   "messageAction": {
     "delAndRegenerate": "删除并重新生成",

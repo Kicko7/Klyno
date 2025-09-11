@@ -54,7 +54,7 @@ const TeamChatInput = memo<TeamChatInputProps>(({ isAIMode, onSendMessage }) => 
   }, [messageInput, sending, isAIMode, onSendMessage, agentConfig]);
 
   // Define actions for the chat input
-  const leftActions: ActionKeys[] = isAIMode ? ['model', 'tools'] : [];
+  const leftActions: ActionKeys[] = isAIMode ? ['model'] : [];
   const rightActions: ActionKeys[] = ['clear'];
 
   const renderTextArea = useCallback(

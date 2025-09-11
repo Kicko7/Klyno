@@ -13,6 +13,7 @@ import {
   Mail,
   Settings2,
   CreditCard,
+  Share2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
@@ -73,6 +74,15 @@ export const useMenu = () => {
       label: (
         <Link href={'/pricing'}>
           Plans & Pricing
+        </Link>
+      ),
+    },
+    {
+      icon: <Icon icon={Share2} />,
+      key: 'affiliate',
+      label: (
+        <Link href={'/affiliate'}>
+          Affiliate
         </Link>
       ),
     },
