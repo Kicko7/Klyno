@@ -9,6 +9,7 @@ import { useAiInfraStore } from '@/store/aiInfra';
 import { aiModelSelectors } from '@/store/aiInfra/selectors';
 
 import ModelItem from '../ModelItem';
+import PaginatedModelList from '../PaginatedModelList';
 import SortModelModal from '../SortModelModal';
 
 const EnabledModelList = () => {
@@ -20,6 +21,8 @@ const EnabledModelList = () => {
   const [batchLoading, setBatchLoading] = useState(false);
 
   const isEmpty = enabledModels.length === 0;
+  const shouldUsePagination = enabledModels.length > 20; // Use pagination for lists with more than 20 items
+
   return (
     <>
       <Flexbox horizontal justify={'space-between'}>
@@ -69,6 +72,13 @@ const EnabledModelList = () => {
             {t('providerModels.list.enabledEmpty')}
           </Text>
         </Center>
+      ) : shouldUsePagination ? (
+        <PaginatedModelList
+          models={enabledModels}
+          itemsPerPage={15}
+          virtualizationThreshold={30}
+          showVirtualization={true}
+        />
       ) : (
         <Flexbox gap={2}>
           {enabledModels.map(({ displayName, id, ...res }) => {
