@@ -37,6 +37,9 @@ const DisabledModels = memo(() => {
       <Text style={{ fontSize: 12, marginTop: 8 }} type={'secondary'}>
         {t('providerModels.list.disabled')}
       </Text>
+      <Text style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>
+        These are disabled AI models. Click "Show All" to see all available models and enable the ones you want to use.
+      </Text>
       {showMore ? (
         disabledModels.length > 50 ? (
           // Use virtualization for very large lists to prevent hanging

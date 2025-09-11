@@ -164,6 +164,14 @@ const ModelTitle = memo<ModelFetcherProps>(
           )}
         </Flexbox>
 
+        {/* Descriptive text for model list */}
+        {!isLoading && !isEmpty && (
+          <Text style={{ fontSize: 13, color: theme.colorTextSecondary, marginTop: 4 }}>
+            These are AI models of {provider === 'openrouter' ? 'KlynoAI' : provider} provider.
+            Enable the models you want to use in your conversations.
+          </Text>
+        )}
+
         {mobile && (
           <Search
             onChange={(value) => {
