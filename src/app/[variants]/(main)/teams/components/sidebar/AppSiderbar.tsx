@@ -176,7 +176,7 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
 
     try {
       setIsCreatingChat(true);
-      console.log('🚀 Creating new team chat from sidebar button...');
+      // console.log('🚀 Creating new team chat from sidebar button...');
 
       // Create new chat and get its ID
       const newChatId = await createTeamChat(currentOrganization.id);

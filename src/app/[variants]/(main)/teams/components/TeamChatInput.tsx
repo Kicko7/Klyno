@@ -474,11 +474,6 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       message.createdAt,
     );
 
-    // console.log('🔍 Context:', context);
-
-    console.log('🔍 Context:', context);
-    console.log('🔍 Agent Config:', agentConfig);
-    console.log('🔍 Organization Subscription Info:', organizationSubscriptionInfo);
     const aiInfraStoreState = getAiInfraStoreState();
     const modelInfo = aiModelSelectors.getEnabledModelById(agentConfig.model, agentConfig.provider)(aiInfraStoreState) as any;
     const agentPricing = modelInfo?.pricing as any;
@@ -489,7 +484,6 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         agentPricing as any,
         organizationSubscriptionInfo?.subscription?.planName || '',
       );
-      console.log('🔍 Credits:', credits);
       await updateOrganizationSubscriptionInfo(credits);
     }
   };

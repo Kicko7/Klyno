@@ -629,11 +629,9 @@ export const generateAIChat: StateCreator<
         // Get model details
         const modelName = modelInfo?.displayName || model;
         const modelPricing = modelInfo?.pricing;
-        const credits = calculateCreditsByPlan(usage as any, modelPricing as any, subscription?.subscription?.planName);
-        console.log(credits, '[CREDITS]');
 
         if (!model.includes('free')) {
-          console.log("deducting")
+          const credits = calculateCreditsByPlan(usage as any, modelPricing as any, subscription?.subscription?.planName);
           const currentUser = getUserStoreState().user?.id;
           if (currentUser) {
             const result =

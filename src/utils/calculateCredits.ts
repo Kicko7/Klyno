@@ -52,6 +52,9 @@ export function calculateCreditsByPlan(
     creditRate = 0.001
 ): number {
     // Resolve plan (fallback to default margin if not found)
+    if (!pricing) {
+        return 0;
+    }
     const plan = plans.find(p => p.name.toLowerCase() === (planName || '').toLowerCase());
     const profitMargin = (plan?.profitMargin ?? 1.2);
 
