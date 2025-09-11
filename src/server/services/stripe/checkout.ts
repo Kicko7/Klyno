@@ -435,9 +435,8 @@ export class StripeCheckoutService {
           );
         }
       }
-
       // ✅ NEW: Record usage with meter events (instead of usage records)
-      const meterEvent = await this.stripe.billing.meterEvents.create({
+      await this.stripe.billing.meterEvents.create({
         event_name: "team_workspace_additional_members", // must match your configured meter event in Stripe
         payload: {
           stripe_customer_id: subscription.customer as string,
@@ -445,8 +444,6 @@ export class StripeCheckoutService {
           user_id: newUserId, // optional extra field for debugging
         },
       });
-
-      // console.log(`Added metered usage for user ${newUserId} to ${billingInterval} subscription ${subscriptionId}`);
 
       return {
         success: true,
@@ -459,6 +456,55 @@ export class StripeCheckoutService {
       console.error('Error handling metered billing:', error);
       throw new Error(
         `Failed to handle metered billing: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async removeMeteredBilling(
+    subscriptionId: string,
+    customerId: string,
+    deletedUserId: string,
+    billingInterval: "month" | "year"
+  ) {
+    try {
+      const amountInCents = billingInterval === "month" ? 500 : 5000;
+
+      await this.stripe.invoiceItems.create({
+        customer: customerId,
+        amount: amountInCents,
+        currency: "usd",
+        description:
+          billingInterval === "month"
+            ? "Immediate adjustment for 1 monthly user removed"
+            : "Immediate adjustment for 1 yearly user removed",
+        subscription: subscriptionId,
+      });
+
+      const invoice = await this.stripe.invoices.create({
+        customer: customerId,
+        subscription: subscriptionId,
+        collection_method: "charge_automatically",
+      });
+
+      const finalized = await this.stripe.invoices.finalizeInvoice(invoice.id);
+
+      const meterEvent = await this.stripe.billing.meterEvents.create({
+        event_name: "team_workspace_additional_members",
+        payload: {
+          stripe_customer_id: customerId,
+          value: "-1",
+          user_id: deletedUserId,
+        },
+      });
+
+      console.log('meterEvent', meterEvent);
+
+      return finalized;
+    } catch (error) {
+      console.error("Error removing metered billing:", error);
+      throw new Error(
+        `Failed to remove metered billing: ${error instanceof Error ? error.message : "Unknown error"
+        }`
       );
     }
   }

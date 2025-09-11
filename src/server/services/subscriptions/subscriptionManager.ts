@@ -168,36 +168,27 @@ export class SubscriptionManager {
             .returning();
 
           const user = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
-          console.log('🔍 price', plan.price);
 
           if (user[0].affiliateId) {
-            console.log('🔍 user[0].affiliateId', user[0].affiliateId);
 
             const price = plan.price;
-            console.log('🔍 price', price);
             const twoPercent = Math.round((stripePlan?.unit_amount * 0.02) / 100);
-            console.log('two percent', twoPercent)
             const link = process.env.APP_URL + '/signup?ref=' + user[0].affiliateId;
-            console.log('🔍 link', link);
             const affiliateinfo = await tx.select().from(affiliateInfo).where(eq(affiliateInfo.link, link)).limit(1);
             if (affiliateinfo.length > 0) {
-              console.log("Updating Info")
               await tx.update(affiliateInfo).set({
                 totalRevenue: (affiliateinfo[0].totalRevenue || 0) + twoPercent,
               }).where(eq(affiliateInfo.id, affiliateinfo[0].id));
               await tx.update(affiliate).set({
                 planPurchaseId: subscription[0].id,
               }).where(eq(affiliate.affiliateUserId, userId));
-
             }
           }
         }
 
 
       } else {
-        // Create new subscription
         const interval = stripePlan?.recurring?.interval;
-
         const subscription = await tx.insert(userSubscriptions).values({
           id: `sub_${userId}_${Date.now()}`,
           userId,
@@ -223,19 +214,12 @@ export class SubscriptionManager {
 
         const user = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
         if (user[0].affiliateId) {
-          console.log('🔍 user[0].affiliateId', user[0].affiliateId);
           const ownerRefLink = await db.select().from(affiliate).where(eq(affiliate.affiliateUserId, user[0].id)).limit(1);
-
-
           const price = plan.price;
-          console.log('🔍 Stripe price', stripePlan);
           const twoPercent = Math.round((stripePlan.unit_amount * 0.02) / 100);
-          console.log('two percent', twoPercent)
           const link = process.env.APP_URL + '/signup?ref=' + user[0].affiliateId;
-          console.log('🔍 link', link);
           const affiliateinfo = await db.select().from(affiliateInfo).where(eq(affiliateInfo.link, ownerRefLink[0].link)).limit(1);
           if (affiliateinfo.length > 0) {
-            console.log("Updating Info")
             await tx.update(affiliateInfo).set({
               totalRevenue: (affiliateinfo[0].totalRevenue || 0) + twoPercent,
             }).where(eq(affiliateInfo.link, ownerRefLink[0].link));
@@ -272,9 +256,6 @@ export class SubscriptionManager {
       }
 
       const currentBalance = currentSubscription[0].balance;
-      console.log('🔍 currentBalance', currentBalance);
-      console.log('🔍 creditsUsed', creditsUsed);
-
       // If insufficient credits, set balance to 0
       if (currentBalance < creditsUsed) {
         const [updatedSubscription] = await tx

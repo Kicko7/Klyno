@@ -136,7 +136,6 @@ const AddOrganizationMemberModal = ({
           token: inviteToken,
         });
 
-        console.log('Invitation result:', result);
         message.success(`Invitation sent to ${values.email} successfully!`);
       }
 
@@ -162,6 +161,7 @@ const AddOrganizationMemberModal = ({
   };
 
   const handleClick = (values: any) => {
+    console.log(values, 'values',inviteMode);
     // Check if user already exists before showing confirmation
     if (inviteMode === 'email') {
       const existingMember = existingUsers.find((user) => user.email === values.email);
@@ -182,6 +182,14 @@ const AddOrganizationMemberModal = ({
       return;
     }
 
+    console.log(subscriptionInfo?.subscription, 'subscriptionInfo?.subscription');
+
+    if(subscriptionInfo?.subscription?.planName === 'Creator Pro' || subscriptionInfo?.subscription?.planName === 'Starter') {
+      // handleSubmit(values);
+      message.warning('You have to subscribe to other plans to add members to your organization');
+      return;
+    }
+
     if (subscriptionInfo?.subscription?.planName === 'Team Workspace') {
       if (
         existingUsers.length >= 3 &&
@@ -191,7 +199,8 @@ const AddOrganizationMemberModal = ({
         setFormValues(values);
         setConfirmModalOpen(true);
         return;
-      } else {
+      }
+      else {
         handleSubmit(values);
       }
     } else if (subscriptionInfo?.subscription?.planName.includes('Enterprise')) {

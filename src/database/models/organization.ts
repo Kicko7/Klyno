@@ -149,7 +149,7 @@ export class OrganizationModel {
     }
   }
 
-  async removeOrganizationMember(organizationId: string, memberId: string) {
+  async removeOrganizationMember(organizationId: string, memberId: string, stripeSubscriptionId?: string, stripeCustomerId?: string, interval?: 'month' | 'year') {
     const member = await this.db.query.organizationMembers.findFirst({
       where: (m, { and, eq }) => and(eq(m.organizationId, organizationId), eq(m.userId, memberId)),
     });
@@ -174,6 +174,31 @@ export class OrganizationModel {
       throw new Error('Current user does not have permission to remove this member.');
     }
 
+    const existingMembers = await this.db.query.organizationMembers.findMany({
+      where: (members, { eq }) => eq(members.organizationId, organizationId),
+    });
+
+    console.log('stripeSubscriptionId', stripeSubscriptionId);
+    console.log('stripeCustomerId', stripeCustomerId);
+    console.log('interval', interval);
+    console.log('existingMembers', existingMembers.length);
+    if(stripeSubscriptionId && stripeCustomerId && interval) {
+    const checkPlanName = await this.db.query.userSubscriptions.findFirst({
+      where: (userSubscriptions, { eq }) => eq(userSubscriptions.stripeCustomerId, stripeCustomerId),
+    });
+    
+
+    console.log('checkPlanName', checkPlanName);
+    
+    // If we currently have more than 3 members (paid tier) and after removing this member we'll have 3 or fewer (free tier), remove metered billing
+    if (existingMembers.length > 3  && stripeSubscriptionId && stripeCustomerId && interval && checkPlanName?.planName === 'Team Workspace') {
+      console.log('inside if - removing metered billing because we are going from paid tier (>3 members) to free tier (<=3 members)');
+
+      const checkoutService = new StripeCheckoutService();
+      await checkoutService.removeMeteredBilling(stripeSubscriptionId, stripeCustomerId, memberId, interval);
+    }
+  }
+    
     return this.db
       .delete(organizationMembers)
       .where(

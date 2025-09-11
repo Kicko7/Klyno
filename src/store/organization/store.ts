@@ -33,7 +33,7 @@ export interface OrganizationAction {
     role: 'admin' | 'member';
     teamId: string;
   }) => Promise<void>;
-  removeMember: (organizationId: string, memberId: string) => Promise<void>;
+  removeMember: (organizationId: string, memberId: string,stripeSubscriptionId?: string, stripeCustomerId?: string, interval?: 'month' | 'year') => Promise<void>;
   setSelectedOrganizationId: (id: string) => void;
   updateOrganizationDefaultModels: (organizationId: string, defaultModels: string[]) => Promise<void>;
   getDefaultModels: (organizationId: string) => Promise<string[]>;
@@ -144,11 +144,14 @@ export const useOrganizationStore = create<OrganizationStore>()(
           throw error;
         }
       },
-      removeMember: async (organizationId: string, memberId: string) => {
+      removeMember: async (organizationId: string, memberId: string,stripeSubscriptionId?: string, stripeCustomerId?: string, interval?: 'month' | 'year') => {
         try {
           await lambdaClient.organization.removeMember.mutate({
             organizationId,
             memberId,
+            stripeSubscriptionId,
+            stripeCustomerId,
+            interval,
           });
         } catch (error) {
           set({ error });

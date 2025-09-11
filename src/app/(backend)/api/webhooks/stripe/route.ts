@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
           previousAttributes?.cancel_at_period_end === false &&
           subscription.cancel_at_period_end === true;
 
-        if (wasCanceledNow ) {
+        if (wasCanceledNow) {
           await handleSubscriptionUpdated(event, stripe, subscriptionManager, true);
         }
         else {
@@ -412,6 +412,23 @@ async function handleSubscriptionUpdated(
     // Map product to plan configuration
     const plan = PlanMapper.getPlanFromStripeProduct(product);
 
+    if (subscription.latest_invoice) {
+      const invoice = await stripe.invoices.retrieve(subscription.latest_invoice as string);
+
+      // If the invoice is manual, skip the update because it's a manual update for user delete from organization in team workspace p
+      if (invoice.billing_reason === 'manual') {
+        return;
+      }
+    }
+
+    if((event.data.previous_attributes as any)?.plan) {
+      if((event.data.previous_attributes as any)?.plan?.billing_scheme === 'per_unit') {
+        return;
+      }
+    }
+
+    console.log("event.data.previous_attributes",event.data.previous_attributes);
+
     if (plan) {
       console.log(
         `✅ Mapped to plan: ${plan.name} (${plan.monthlyCredits} credits, ${plan.fileStorageLimitGB}GB storage, ${plan.vectorStorageLimitMB}MB vector)`,
@@ -436,7 +453,7 @@ async function handleSubscriptionUpdated(
           existingSubscription[0].fileStorageLimit !== plan.fileStorageLimitGB ||
           existingSubscription[0].vectorStorageLimit !== plan.vectorStorageLimitMB);
 
-          const stripePlan = firstItem.price;
+      const stripePlan = firstItem.price;
       // Update subscription in database
       await subscriptionManager.upsertSubscription(
         userId,

@@ -169,10 +169,13 @@ export const organizationRouter = router({
       z.object({
         memberId: z.string(),
         organizationId: z.string(),
+        stripeSubscriptionId: z.string().optional(),
+        stripeCustomerId: z.string().optional(),
+        interval: z.enum(['month', 'year']).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      return ctx.organizationService.removeMember(input.organizationId, input.memberId);
+      return ctx.organizationService.removeMember(input.organizationId, input.memberId, input.stripeSubscriptionId, input.stripeCustomerId, input.interval);
     }),
 
   updateOrganization: organizationProcedure
