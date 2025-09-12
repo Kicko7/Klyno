@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, and, sql, desc } from 'drizzle-orm';
 import { db } from '@/database';
-import { teamChatMessages } from '@/database/schemas';
-import type { TeamChatMessageItem } from '@/database/schemas/teamChat';
+import { teamChatMessages, teamChats } from '@/database/schemas';
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,6 +18,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(
         { error: 'teamChatId is required' },
         { status: 400 }
+      );
+    }
+
+    const teamChatIdCheck = await db.query.teamChats.findFirst({
+      where: eq(teamChats.id, teamChatId),
+    });
+
+    if(!teamChatIdCheck) {
+      return NextResponse.json(
+        { error: 'Team chat not found' },
+        { status: 404 }
       );
     }
 

@@ -8,7 +8,6 @@ import { idGenerator } from '@/database/utils/idGenerator';
 export async function POST(req: NextRequest) {
   const data = await req.json();
   try {
-    console.log('data', data);
     const { teamChatId, userId, ...messageData } = data;
 
     if (!data.teamChatId || !data.content || !data.messageType) {
@@ -52,7 +51,7 @@ export async function POST(req: NextRequest) {
             messageType: messageData.messageType,
             metadata: messageMetadata,
             updatedAt: new Date(),
-            createdAt:messageData.originalTimestamp
+            createdAt: messageData.originalTimestamp
           })
           .where(eq(teamChatMessages.id, data.id))
           .returning();
@@ -77,17 +76,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result[0]);
   } catch (error) {
-    console.log({
-      error: error,
-      content: data.content,
-      messageType: data.messageType,
-      metadata: data.metadata,
-      teamChatId: data.teamChatId,
-      userId: data.userId,
-      id: data.id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    console.error('Error adding message:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
