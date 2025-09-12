@@ -71,6 +71,7 @@ const ModelSwitch = memo(() => {
     agentSelectors.getAgentConfigBySessionId(sessionId)(s)?.provider || 'openai',
   ]);
 
+
   const isModelHasExtendParams = useAiInfraStore(
     aiModelSelectors.isModelHasExtendParams(model || 'gpt-4', provider || 'openai'),
   );

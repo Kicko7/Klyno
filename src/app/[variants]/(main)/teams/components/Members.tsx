@@ -20,12 +20,12 @@ import { Search, Trash2, UserPlus } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import React, { useEffect, useMemo, useState } from 'react';
 
+import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { renderEmail } from '@/libs/emails/render-email';
 import { OrganizationInvitation } from '@/libs/emails/templates/organization-invitation';
 import { useOrganizationStore } from '@/store/organization/store';
 
 import AddOrganizationMemberModal from './AddOrganizationMemberModal';
-import { useUserSubscription } from '@/hooks/useUserSubscription';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -153,19 +153,25 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
   const [isRemovingMember, setIsRemovingMember] = useState(false);
   const [isDeletingOrg, setIsDeletingOrg] = useState(false);
 
-  const {subscriptionInfo} = useUserSubscription();
+  const { subscriptionInfo } = useUserSubscription();
 
   const handleRemoveMember = async () => {
     if (!currentOrganization?.id || !memberToRemove) return;
-    
-    if(subscriptionInfo?.subscription?.status !== 'active') {
+
+    if (subscriptionInfo?.subscription?.status !== 'active') {
       message.error('You need to be on a paid subscription to remove members');
       return;
     }
 
     try {
       setIsRemovingMember(true);
-      await removeMember(currentOrganization.id, memberToRemove.id, subscriptionInfo?.subscription?.stripeSubscriptionId as any, subscriptionInfo?.subscription?.stripeCustomerId as any, subscriptionInfo?.subscription?.interval as any);
+      await removeMember(
+        currentOrganization.id,
+        memberToRemove.id,
+        subscriptionInfo?.subscription?.stripeSubscriptionId as any,
+        subscriptionInfo?.subscription?.stripeCustomerId as any,
+        subscriptionInfo?.subscription?.interval as any,
+      );
       message.success(`Successfully removed ${memberToRemove.email} from the organization`);
       // Refresh the members list
       fetchOrganizationMembers(currentOrganization.id);
@@ -238,28 +244,29 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
             <Text className="text-gray-400 text-sm sm:text-base">
               Manage members and their roles in your organization
             </Text>
-            
-            {/* Member Count and Pricing Info */}
-            <div className="mt-2 flex items-center gap-3">
-              <Text className="text-gray-400 text-sm">
-                You have {filteredMembers.length} existing member{filteredMembers.length !== 1 ? 's' : ''}
-              </Text>
-              {/* {filteredMembers.length >= 3 && (
-                <Text className="text-orange-400 text-sm">
-                  • {filteredMembers.length - 3} paid member{filteredMembers.length - 3 !== 1 ? 's' : ''} ($5/month each)
-                </Text>
-              )} */}
-            </div>
-            
-            {/* Pricing Info */}
-            <div className="mt-1">
-              <Text className="text-gray-500 text-xs">
-                {filteredMembers.length < 3 
-                  ? "First 3 members are free. Additional members cost $5/month each."
-                  : "Free tier: 3 members • Paid tier: $5/month per additional member"
-                }
-              </Text>
-            </div>
+
+            {subscriptionInfo?.subscription?.planName === 'Team Workspace' && currentOrganization.memberRole === 'owner' && (
+              <div>
+                <div className="mt-2 flex items-center gap-3">
+                  <Text className="text-gray-400 text-sm">
+                    You have {filteredMembers.length} existing member
+                    {filteredMembers.length !== 1 ? 's' : ''}
+                    {filteredMembers.length > 3 && (
+                      <span className="ml-2">
+                        ({Math.max(0, filteredMembers.length - 3)} paid)
+                      </span>
+                    )}
+                  </Text>
+                </div>
+                <div className="mt-1">
+                  <Text className="text-gray-500 text-xs">
+                    {filteredMembers.length < 3
+                      ? 'First 3 members are free. Additional members cost $5/month each.'
+                      : 'Free tier: 3 members • Paid tier: $5/month per additional member'}
+                  </Text>
+                </div>
+              </div>
+            )}
           </div>
           {isAdmin && (
             <div className="flex gap-2">
@@ -268,7 +275,11 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
                 icon={<UserPlus className="w-4 h-4" />}
                 onClick={handleInviteMember}
                 className="bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-lg"
-                title={filteredMembers.length >= 3 ? "Additional members require paid subscription ($5/month per member)" : "Invite a new member"}
+                title={
+                  filteredMembers.length >= 3
+                    ? 'Additional members require paid subscription ($5/month per member)'
+                    : 'Invite a new member'
+                }
               >
                 Invite Member
               </Button>
@@ -344,7 +355,6 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
                     ) : (
                       <Tag color="green">Active</Tag>
                     )}
-
 
                     {/* Remove member button - only show for non-admin members */}
 

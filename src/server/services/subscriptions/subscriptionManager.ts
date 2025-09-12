@@ -752,6 +752,38 @@ export class SubscriptionManager {
   /**
    * Get user's current subscription and usage information
    */
+
+
+   isFromLastMonth(dateString: string | Date): boolean {
+    const date = new Date(dateString);
+  
+    const now = new Date();
+    const currentMonth = now.getMonth(); // 0-11
+    const currentYear = now.getFullYear();
+  
+    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+  
+    return (
+      date.getMonth() === lastMonth &&
+      date.getFullYear() === lastMonthYear
+    );
+  }
+  
+
+   isSubscriptionActive(createdAtString: string | Date): boolean {
+    const createdAt = new Date(createdAtString);
+  
+    // subscription ends 1 year later
+    const endDate = new Date(createdAt);
+    endDate.setFullYear(endDate.getFullYear() + 1);
+  
+    const now = new Date();
+  
+    return now < endDate; // true = active, false = expired
+  }
+
+  
   async getUserSubscriptionInfo(userId: string) {
     const subscription = await db
       .select()
@@ -762,6 +794,22 @@ export class SubscriptionManager {
 
     if (subscription.length === 0) {
       return null;
+    }
+
+    if(subscription[0]?.interval === 'year' && subscription[0]?.status === 'active') {
+      const toUpdate = this.isFromLastMonth(subscription[0].updatedAt);
+      if(toUpdate) {
+       const isNotExpired = this.isSubscriptionActive(subscription[0].createdAt);
+       if(isNotExpired) {
+        await db.update(userSubscriptions).set({
+          updatedAt: new Date(),
+          balance: subscription[0].monthlyCredits,
+          fileStorageRemaining: subscription[0].fileStorageLimit * 1024,
+          fileStorageUsed: 0,
+        }).where(eq(userSubscriptions.id, subscription[0].id));
+       }
+      }
+      
     }
 
     if (

@@ -10,12 +10,14 @@ interface HeaderProps {
   leftActions: ActionKeys[];
   rightActions: ActionKeys[];
   setExpand: (expand: boolean) => void;
+  sessionId?: string;
 }
 
-const Header = memo<HeaderProps>(({ expand, setExpand, leftActions, rightActions }) => (
+const Header = memo<HeaderProps>(({ expand, setExpand, leftActions, rightActions, sessionId }) => (
   <ActionBar
     leftActions={leftActions}
     rightActions={rightActions}
+    sessionId={sessionId}
     rightAreaEndRender={
       <ActionIcon
         icon={expand ? Minimize2 : Maximize2}

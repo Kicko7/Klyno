@@ -25,7 +25,8 @@ import { calculateCreditsByPlan } from '@/utils/calculateCredits';
 import { nanoid } from '@/utils/uuid';
 
 import TeamChatInputFooter from './TeamChatInputFooter';
-import { aiModelSelectors, getAiInfraStoreState } from '@/store/aiInfra';
+import { aiModelSelectors, getAiInfraStoreState, useAiInfraStore } from '@/store/aiInfra';
+import { useModelSupportVision } from '@/hooks/useModelSupportVision';
 
 const leftActions = [
   'model',
@@ -158,6 +159,15 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   const activeTeamChat = teamChats.find((chat) => chat.id === activeTeamChatId);
   const sessionId = activeTeamChat?.metadata?.sessionId;
   const agentConfigSession = useAgentStore(agentSelectors.getAgentConfigBySessionId(sessionId));
+  
+  // Get current model and check if it supports vision (images)
+  const currentModel = agentConfigSession?.model || 'gpt-4';
+  const currentProvider = agentConfigSession?.provider || 'openai';
+  const modelSupportsVision = useModelSupportVision(currentModel, currentProvider);
+  
+  // If model supports vision (images), allow all file uploads
+  const canUpload = modelSupportsVision;
+
 
   const handleSend = async () => {
     const messageToSend = inputMessage.trim();
@@ -198,6 +208,18 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       // Validate files before sending
       if (fileList.length > 0) {
         validateFiles(fileList);
+        
+        // Check if model supports file uploads or vision
+        if (!canUpload) {
+          notification.warning({
+            message: `Model "${currentModel}" does not support file uploads`,
+            description: 'Please switch to a model that supports file uploads or remove the files before sending.',
+            duration: 5,
+            icon: <FluentEmoji emoji={'⚠️'} size={24} />,
+          });
+          setLoading(false);
+          return;
+        }
       }
 
       // Prepare file metadata efficiently
@@ -533,6 +555,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
           leftActions={leftActions}
           rightActions={rightActions}
           setExpand={() => {}}
+          sessionId={sessionId}
         />
         <InputArea
           loading={loading}

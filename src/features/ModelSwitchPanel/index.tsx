@@ -56,10 +56,11 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
   const { t } = useTranslation('components');
   const { styles, theme } = useStyles();
   const [model, provider, updateAgentConfig] = useAgentStore((s) => [
-    agentSelectors.currentAgentModel(s),
-    agentSelectors.currentAgentModelProvider(s),
+    sessionId ? agentSelectors.getAgentConfigBySessionId(sessionId)(s)?.model || 'gpt-4' : agentSelectors.currentAgentModel(s),
+    sessionId ? agentSelectors.getAgentConfigBySessionId(sessionId)(s)?.provider || 'openai' : agentSelectors.currentAgentModelProvider(s),
     s.updateAgentConfig,
   ]);
+
   const { showLLM } = useServerConfigStore(featureFlagsSelectors);
   const router = useRouter();
   const enabledList = useEnabledChatModels();

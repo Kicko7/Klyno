@@ -22,7 +22,11 @@ export const useClearCurrentMessages = () => {
   }, [clearImageList, clearMessage]);
 };
 
-const Clear = memo(() => {
+interface ClearProps {
+  sessionId?: string;
+}
+
+const Clear = memo<ClearProps>(({ sessionId }) => {
   const { t } = useTranslation('setting');
   const hotkey = useUserStore(settingsSelectors.getHotkeyById(HotkeyEnum.ClearCurrentMessages));
 

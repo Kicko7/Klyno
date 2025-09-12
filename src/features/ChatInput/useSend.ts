@@ -46,6 +46,7 @@ export const useSendMessage = () => {
     // if there is no message and no image, then we should not send the message
     if (!store.inputMessage && fileList.length === 0) return;
 
+    // Check if model supports file uploads when files are present
     sendMessage({
       files: fileList,
       message: store.inputMessage,
