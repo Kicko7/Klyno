@@ -27,7 +27,6 @@ const DefaultMode = memo(() => {
   useFetchSessions();
 
   const defaultSessions = useSessionStore(sessionSelectors.defaultSessions, isEqual);
-  console.log(defaultSessions, 'defaultSessions');
   const customSessionGroups = useSessionStore(sessionSelectors.customSessionGroups, isEqual);
   const pinnedSessions = useSessionStore(sessionSelectors.pinnedSessions, isEqual);
 

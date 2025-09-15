@@ -629,6 +629,9 @@ export const generateAIChat: StateCreator<
         // Get model details
         const modelName = modelInfo?.displayName || model;
         const modelPricing = modelInfo?.pricing;
+        console.log(modelName, '[MODEL NAME]');
+        console.log(modelPricing, '[MODEL PRICING]');
+        console.log(subscription, '[SUBSCRIPTION]');
 
         if (!model.includes('free')) {
           const credits = calculateCreditsByPlan(usage as any, modelPricing as any, subscription?.subscription?.planName);

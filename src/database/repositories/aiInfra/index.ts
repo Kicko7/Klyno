@@ -110,6 +110,7 @@ export class AiInfraRepos {
               return {
                 ...item,
                 abilities: item.abilities || {},
+                pricing: item.pricing, // Include pricing information
                 providerId: provider.id,
               };
 
@@ -123,6 +124,7 @@ export class AiInfraRepos {
               displayName: user?.displayName || item.displayName,
               enabled: typeof user.enabled === 'boolean' ? user.enabled : item.enabled,
               id: item.id,
+              pricing: item.pricing, // Include pricing information
               providerId: provider.id,
               settings: item.settings,
               sort: user.sort || undefined,
