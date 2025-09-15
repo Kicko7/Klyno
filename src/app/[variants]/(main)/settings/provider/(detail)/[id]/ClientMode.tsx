@@ -28,7 +28,7 @@ const ClientMode = memo<{ id: string }>(({ id }) => {
 
   return (
     <Flexbox gap={24} paddingBlock={8}>
-      {/* <ProviderConfig {...data} id={id} name={data.name || ''} /> */}
+      <ProviderConfig {...data} id={id} name={data.name || ''} />
       <ModelList id={id} />
     </Flexbox>
   );

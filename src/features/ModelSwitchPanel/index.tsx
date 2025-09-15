@@ -56,8 +56,12 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
   const { t } = useTranslation('components');
   const { styles, theme } = useStyles();
   const [model, provider, updateAgentConfig] = useAgentStore((s) => [
-    sessionId ? agentSelectors.getAgentConfigBySessionId(sessionId)(s)?.model || 'gpt-4' : agentSelectors.currentAgentModel(s),
-    sessionId ? agentSelectors.getAgentConfigBySessionId(sessionId)(s)?.provider || 'openai' : agentSelectors.currentAgentModelProvider(s),
+    sessionId
+      ? agentSelectors.getAgentConfigBySessionId(sessionId)(s)?.model || 'gpt-4'
+      : agentSelectors.currentAgentModel(s),
+    sessionId
+      ? agentSelectors.getAgentConfigBySessionId(sessionId)(s)?.provider || 'openai'
+      : agentSelectors.currentAgentModelProvider(s),
     s.updateAgentConfig,
   ]);
 
@@ -69,7 +73,9 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
   const isTeamChat = pathname.includes('teams');
   const activeTeamChatId = useTeamChatStore((state) => state.activeTeamChatId);
   const { defaultModels, selectedOrganizationId, getDefaultModels } = useOrganizationStore();
-  const currentOrganization = useOrganizationStore((state) => state.organizations.find((organization) => organization.id === selectedOrganizationId));
+  const currentOrganization = useOrganizationStore((state) =>
+    state.organizations.find((organization) => organization.id === selectedOrganizationId),
+  );
   // console.log(currentOrganization)
   const { subscriptionInfo } = useUserSubscription();
   const [teamChatDefaultModels, setTeamChatDefaultModels] = useState<string[]>([]);
@@ -197,20 +203,19 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
             provider={provider.id}
             source={provider.source}
           />
-          {showLLM && (
-            (isTeamChat && currentOrganization?.memberRole === 'owner') ||
-            (!isTeamChat && subscriptionInfo?.subscription?.status === 'active')
-          ) && (
-            <Link
-              href={isDeprecatedEdition ? '/settings/llm' : `/settings/provider/${provider.id}`}
-            >
-              <ActionIcon
-                icon={LucideBolt}
-                size={'small'}
-                title={t('ModelSwitchPanel.goToSettings')}
-              />
-            </Link>
-          )}
+          {showLLM &&
+            ((isTeamChat && currentOrganization?.memberRole === 'owner') ||
+              (!isTeamChat && subscriptionInfo?.subscription?.status === 'active')) && (
+              <Link
+                href={isDeprecatedEdition ? '/settings/llm' : `/settings/provider/${provider.id}`}
+              >
+                <ActionIcon
+                  icon={LucideBolt}
+                  size={'small'}
+                  title={t('ModelSwitchPanel.goToSettings')}
+                />
+              </Link>
+            )}
         </Flexbox>
       ),
       type: 'group',

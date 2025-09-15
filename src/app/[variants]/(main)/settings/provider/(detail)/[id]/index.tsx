@@ -10,13 +10,16 @@ interface ProviderDetailProps extends ProviderConfigProps {
   showConfig?: boolean;
 }
 const ProviderDetail = memo<ProviderDetailProps>(({ showConfig = true, ...card }) => {
+  // Don't show model list if provider is openrouter
+  const shouldShowModelList = card.id !== 'openrouter';
+  
   return (
     <Flexbox gap={24} paddingBlock={8}>
       {/* ↓ cloud slot ↓ */}
 
       {/* ↑ cloud slot ↑ */}
-      {/* {showConfig && <ProviderConfig {...card} />} */}
-      <ModelList id={card.id} {...card.settings} />
+      {showConfig && shouldShowModelList && <ProviderConfig {...card} />}
+      { <ModelList id={card.id} {...card.settings} />}
     </Flexbox>
   );
 });
