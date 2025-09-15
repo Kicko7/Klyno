@@ -182,7 +182,7 @@ export const createAiProviderSlice: StateCreator<
       !isDeprecatedEdition ? [AiProviderSwrKey.fetchAiProviderRuntimeState, isLogin, subscription] : null,
       async ([, isLogin, subscription]) => {
         if (isLogin) return aiProviderService.getAiProviderRuntimeState();
-        const modelListWithSubscription = getModelListWithSubscription(subscription);        
+        const modelListWithSubscription = getModelListWithSubscription(subscription);
         return {
           enabledAiModels: modelListWithSubscription.filter((m) => m.enabled),
           enabledAiProviders: DEFAULT_MODEL_PROVIDER_LIST.filter(
@@ -234,28 +234,28 @@ export const createAiProviderSlice: StateCreator<
               console.log(`[DEBUG] First few raw models:`, openrouterModels.slice(0, 3).map(m => ({ id: m.id, displayName: m.displayName, providerId: m.providerId })));
             }
 
-            // Merge static and database models, with database models taking precedence
-            const mergedModels = uniqBy([...staticModels, ...databaseModels], 'id');
-            
-            // Debug logging for OpenRouter final result
-            if (providerId === 'openrouter') {
-              console.log(`[DEBUG] Final merged models for OpenRouter: ${mergedModels.length}`);
-              console.log(`[DEBUG] First few merged models:`, mergedModels.slice(0, 3).map(m => ({ id: m.id, displayName: m.displayName })));
-            }
-            
-            return mergedModels;
-          };
-          
+          // Use subscription-based model list for builtin models as well
+          const modelListWithSubscription = getModelListWithSubscription(subscription);
+
           const enabledChatModelList = data.enabledAiProviders.map((provider) => {
             // For builtin providers, use the merged model list (static + database)
             if (provider.source === 'builtin') {
+              const subscriptionFilteredModels = modelListWithSubscription
+                .filter((model) => model.providerId === provider.id && model.type === 'chat')
+                .map((model) => ({
+                  abilities: (model.abilities || {}) as ModelAbilities,
+                  contextWindowTokens: model.contextWindowTokens,
+                  displayName: model.displayName ?? '',
+                  id: model.id,
+                }));
+
               return {
                 ...provider,
                 children: getModelListByType(provider.id, 'chat'),
                 name: provider.name || provider.id,
               };
             }
-            
+
             // For other providers, use the original logic
             return {
               ...provider,

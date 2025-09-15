@@ -28,8 +28,8 @@ export interface ModelListAction {
   /**
    * make sure the default model provider list is sync to latest state
    */
-  refreshDefaultModelProviderList: (params?: { trigger?: string }) => void;
-  refreshModelProviderList: (params?: { trigger?: string }) => void;
+  refreshDefaultModelProviderList: (params?: { trigger?: string ,provider?: GlobalLLMProviderKey}) => void;
+  refreshModelProviderList: (params?: { trigger?: string ,provider?: GlobalLLMProviderKey}) => void;
   removeEnabledModels: (provider: GlobalLLMProviderKey, model: string) => Promise<void>;
   setModelProviderConfig: <T extends GlobalLLMProviderKey>(
     provider: T,
@@ -65,11 +65,12 @@ export const createModelListSlice: StateCreator<
   ModelListAction
 > = (set, get) => ({
   clearObtainedModels: async (provider: GlobalLLMProviderKey) => {
+    console.log("provider is",provider)
     await get().setModelProviderConfig(provider, {
       remoteModelCards: [],
     });
 
-    get().refreshDefaultModelProviderList();
+    get().refreshDefaultModelProviderList({trigger:undefined,provider});
   },
   dispatchCustomModelCards: async (provider, payload) => {
     const prevState = settingsSelectors.providerConfig(provider)(get());
@@ -115,7 +116,7 @@ export const createModelListSlice: StateCreator<
 
     set({ defaultModelProviderList }, false, `refreshDefaultModelList - ${params?.trigger}`);
 
-    get().refreshModelProviderList({ trigger: 'refreshDefaultModelList' });
+    get().refreshModelProviderList({ trigger: 'refreshDefaultModelList',provider:params?.provider });
   },
   refreshModelProviderList: (params) => {
     const modelProviderList = get().defaultModelProviderList.map((list) => {
