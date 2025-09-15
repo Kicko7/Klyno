@@ -159,6 +159,7 @@ interface TeamChatState {
       metadata?: any;
       createdAt?: Date;
       isLocal?: boolean; // Flag to prevent WebSocket duplication
+      sendTime?: Date;
     },
   ) => Promise<any>;
 
@@ -1826,6 +1827,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
           metadata: message.metadata || {},
           createdAt: timestamp,
           updatedAt: timestamp,
+          sendTime: message.sendTime,
         };
 
         set((state: any) => {

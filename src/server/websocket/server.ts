@@ -211,6 +211,7 @@ export class WebSocketServer {
               type: (message.type as 'user' | 'assistant' | 'system') || 'user',
               metadata: message.metadata || {},
               syncedToDb: false,
+              sendTime: message.timestamp,
             };
 
             // Add message to session in Redis with retry and backoff

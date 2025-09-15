@@ -7,11 +7,13 @@ import { CHAT_TEXTAREA_HEIGHT } from '@/const/layoutTokens';
 import { ActionKeys } from '@/features/ChatInput/ActionBar/config';
 import Head from '@/features/ChatInput/Desktop/Header';
 import InputArea from '@/features/ChatInput/Desktop/InputArea';
+import { useModelSupportVision } from '@/hooks/useModelSupportVision';
 import { useTeamChatWebSocket } from '@/hooks/useTeamChatWebSocket';
 import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { chatService } from '@/services/chat';
 import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
+import { aiModelSelectors, getAiInfraStoreState, useAiInfraStore } from '@/store/aiInfra';
 import { fileChatSelectors, useFileStore } from '@/store/file';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
@@ -25,16 +27,8 @@ import { calculateCreditsByPlan } from '@/utils/calculateCredits';
 import { nanoid } from '@/utils/uuid';
 
 import TeamChatInputFooter from './TeamChatInputFooter';
-import { aiModelSelectors, getAiInfraStoreState, useAiInfraStore } from '@/store/aiInfra';
-import { useModelSupportVision } from '@/hooks/useModelSupportVision';
 
-const leftActions = [
-  'model',
-  'fileUpload',
-  'knowledgeBase',
-  'params',
-  'stt',
-] as ActionKeys[];
+const leftActions = ['model', 'fileUpload', 'knowledgeBase', 'params', 'stt'] as ActionKeys[];
 
 const rightActions = ['clear'] as ActionKeys[];
 
@@ -159,15 +153,14 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   const activeTeamChat = teamChats.find((chat) => chat.id === activeTeamChatId);
   const sessionId = activeTeamChat?.metadata?.sessionId;
   const agentConfigSession = useAgentStore(agentSelectors.getAgentConfigBySessionId(sessionId));
-  
+
   // Get current model and check if it supports vision (images)
   const currentModel = agentConfigSession?.model || 'gpt-4';
   const currentProvider = agentConfigSession?.provider || 'openai';
   const modelSupportsVision = useModelSupportVision(currentModel, currentProvider);
-  
+
   // If model supports vision (images), allow all file uploads
   const canUpload = modelSupportsVision;
-
 
   const handleSend = async () => {
     const messageToSend = inputMessage.trim();
@@ -208,12 +201,13 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       // Validate files before sending
       if (fileList.length > 0) {
         validateFiles(fileList);
-        
+
         // Check if model supports file uploads or vision
         if (!canUpload) {
           notification.warning({
             message: `Model "${currentModel}" does not support file uploads`,
-            description: 'Please switch to a model that supports file uploads or remove the files before sending.',
+            description:
+              'Please switch to a model that supports file uploads or remove the files before sending.',
             duration: 5,
             icon: <FluentEmoji emoji={'⚠️'} size={24} />,
           });
@@ -264,6 +258,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         userId: currentUser?.id || 'unknown',
         metadata: userMetadata,
         isLocal: true,
+        sendTime: new Date(),
       });
 
       await sendWebSocketMessage(
@@ -271,7 +266,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         'user',
         userMetadata,
         userMessageId,
-        message.createdAt,
+        message.sendTime,
       );
       // Send message via WebSocket
       // console.log('Sending message to WebSocket');
@@ -285,6 +280,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
           userId: currentUser?.id || 'unknown',
           metadata: { isThinking: true, clientMessageId: assistantMessageId, isLocal: true },
           isLocal: true,
+          sendTime: new Date(),
         });
       }, 1000);
 
@@ -492,14 +488,21 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         userId: currentUser?.id || 'assistant',
       },
       assistantMessageId,
-      message.createdAt,
+      message.sendTime,
     );
 
     const aiInfraStoreState = getAiInfraStoreState();
-    const modelInfo = aiModelSelectors.getEnabledModelById(agentConfig.model, agentConfig.provider)(aiInfraStoreState) as any;
+    const modelInfo = aiModelSelectors.getEnabledModelById(
+      agentConfig.model,
+      agentConfig.provider,
+    )(aiInfraStoreState) as any;
     const agentPricing = modelInfo?.pricing as any;
-    
-    if (context?.usage?.totalTokens && !agentConfig.model.includes('free') && agentConfig.provider == 'openrouter') {
+
+    if (
+      context?.usage?.totalTokens &&
+      !agentConfig.model.includes('free') &&
+      agentConfig.provider == 'openrouter'
+    ) {
       const credits = calculateCreditsByPlan(
         context.usage as any,
         agentPricing as any,

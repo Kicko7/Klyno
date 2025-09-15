@@ -103,6 +103,7 @@ export const teamChatMessages = pgTable('team_chat_messages', {
   createdAt: timestamptzMs('created_at').notNull().defaultNow(),
   updatedAt: timestamptzMs('updated_at').notNull().defaultNow().$onUpdate(() => new Date()),
   accessedAt: timestamptzMs('accessed_at').notNull().defaultNow(),
+  sendTime: timestamptzMs('send_time').notNull().defaultNow(),
 });
 
 export const insertTeamChatSchema = createInsertSchema(teamChats);

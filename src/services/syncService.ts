@@ -77,6 +77,7 @@ export class SyncService {
                   originalTimestamp: message.timestamp,
                   syncAttempt: attempt,
                 },
+                sendTime: message.timestamp,
               });
             }
           }),
@@ -210,6 +211,7 @@ export class SyncService {
         type: msg.messageType as 'user' | 'assistant' | 'system',
         metadata: msg.metadata,
         syncedToDb: true,
+        sendTime: msg.sendTime.getTime(),
       }));
     } catch (error) {
       console.error('Failed to load history from DB:', error);

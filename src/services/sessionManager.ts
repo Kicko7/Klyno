@@ -24,6 +24,7 @@ export interface MessageData {
   type: 'user' | 'assistant' | 'system';
   metadata?: any;
   syncedToDb?: boolean;
+  sendTime?:any;
 }
 
 export class SessionManager {

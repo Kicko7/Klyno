@@ -7,6 +7,7 @@ import { idGenerator } from '@/database/utils/idGenerator';
 
 export async function POST(req: NextRequest) {
   const data = await req.json();
+  console.log('data', data)
   try {
     const { teamChatId, userId, ...messageData } = data;
 
@@ -69,8 +70,9 @@ export async function POST(req: NextRequest) {
         teamChatId,
         userId: messageData?.metadata?.userId || data?.userId || '',
         id: messageId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date(messageData.metadata.originalTimestamp),
+        updatedAt: new Date(messageData.metadata.originalTimestamp),
+        sendTime: new Date(messageData.metadata.originalTimestamp),
       })
       .returning();
 

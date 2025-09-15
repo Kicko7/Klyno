@@ -56,6 +56,7 @@ export class ApiService {
     content: string;
     messageType: string;
     metadata?: any;
+    sendTime?: any;
   }): Promise<{ success: boolean; messageId: string }> {
     return this.request<{ success: boolean; messageId: string }>(
       '/api/websockets/teamchat/add-message',
