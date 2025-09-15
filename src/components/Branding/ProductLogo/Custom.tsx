@@ -2,11 +2,11 @@ import type { IconType } from '@lobehub/icons';
 import type { LobeChatProps } from '@lobehub/ui/brand';
 import { createStyles, useTheme } from 'antd-style';
 import Image, { ImageProps } from 'next/image';
+import { usePathname } from 'next/navigation';
 import { ReactNode, forwardRef, memo } from 'react';
 import { Flexbox, FlexboxProps } from 'react-layout-kit';
 
 import { BRANDING_LOGO_URL, BRANDING_NAME } from '@/const/branding';
-import { usePathname } from 'next/navigation';
 
 const useStyles = createStyles(({ css }) => {
   return {
@@ -18,44 +18,26 @@ const useStyles = createStyles(({ css }) => {
 });
 
 const CustomTextLogo = memo<FlexboxProps & { size: number }>(({ size, style, ...rest }) => {
-  const theme = useTheme()
+  const theme = useTheme();
 
-  if(usePathname().includes('about')){
-    return (
-      <Flexbox
-        height={size}
-        className='flex items-center justify-center'
-        style={{
-          fontSize: size / 1.2,
-          fontWeight: 'bolder',
-          userSelect: 'none',
-          ...style,
-        }}
-        {...rest}
-      >
-        {BRANDING_NAME.slice(0,1).toUpperCase()}
-      </Flexbox>
-    );
-  }
   return (
     <Flexbox
-    height={size}
-    className={`
+      height={size}
+      className={`
       flex items-center justify-center 
       font-extrabold 
       bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 
       bg-clip-text text-transparent
     `}
-    style={{
-      fontSize: size / 1.2,
-      userSelect: 'none',
-      ...style,
-    }}
-    {...rest}
-  >
-    {BRANDING_NAME}
-  </Flexbox>
-  
+      style={{
+        fontSize: size / 1.2,
+        userSelect: 'none',
+        ...style,
+      }}
+      {...rest}
+    >
+      {BRANDING_NAME}
+    </Flexbox>
   );
 });
 
@@ -66,7 +48,7 @@ const CustomImageLogo = memo<Omit<ImageProps, 'alt' | 'src'> & { size: number }>
     if (!BRANDING_LOGO_URL) {
       return <CustomTextLogo size={size} {...rest} />;
     }
-    
+
     return (
       <Image
         alt={BRANDING_NAME}
@@ -106,9 +88,11 @@ const CustomLogo = memo<LobeChatProps>(({ extra, size = 32, className, style, ty
   switch (type) {
     case '3d':
     case 'flat': {
-      logoComponent = BRANDING_LOGO_URL ? 
-        <CustomImageLogo size={size} style={style} {...rest} /> :
-        <CustomTextLogo size={size} style={style} {...rest} />;
+      logoComponent = BRANDING_LOGO_URL ? (
+        <CustomImageLogo size={size} style={style} {...rest} />
+      ) : (
+        <CustomTextLogo size={size} style={style} {...rest} />
+      );
       break;
     }
     case 'mono': {
@@ -127,7 +111,7 @@ const CustomLogo = memo<LobeChatProps>(({ extra, size = 32, className, style, ty
       logoComponent = (
         <>
           {BRANDING_LOGO_URL && <CustomImageLogo size={size} />}
-          <CustomTextLogo size={size} style={{ marginLeft: BRANDING_LOGO_URL ? Math.round(size / 4) : 0 }} />
+          {/* <CustomTextLogo size={size} style={{ marginLeft: BRANDING_LOGO_URL ? Math.round(size / 4) : 0 }} /> */}
         </>
       );
 
@@ -141,9 +125,11 @@ const CustomLogo = memo<LobeChatProps>(({ extra, size = 32, className, style, ty
       break;
     }
     default: {
-      logoComponent = BRANDING_LOGO_URL ? 
-        <CustomImageLogo size={size} style={style} {...rest} /> :
-        <CustomTextLogo size={size} style={style} {...rest} />;
+      logoComponent = BRANDING_LOGO_URL ? (
+        <CustomImageLogo size={size} style={style} {...rest} />
+      ) : (
+        <CustomTextLogo size={size} style={style} {...rest} />
+      );
       break;
     }
   }

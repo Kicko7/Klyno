@@ -82,7 +82,7 @@ const Main = memo<{ className?: string }>(({ className }) => {
         size={32}
         title={title}
       />
-      <Flexbox align={'center'} className={styles.container} gap={8} horizontal>
+      <Flexbox align={'center'} className={styles.container} gap={10} horizontal style={{ position: 'relative', right: '12px' }}>
         <div className={styles.title}>{displayTitle}</div>
         <Tags />
       </Flexbox>
