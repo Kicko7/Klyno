@@ -212,7 +212,7 @@ export const createAiProviderSlice: StateCreator<
           const modelListWithSubscription = getModelListWithSubscription(subscription);
 
           const enabledChatModelList = data.enabledAiProviders.map((provider) => {
-            // For builtin providers, use subscription-filtered models
+            // For builtin providers, use both subscription-filtered models AND enabled models from database
             if (provider.source === 'builtin') {
               const subscriptionFilteredModels = modelListWithSubscription
                 .filter((model) => model.providerId === provider.id && model.type === 'chat')
@@ -223,9 +223,15 @@ export const createAiProviderSlice: StateCreator<
                   id: model.id,
                 }));
 
+              // Also include enabled models from database for this provider
+              const databaseEnabledModels = getModelListByType(provider.id, 'chat');
+
+              // Merge subscription-filtered models with database enabled models
+              const allModels = [...subscriptionFilteredModels, ...databaseEnabledModels];
+
               return {
                 ...provider,
-                children: uniqBy(subscriptionFilteredModels, 'id'),
+                children: uniqBy(allModels, 'id'),
                 name: provider.name || provider.id,
               };
             }
