@@ -15,15 +15,15 @@ import {
 const FETCH_AI_PROVIDER_MODEL_LIST_KEY = 'FETCH_AI_PROVIDER_MODELS';
 
 export interface AiModelAction {
-  batchToggleAiModels: (ids: string[], enabled: boolean) => Promise<void>;
-  batchUpdateAiModels: (models: AiProviderModelListItem[]) => Promise<void>;
+  batchToggleAiModels: (ids: string[], enabled: boolean, activeProviderId?: string) => Promise<void>;
+  batchUpdateAiModels: (models: AiProviderModelListItem[], activeProviderId?: string) => Promise<void>;
   clearModelsByProvider: (provider: string) => Promise<void>;
   clearRemoteModels: (provider: string) => Promise<void>;
   createNewAiModel: (params: CreateAiModelParams) => Promise<void>;
   fetchRemoteModelList: (providerId: string) => Promise<void>;
   internal_toggleAiModelLoading: (id: string, loading: boolean) => void;
 
-  refreshAiModelList: () => Promise<void>;
+  refreshAiModelList: (providerId?: string) => Promise<void>;
   removeAiModel: (id: string, providerId: string) => Promise<void>;
   toggleModelEnabled: (params: Omit<ToggleAiModelEnableParams, 'providerId'>) => Promise<void>;
   updateAiModelsConfig: (
@@ -42,18 +42,29 @@ export const createAiModelSlice: StateCreator<
   [],
   AiModelAction
 > = (set, get) => ({
-  batchToggleAiModels: async (ids, enabled) => {
+  batchToggleAiModels: async (ids, enabled, activeProviderId) => {
     const { activeAiProvider } = get();
-    if (!activeAiProvider) return;
+    if (!activeProviderId) {
+      activeProviderId = activeAiProvider;
+    }
 
-    await aiModelService.batchToggleAiModels(activeAiProvider, ids, enabled);
+    if (!activeProviderId) {
+      return;
+    }
+
+    await aiModelService.batchToggleAiModels(activeProviderId, ids, enabled);
     await get().refreshAiModelList();
   },
-  batchUpdateAiModels: async (models) => {
+  batchUpdateAiModels: async (models, activeProviderId) => {
     const { activeAiProvider: id } = get();
-    if (!id) return;
+    if (!activeProviderId) {
+      activeProviderId = id;
+    }
+    if (!activeProviderId) {
+      return;
+    }
 
-    await aiModelService.batchUpdateAiModels(id, models);
+    await aiModelService.batchUpdateAiModels(activeProviderId, models);
     await get().refreshAiModelList();
   },
   clearModelsByProvider: async (provider) => {
@@ -61,8 +72,9 @@ export const createAiModelSlice: StateCreator<
     await get().refreshAiModelList();
   },
   clearRemoteModels: async (provider) => {
+    // console.log("provider is",provider)
     await aiModelService.clearRemoteModels(provider);
-    await get().refreshAiModelList();
+    await get().refreshAiModelList(provider);
   },
   createNewAiModel: async (data) => {
     await aiModelService.createAiModel(data);
@@ -86,9 +98,10 @@ export const createAiModelSlice: StateCreator<
           source: 'remote',
           type: 'chat',
         })),
+        providerId,
       );
 
-      await get().refreshAiModelList();
+      await get().refreshAiModelList(providerId);
     }
   },
   internal_toggleAiModelLoading: (id, loading) => {
@@ -102,14 +115,20 @@ export const createAiModelSlice: StateCreator<
       'toggleAiModelLoading',
     );
   },
-  refreshAiModelList: async () => {
-    await mutate([FETCH_AI_PROVIDER_MODEL_LIST_KEY, get().activeAiProvider]);
+  refreshAiModelList: async (providerId) => {
+    if(!providerId){
+      providerId = get().activeAiProvider;
+    }
+    if(!providerId){
+      return;
+    }
+    await mutate([FETCH_AI_PROVIDER_MODEL_LIST_KEY, providerId]);
     // make refresh provide runtime state async, not block
     get().refreshAiProviderRuntimeState();
   },
   removeAiModel: async (id, providerId) => {
     await aiModelService.deleteAiModel({ id, providerId });
-    await get().refreshAiModelList();
+    await get().refreshAiModelList(providerId);
   },
   toggleModelEnabled: async (params) => {
     const { activeAiProvider } = get();

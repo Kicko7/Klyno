@@ -176,7 +176,7 @@ export const createAiProviderSlice: StateCreator<
       !isDeprecatedEdition ? [AiProviderSwrKey.fetchAiProviderRuntimeState, isLogin, subscription] : null,
       async ([, isLogin, subscription]) => {
         if (isLogin) return aiProviderService.getAiProviderRuntimeState();
-        const modelListWithSubscription = getModelListWithSubscription(subscription);        
+        const modelListWithSubscription = getModelListWithSubscription(subscription);
         return {
           enabledAiModels: modelListWithSubscription.filter((m) => m.enabled),
           enabledAiProviders: DEFAULT_MODEL_PROVIDER_LIST.filter(
@@ -205,7 +205,7 @@ export const createAiProviderSlice: StateCreator<
 
           // Use subscription-based model list for builtin models as well
           const modelListWithSubscription = getModelListWithSubscription(subscription);
-          
+
           const enabledChatModelList = data.enabledAiProviders.map((provider) => {
             // For builtin providers, use subscription-filtered models
             if (provider.source === 'builtin') {
@@ -217,14 +217,14 @@ export const createAiProviderSlice: StateCreator<
                   displayName: model.displayName ?? '',
                   id: model.id,
                 }));
-              
+
               return {
                 ...provider,
                 children: uniqBy(subscriptionFilteredModels, 'id'),
                 name: provider.name || provider.id,
               };
             }
-            
+
             // For other providers, use the original logic
             return {
               ...provider,
