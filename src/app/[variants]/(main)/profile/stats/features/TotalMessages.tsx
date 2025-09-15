@@ -23,7 +23,7 @@ const TotalMessages = memo<{ inShare?: boolean; mobile?: boolean }>(({ inShare, 
   if (inShare)
     return (
       <TotalCard
-        count={formatIntergerNumber(data?.prevCount) || '--'}
+        count={formatIntergerNumber(data?.count) || '--'}
         title={t('stats.messages')}
       />
     );

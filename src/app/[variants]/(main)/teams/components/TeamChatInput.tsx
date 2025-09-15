@@ -499,7 +499,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     const modelInfo = aiModelSelectors.getEnabledModelById(agentConfig.model, agentConfig.provider)(aiInfraStoreState) as any;
     const agentPricing = modelInfo?.pricing as any;
     
-    if (context?.usage?.totalTokens && !agentConfig.model.includes('free')) {
+    if (context?.usage?.totalTokens && !agentConfig.model.includes('free') && agentConfig.provider == 'openrouter') {
       const credits = calculateCreditsByPlan(
         context.usage as any,
         agentPricing as any,

@@ -6,6 +6,7 @@ import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Flexbox } from 'react-layout-kit';
 
+import CustomOpenRouterIcon from '@/components/ProviderIcons/CustomOpenRouterIcon';
 import { AiProviderListItem } from '@/types/aiProvider';
 
 import EnableSwitch from './EnableSwitch';
@@ -37,12 +38,19 @@ const ProviderCard = memo<ProviderCardProps>(
             <Flexbox gap={12} width={'100%'}>
               <Flexbox align={'center'} horizontal justify={'space-between'}>
                 {source === 'builtin' ? (
-                  <ProviderCombine
-                    provider={id}
-                    size={24}
-                    style={{ color: theme.colorText }}
-                    title={name}
-                  />
+                  id === 'openrouter' ? (
+                    <Flexbox align={'center'} gap={12} horizontal>
+                      <CustomOpenRouterIcon size={24} type={'avatar'} />
+                      <Text style={{ fontSize: 16, fontWeight: 'bold' }}>{name}</Text>
+                    </Flexbox>
+                  ) : (
+                    <ProviderCombine
+                      provider={id}
+                      size={24}
+                      style={{ color: theme.colorText }}
+                      title={name}
+                    />
+                  )
                 ) : (
                   <Flexbox align={'center'} gap={12} horizontal>
                     {logo ? (

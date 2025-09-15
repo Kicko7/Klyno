@@ -626,7 +626,7 @@ export const generateAIChat: StateCreator<
         const modelName = modelInfo?.displayName || model;
         const modelPricing = modelInfo?.pricing;
 
-        if (!model.includes('free')) {
+        if (!model.includes('free') && provider == 'openrouter') {
           const credits = calculateCreditsByPlan(usage as any, modelPricing as any, subscription?.subscription?.planName);
           const currentUser = getUserStoreState().user?.id;
           if (currentUser) {
