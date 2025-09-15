@@ -39,19 +39,23 @@ const CustomTextLogo = memo<FlexboxProps & { size: number }>(({ size, style, ...
   }
   return (
     <Flexbox
-      height={size}
-      className='flex items-center justify-center'
-      style={{
-        fontSize: size / 1.2,
-        fontWeight: 'bolder',
-        userSelect: 'none',
-        color: theme.appearance === "dark" ? '':'black',
-        ...style,
-      }}
-      {...rest}
-    >
-      {BRANDING_NAME}
-    </Flexbox>
+    height={size}
+    className={`
+      flex items-center justify-center 
+      font-extrabold 
+      bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 
+      bg-clip-text text-transparent
+    `}
+    style={{
+      fontSize: size / 1.2,
+      userSelect: 'none',
+      ...style,
+    }}
+    {...rest}
+  >
+    {BRANDING_NAME}
+  </Flexbox>
+  
   );
 });
 

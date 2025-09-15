@@ -15,7 +15,7 @@ const Header = memo(() => {
     <ChatHeader
       left={
         <Link href={'/discover'} style={{ color: 'inherit' }}>
-          <ProductLogo extra={'Discover'} size={36} type={'text'} />
+          <ProductLogo extra={'Discover'} size={36} type='text'/>
         </Link>
       }
       right={!isCustomBranding && <CreateButton />}
