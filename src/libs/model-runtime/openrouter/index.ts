@@ -65,7 +65,7 @@ export const LobeOpenRouterAI = createOpenAICompatibleRuntime({
     handleStream: (stream, options) => {
       // Import OpenAIStream directly to ensure we use the right one
       const { OpenAIStream } = require('../../model-runtime/utils/streams/openai/openai');
-      
+
       // Since OpenRouter provides an async iterable stream, we need to handle it differently
       if (stream && Symbol.asyncIterator in stream) {
         // Convert async iterable to ReadableStream without complex transformation
@@ -73,13 +73,13 @@ export const LobeOpenRouterAI = createOpenAICompatibleRuntime({
           async start(controller) {
             try {
               let usageData: any = null;
-              
+
               // Process the async iterable stream
               for await (const chunk of stream as AsyncIterable<any>) {
                 // Check if chunk contains usage data
                 if (chunk && typeof chunk === 'object' && chunk.usage) {
                   usageData = chunk.usage;
-                  
+
                   // Send chunk without usage data
                   const cleanChunk = { ...chunk };
                   delete cleanChunk.usage;
@@ -89,7 +89,7 @@ export const LobeOpenRouterAI = createOpenAICompatibleRuntime({
                   controller.enqueue(chunk);
                 }
               }
-              
+
               // Send usage data as final chunk if we found any
               if (usageData) {
                 // Format usage chunk to match what transformOpenAIStream expects
@@ -103,14 +103,14 @@ export const LobeOpenRouterAI = createOpenAICompatibleRuntime({
                 };
                 controller.enqueue(usageChunk);
               }
-              
+
               controller.close();
             } catch (error) {
               controller.error(error);
             }
           }
         });
-        
+
         return OpenAIStream(readableStream, {
           ...options,
           callbacks: {
@@ -186,28 +186,19 @@ export const LobeOpenRouterAI = createOpenAICompatibleRuntime({
       console.error('Failed to fetch OpenRouter frontend models:', error);
     }
 
-    const baseModels = await processMultiProviderModelList(modelList);
-
-    return baseModels
-      .map((baseModel) => {
-        const model = modelList.find((m) => m.id === baseModel.id);
+    // For OpenRouter, we want to keep all models in the openrouter provider
+    // instead of reassigning them to other providers based on ID prefix
+    return modelList
+      .map((model) => {
         const extraInfo = modelsExtraInfo.find(
-          (m) => m.slug.toLowerCase() === baseModel.id.toLowerCase(),
+          (m) => m.slug.toLowerCase() === model.id.toLowerCase(),
         );
 
-        if (!model) return baseModel;
-
         return {
-          ...baseModel,
-          contextWindowTokens: model.context_length,
-          description: model.description,
+          id: model.id,
           displayName: model.name,
-          functionCall:
-            baseModel.functionCall ||
-            model.description.includes('function calling') ||
-            model.description.includes('tools') ||
-            extraInfo?.endpoint?.supports_tool_parameters ||
-            false,
+          description: model.description,
+          contextWindowTokens: model.context_length,
           maxTokens:
             typeof model.top_provider.max_completion_tokens === 'number'
               ? model.top_provider.max_completion_tokens
@@ -216,9 +207,16 @@ export const LobeOpenRouterAI = createOpenAICompatibleRuntime({
             input: formatPrice(model.pricing.prompt),
             output: formatPrice(model.pricing.completion),
           },
-          reasoning: baseModel.reasoning || extraInfo?.endpoint?.supports_reasoning || false,
           releasedAt: new Date(model.created * 1000).toISOString().split('T')[0],
-          vision: baseModel.vision || model.architecture.modality.includes('image') || false,
+          // Set basic capabilities
+          functionCall: model.description.includes('function calling') ||
+            model.description.includes('tools') ||
+            extraInfo?.endpoint?.supports_tool_parameters ||
+            false,
+          reasoning: extraInfo?.endpoint?.supports_reasoning || false,
+          vision: model.architecture.modality.includes('image') || false,
+          enabled: true,
+          type: 'chat',
         };
       })
       .filter(Boolean) as ChatModelCard[];

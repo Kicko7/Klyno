@@ -23,7 +23,7 @@ export interface AiModelAction {
   fetchRemoteModelList: (providerId: string) => Promise<void>;
   internal_toggleAiModelLoading: (id: string, loading: boolean) => void;
 
-  refreshAiModelList: () => Promise<void>;
+  refreshAiModelList: (providerId?: string) => Promise<void>;
   removeAiModel: (id: string, providerId: string) => Promise<void>;
   toggleModelEnabled: (params: Omit<ToggleAiModelEnableParams, 'providerId'>) => Promise<void>;
   updateAiModelsConfig: (
@@ -73,7 +73,12 @@ export const createAiModelSlice: StateCreator<
 
     const data = await modelsService.getModels(providerId);
     if (data) {
-      await get().batchUpdateAiModels(
+      console.log(`[DEBUG] Fetched ${data.length} models for provider: ${providerId}`);
+      console.log(`[DEBUG] First few models:`, data.slice(0, 3).map(m => ({ id: m.id, displayName: m.displayName })));
+      
+      // Use the correct providerId instead of activeAiProvider
+      await aiModelService.batchUpdateAiModels(
+        providerId,
         data.map((model) => ({
           ...model,
           abilities: {
@@ -88,7 +93,9 @@ export const createAiModelSlice: StateCreator<
         })),
       );
 
-      await get().refreshAiModelList();
+      console.log(`[DEBUG] Models saved to database for provider: ${providerId}`);
+      await get().refreshAiModelList(providerId);
+      console.log(`[DEBUG] Model list refreshed for provider: ${providerId}`);
     }
   },
   internal_toggleAiModelLoading: (id, loading) => {
@@ -102,10 +109,21 @@ export const createAiModelSlice: StateCreator<
       'toggleAiModelLoading',
     );
   },
-  refreshAiModelList: async () => {
-    await mutate([FETCH_AI_PROVIDER_MODEL_LIST_KEY, get().activeAiProvider]);
-    // make refresh provide runtime state async, not block
-    get().refreshAiProviderRuntimeState();
+  refreshAiModelList: async (providerId?: string) => {
+    // Invalidate cache for specific provider or all providers
+    if (providerId) {
+      await mutate([FETCH_AI_PROVIDER_MODEL_LIST_KEY, providerId]);
+    } else {
+      // Invalidate all model list cache entries
+      await mutate((key) => {
+        if (Array.isArray(key) && key[0] === FETCH_AI_PROVIDER_MODEL_LIST_KEY) {
+          return true;
+        }
+        return false;
+      });
+    }
+    // Wait for runtime state refresh to complete
+    await get().refreshAiProviderRuntimeState();
   },
   removeAiModel: async (id, providerId) => {
     await aiModelService.deleteAiModel({ id, providerId });
