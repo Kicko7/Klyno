@@ -103,7 +103,6 @@ export const createAiModelSlice: StateCreator<
           source: 'remote',
           type: 'chat',
         })),
-        providerId,
       );
 
       await get().refreshAiModelList(providerId);
@@ -130,6 +129,10 @@ export const createAiModelSlice: StateCreator<
     await mutate([FETCH_AI_PROVIDER_MODEL_LIST_KEY, providerId]);
     // make refresh provide runtime state async, not block
     get().refreshAiProviderRuntimeState();
+    
+    // Force refresh the runtime state to update model switcher
+    // The key includes isLogin and subscription, so we need to invalidate all variations
+    await mutate((key) => Array.isArray(key) && key[0] === 'FETCH_AI_PROVIDER_RUNTIME_STATE');
   },
   removeAiModel: async (id, providerId) => {
     await aiModelService.deleteAiModel({ id, providerId });

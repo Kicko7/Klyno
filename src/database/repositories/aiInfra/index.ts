@@ -106,29 +106,32 @@ export class AiInfraRepos {
           .map<EnabledAiModel & { enabled?: boolean | null }>((item) => {
             const user = allModels.find((m) => m.id === item.id && m.providerId === provider.id);
 
-            if (!user)
+            // If there's a user override in the database, use that (including enabled status)
+            if (user) {
               return {
-                ...item,
-                abilities: item.abilities || {},
+                abilities: !isEmpty(user.abilities) ? user.abilities : item.abilities || {},
+                config: !isEmpty(user.config) ? user.config : item.config,
+                contextWindowTokens:
+                  typeof user.contextWindowTokens === 'number'
+                    ? user.contextWindowTokens
+                    : item.contextWindowTokens,
+                displayName: user?.displayName || item.displayName,
+                enabled: typeof user.enabled === 'boolean' ? user.enabled : item.enabled,
+                id: item.id,
                 pricing: item.pricing, // Include pricing information
                 providerId: provider.id,
+                settings: item.settings,
+                sort: user.sort || undefined,
+                type: item.type,
               };
+            }
 
+            // If no user override, use built-in model as-is
             return {
-              abilities: !isEmpty(user.abilities) ? user.abilities : item.abilities || {},
-              config: !isEmpty(user.config) ? user.config : item.config,
-              contextWindowTokens:
-                typeof user.contextWindowTokens === 'number'
-                  ? user.contextWindowTokens
-                  : item.contextWindowTokens,
-              displayName: user?.displayName || item.displayName,
-              enabled: typeof user.enabled === 'boolean' ? user.enabled : item.enabled,
-              id: item.id,
+              ...item,
+              abilities: item.abilities || {},
               pricing: item.pricing, // Include pricing information
               providerId: provider.id,
-              settings: item.settings,
-              sort: user.sort || undefined,
-              type: item.type,
             };
           })
           .filter((i) => i.enabled);

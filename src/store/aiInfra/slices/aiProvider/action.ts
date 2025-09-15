@@ -223,15 +223,34 @@ export const createAiProviderSlice: StateCreator<
                   id: model.id,
                 }));
 
-              // Also include enabled models from database for this provider
+              // Get enabled models from database for this provider
               const databaseEnabledModels = getModelListByType(provider.id, 'chat');
 
-              // Merge subscription-filtered models with database enabled models
-              const allModels = [...subscriptionFilteredModels, ...databaseEnabledModels];
+              // Create a map of database models for quick lookup
+              const databaseModelsMap = new Map(databaseEnabledModels.map(model => [model.id, model]));
+
+              // Filter subscription models based on database enabled status
+              // Only include subscription models that are also enabled in database
+              const filteredModels = subscriptionFilteredModels.filter(model => {
+                const dbModel = databaseModelsMap.get(model.id);
+                // If model exists in database, it's already enabled (getModelListByType filters enabled models)
+                // If not in database, exclude it (we only want models that are explicitly enabled)
+                return !!dbModel;
+              });
+
+              // Add any database models that aren't in subscription list but are enabled
+              const additionalModels = databaseEnabledModels
+                .filter(model => !subscriptionFilteredModels.some(sm => sm.id === model.id))
+                .map(model => ({
+                  abilities: (model.abilities || {}) as ModelAbilities,
+                  contextWindowTokens: model.contextWindowTokens,
+                  displayName: model.displayName ?? '',
+                  id: model.id,
+                }));
 
               return {
                 ...provider,
-                children: uniqBy(allModels, 'id'),
+                children: [...filteredModels, ...additionalModels],
                 name: provider.name || provider.id,
               };
             }
