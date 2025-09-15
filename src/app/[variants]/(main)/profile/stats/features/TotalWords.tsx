@@ -20,9 +20,7 @@ const TotalWords = memo<{ inShare?: boolean }>(({ inShare }) => {
   }));
 
   if (inShare)
-    return (
-      <TotalCard count={formatShortenNumber(data?.count) || '--'} title={t('stats.words')} />
-    );
+    return <TotalCard count={formatShortenNumber(data?.count) || '--'} title={t('stats.words')} />;
 
   return (
     <StatisticCard
