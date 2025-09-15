@@ -64,16 +64,12 @@ const buildDefaultModelList = (map: ModelsMap, subscription?: any): LobeDefaultA
     let filteredModels = providerModels;
     filteredModels = providerModels.filter(model => model.enabled);
 
-    const newModels = filteredModels.map((model) => {
-      // For models with provider prefix in ID (like "openai/gpt-4o"), use the prefix as providerId
-      // Otherwise, use the file-based provider name
-      const providerFromId = model.id.includes('/') ? model.id.split('/')[0] : provider;
-      
+    const newModels = filteredModels.map((model) => {      
       return {
         ...model,
         abilities: model.abilities ?? {},
         enabled: true,
-        providerId: providerFromId,
+        providerId: provider,
         source: 'builtin',
       };
     });

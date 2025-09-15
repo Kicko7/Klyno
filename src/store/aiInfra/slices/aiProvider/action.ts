@@ -102,13 +102,7 @@ export const createAiProviderSlice: StateCreator<
     await get().refreshAiProviderRuntimeState();
   },
   refreshAiProviderRuntimeState: async () => {
-    // Invalidate all runtime state cache entries by using a pattern
-    await mutate((key) => {
-      if (Array.isArray(key) && key[0] === AiProviderSwrKey.fetchAiProviderRuntimeState) {
-        return true;
-      }
-      return false;
-    });
+    await mutate([AiProviderSwrKey.fetchAiProviderRuntimeState, true]);
   },
   removeAiProvider: async (id) => {
     await aiProviderService.deleteAiProvider(id);
@@ -196,22 +190,8 @@ export const createAiProviderSlice: StateCreator<
         onSuccess: async (data) => {
           if (!data) return;
 
-          // Use subscription-based model list for builtin models as well
-          const modelListWithSubscription = getModelListWithSubscription(subscription);
-
           const getModelListByType = (providerId: string, type: string) => {
-            // For builtin providers, merge static models with database models
-            const staticModels = modelListWithSubscription
-              .filter((model) => model.providerId === providerId && model.type === type && model.enabled)
-              .map((model) => ({
-                abilities: (model.abilities || {}) as ModelAbilities,
-                contextWindowTokens: model.contextWindowTokens,
-                displayName: model.displayName ?? '',
-                id: model.id,
-              }));
-
-            // Get database models (includes remotely fetched models)
-            const databaseModels = data.enabledAiModels
+            const models = data.enabledAiModels
               .filter((model) => model.providerId === providerId && model.type === type)
               .map((model) => ({
                 abilities: (model.abilities || {}) as ModelAbilities,
@@ -220,25 +200,14 @@ export const createAiProviderSlice: StateCreator<
                 id: model.id,
               }));
 
-            // Debug logging for OpenRouter
-            if (providerId === 'openrouter') {
-              console.log(`[DEBUG] OpenRouter model loading:`);
-              console.log(`[DEBUG] Static models: ${staticModels.length}`);
-              console.log(`[DEBUG] Database models: ${databaseModels.length}`);
-              console.log(`[DEBUG] Total enabledAiModels: ${data.enabledAiModels.length}`);
-              console.log(`[DEBUG] OpenRouter database models:`, databaseModels.slice(0, 3).map(m => ({ id: m.id, displayName: m.displayName })));
-              
-              // Check what's in data.enabledAiModels for openrouter
-              const openrouterModels = data.enabledAiModels.filter((model) => model.providerId === 'openrouter');
-              console.log(`[DEBUG] Raw openrouter models in enabledAiModels: ${openrouterModels.length}`);
-              console.log(`[DEBUG] First few raw models:`, openrouterModels.slice(0, 3).map(m => ({ id: m.id, displayName: m.displayName, providerId: m.providerId })));
-            }
+            return uniqBy(models, 'id');
+          };
 
           // Use subscription-based model list for builtin models as well
           const modelListWithSubscription = getModelListWithSubscription(subscription);
 
           const enabledChatModelList = data.enabledAiProviders.map((provider) => {
-            // For builtin providers, use the merged model list (static + database)
+            // For builtin providers, use subscription-filtered models
             if (provider.source === 'builtin') {
               const subscriptionFilteredModels = modelListWithSubscription
                 .filter((model) => model.providerId === provider.id && model.type === 'chat')
@@ -251,7 +220,7 @@ export const createAiProviderSlice: StateCreator<
 
               return {
                 ...provider,
-                children: getModelListByType(provider.id, 'chat'),
+                children: uniqBy(subscriptionFilteredModels, 'id'),
                 name: provider.name || provider.id,
               };
             }
