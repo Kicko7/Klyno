@@ -35,6 +35,7 @@ export interface AiProviderAction {
   refreshAiProviderList: () => Promise<void>;
   refreshAiProviderRuntimeState: () => Promise<void>;
   removeAiProvider: (id: string) => Promise<void>;
+  setActiveAiProvider: (id: string) => void;
   toggleProviderEnabled: (id: string, enabled: boolean) => Promise<void>;
   updateAiProvider: (id: string, value: UpdateAiProviderParams) => Promise<void>;
   updateAiProviderConfig: (id: string, value: UpdateAiProviderConfigParams) => Promise<void>;
@@ -107,6 +108,10 @@ export const createAiProviderSlice: StateCreator<
   removeAiProvider: async (id) => {
     await aiProviderService.deleteAiProvider(id);
     await get().refreshAiProviderList();
+  },
+
+  setActiveAiProvider: (id) => {
+    set({ activeAiProvider: id }, false, 'setActiveAiProvider');
   },
 
   toggleProviderEnabled: async (id: string, enabled: boolean) => {
@@ -207,7 +212,7 @@ export const createAiProviderSlice: StateCreator<
           const modelListWithSubscription = getModelListWithSubscription(subscription);
 
           const enabledChatModelList = data.enabledAiProviders.map((provider) => {
-            // For builtin providers, use subscription-filtered models
+            // For builtin providers, use both subscription-filtered models AND enabled models from database
             if (provider.source === 'builtin') {
               const subscriptionFilteredModels = modelListWithSubscription
                 .filter((model) => model.providerId === provider.id && model.type === 'chat')
@@ -218,9 +223,15 @@ export const createAiProviderSlice: StateCreator<
                   id: model.id,
                 }));
 
+              // Also include enabled models from database for this provider
+              const databaseEnabledModels = getModelListByType(provider.id, 'chat');
+
+              // Merge subscription-filtered models with database enabled models
+              const allModels = [...subscriptionFilteredModels, ...databaseEnabledModels];
+
               return {
                 ...provider,
-                children: uniqBy(subscriptionFilteredModels, 'id'),
+                children: uniqBy(allModels, 'id'),
                 name: provider.name || provider.id,
               };
             }
