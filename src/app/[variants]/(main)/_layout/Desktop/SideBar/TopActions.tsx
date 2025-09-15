@@ -1,6 +1,6 @@
 import { ActionIcon, ActionIconProps } from '@lobehub/ui';
 import {
-  Compass,
+  Search,
   DollarSign,
   FolderClosed,
   MessageSquare,
@@ -96,7 +96,7 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
         <Link aria-label={t('tab.discover')} href={'/discover'}>
           <ActionIcon
             active={isDiscoverActive}
-            icon={Compass}
+            icon={Search}
             size={ICON_SIZE}
             title={t('tab.discover')}
             tooltipProps={{ placement: 'right' }}

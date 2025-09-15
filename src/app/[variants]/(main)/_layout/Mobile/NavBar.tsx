@@ -3,7 +3,7 @@
 import { Icon } from '@lobehub/ui';
 import { TabBar, type TabBarProps } from '@lobehub/ui/mobile';
 import { createStyles } from 'antd-style';
-import { Compass, MessageSquare, User } from 'lucide-react';
+import { Search, MessageSquare, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { rgba } from 'polished';
 import { memo, useMemo } from 'react';
@@ -51,7 +51,7 @@ const NavBar = memo(() => {
         },
         showMarket && {
           icon: (active: boolean) => (
-            <Icon className={active ? styles.active : undefined} icon={Compass} />
+            <Icon className={active ? styles.active : undefined} icon={Search} />
           ),
           key: SidebarTabKey.Discover,
           onClick: () => {
