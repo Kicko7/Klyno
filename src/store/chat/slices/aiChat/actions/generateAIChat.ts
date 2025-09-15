@@ -151,7 +151,6 @@ export const generateAIChat: StateCreator<
   },
 
   sendMessage: async ({ message, files, onlyAddUserMessage, isWelcomeQuestion, subscription }) => {
-    console.log('🔍 sendMessage called with subscription:', subscription);
     const { internal_coreProcessMessage, activeTopicId, activeId, activeThreadId } = get();
     if (!activeId) return;
 
@@ -264,7 +263,6 @@ export const generateAIChat: StateCreator<
       },
       subscription,
     );
-    console.log('🔍 internal_coreProcessMessage called with subscription:', subscription);
 
     set({ isCreatingMessage: false }, false, n('creatingMessage/stop'));
 
@@ -310,7 +308,6 @@ export const generateAIChat: StateCreator<
 
   // the internal process method of the AI message
   internal_coreProcessMessage: async (originalMessages, userMessageId, params, subscription) => {
-    console.log(subscription, '[SUBSCRIPTION]');
     const { internal_fetchAIChatMessage, triggerToolCalls, refreshMessages, activeTopicId } = get();
 
     // create a new array to avoid the original messages array change
@@ -514,7 +511,6 @@ export const generateAIChat: StateCreator<
     model,
     subscription,
   }) => {
-    console.log(subscription, '[SUBSCRIPTION]');
     const {
       internal_toggleChatLoading,
       refreshMessages,
@@ -629,9 +625,6 @@ export const generateAIChat: StateCreator<
         // Get model details
         const modelName = modelInfo?.displayName || model;
         const modelPricing = modelInfo?.pricing;
-        console.log(modelName, '[MODEL NAME]');
-        console.log(modelPricing, '[MODEL PRICING]');
-        console.log(subscription, '[SUBSCRIPTION]');
 
         if (!model.includes('free')) {
           const credits = calculateCreditsByPlan(usage as any, modelPricing as any, subscription?.subscription?.planName);

@@ -225,7 +225,6 @@ export const createChatSlice: StateCreator<
     });
 
     if (isEqual(get().agentMap, agentMap)) return;
-    console.log('🔍 agentMap dispatch', agentMap);
 
     set({ agentMap }, false, 'dispatchAgent' + (actions ? `/${actions}` : ''));
   },
