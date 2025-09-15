@@ -2,7 +2,7 @@
 
 import { ArrowLeftOutlined, CloseOutlined, SettingOutlined } from '@ant-design/icons';
 import { Button, Spin, message } from 'antd';
-import { createStyles } from 'antd-style';
+import { createStyles, useTheme } from 'antd-style';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 
@@ -486,6 +486,8 @@ const OnBoardAssistant = ({
     }
   };
 
+  const theme = useTheme();
+
   const selectedCount = selectedAssistants.length;
   const totalCount = filteredAssistants.length;
 
@@ -497,7 +499,7 @@ const OnBoardAssistant = ({
       <div className={styles.container}>
         <div className={styles.header}>
           <div className={styles.logo}>
-            <span className={styles.logoText}>Klyno AI</span>
+            <span className={`${styles.logoText} ${theme.appearance === 'dark' ? '!text-black' : ``}`}>Klyno AI</span>
           </div>
           <div className={styles.headerActions}>
             <Button type="text" size="small" icon={<SettingOutlined />} />
@@ -516,7 +518,7 @@ const OnBoardAssistant = ({
       <div className={styles.container}>
         <div className={styles.header}>
           <div className={styles.logo}>
-            <span className={styles.logoText}>Klyno AI</span>
+            <span className={`${styles.logoText} ${theme.appearance === 'dark' ? '!text-black' : ``}`}>Klyno AI</span>
           </div>
         </div>
         <div className={styles.mainContent}>
@@ -544,7 +546,7 @@ const OnBoardAssistant = ({
       <div className={styles.container}>
         <div className={styles.header}>
           <div className={styles.logo}>
-            <span className={styles.logoText}>Klyno AI</span>
+            <span className={`${styles.logoText} ${theme.appearance === 'dark' ? '!text-black' : ``}`}>Klyno AI</span>
           </div>
         </div>
         <div className={styles.mainContent}>
@@ -597,7 +599,7 @@ const OnBoardAssistant = ({
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.logo}>
-          <span className={styles.logoText}>Klyno AI</span>
+          <span className={`${styles.logoText} ${theme.appearance === 'dark' ? '!text-black' : ``}`}>Klyno AI</span>
         </div>
       </div>
 
@@ -608,7 +610,7 @@ const OnBoardAssistant = ({
           <Button
             type="text"
             icon={<ArrowLeftOutlined />}
-            className={styles.backButton}
+            className={`${styles.backButton} ${theme.appearance === 'dark' ? '!text-black' : ``}`}
             onClick={() => {
               setActiveTab('onboard');
             }}
@@ -616,11 +618,11 @@ const OnBoardAssistant = ({
 
           {/* Title Section */}
           <div className={styles.titleSection}>
-            <h1 className={styles.mainTitle}>
+            <h1 className={`${styles.mainTitle} ${theme.appearance === 'dark' ? '!text-black' : ``}`}>
               Based on your interests, I have selected the
               following smart assistants for you:
             </h1>
-            <p className={styles.subtitle}>
+            <p className={`${styles.subtitle} ${theme.appearance === 'dark' ? '!text-black' : ``}`}>
               ({selectedCount}/{totalCount}) You can select and add your favorite assistants.
             </p>
           </div>
@@ -682,7 +684,7 @@ const OnBoardAssistant = ({
 
                   {/* Content */}
                   <div className={styles.cardText}>
-                    <h3 className={styles.cardTitle}>{assistant.title}</h3>
+                    <h3 className={`${styles.cardTitle} ${theme.appearance === 'dark' ? '!text-black' : ``}`}>{assistant.title}</h3>
                     <p className={styles.cardDescription}>{assistant.description}</p>
 
                     {/* Tags */}

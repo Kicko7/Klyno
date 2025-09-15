@@ -7,6 +7,7 @@ import { CloseOutlined, SettingOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import { createStyles } from 'antd-style';
 import { useRouter } from 'next/navigation';
+import {useTheme} from 'antd-style';
 import React from 'react';
 
 const useStyles = createStyles(({ css, token }) => ({
@@ -239,6 +240,7 @@ const OnboardingPage = ({
   setSelectedInterests: React.Dispatch<React.SetStateAction<string[]>>;
 }) => {
   const { styles } = useStyles();
+  const theme = useTheme();
 
   const toggleInterest = (interestId: string) => {
     setSelectedInterests((prev) =>
@@ -255,7 +257,7 @@ const OnboardingPage = ({
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.logo}>
-          <span className={styles.logoText}>Klyno AI</span>
+          <span className={`${styles.logoText} ${theme.appearance === 'dark' ? '!text-black' : ``}`}>Klyno AI</span>
         </div>
      
       </div>
@@ -265,14 +267,14 @@ const OnboardingPage = ({
         <div className={styles.contentWrapper}>
           {/* Welcome Message */}
           <div className={styles.welcomeSection}>
-            <h1 className={styles.welcomeTitle}>
+            <h1 className={`${styles.welcomeTitle} ${theme.appearance === 'dark' ? '!text-black' : ``}`}>
               Hello! <span className={styles.highlightText}>{user?.fullName || user?.username || user?.email}</span>
             </h1>
-            <h2 className={styles.subtitle}>I am Klyno AI, your personal intelligent assistant.</h2>
-            <p className={styles.description}>
+            <h2 className={`${styles.subtitle} ${theme.appearance === 'dark' ? '!text-black' : ``}`}>I am Klyno AI, your personal intelligent assistant.</h2>
+            <p className={`${styles.description} ${theme.appearance === 'dark' ? '!text-black' : ``}`}>
               Before we begin, why not tell me about your areas of interest?
             </p>
-            <p className={styles.subDescription}>
+            <p className={`${styles.subDescription} ${theme.appearance === 'dark' ? '!text-black' : ``}`}>
               Take a minute to help me understand you better, and I will provide you with more
               personalized services.
             </p>
@@ -293,7 +295,7 @@ const OnboardingPage = ({
                 )}
                 <div className={styles.cardContent}>
                   <div className={styles.cardIcon}>{interest.emoji}</div>
-                  <h3 className={styles.cardTitle}>{interest.title}</h3>
+                  <h3 className={`${styles.cardTitle} ${theme.appearance === 'dark' ? '!text-black' : ``}`}>{interest.title}</h3>
                 </div>
               </div>
             ))}
