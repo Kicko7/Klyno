@@ -102,7 +102,7 @@ const AgentsSuggest = memo<{ mobile?: boolean }>(({ mobile }) => {
           title={t('guide.agents.replaceBtn')}
         />
       </Flexbox>
-      <Grid gap={8} rows={mobile ? 2 : 3}>
+      <Grid gap={8} rows={2}>
         {isLoading
           ? loadingCards
           : allData.map((item, index) => {
