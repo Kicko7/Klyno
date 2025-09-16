@@ -13,7 +13,7 @@ export const OFFICIAL_URL = 'https://klyno.ai';
 export const OFFICIAL_PREVIEW_URL = 'https://klyno.ai';
 export const OFFICIAL_SITE = 'https://klyno.ai';
 
-export const OG_URL = '/og/cover.png?v=1';
+export const OG_URL = '/og/cover.png';
 
 export const GITHUB = pkg.homepage;
 export const GITHUB_ISSUES = urlJoin(GITHUB, 'issues/new/choose');
