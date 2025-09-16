@@ -5,15 +5,16 @@ import {
   AffiliateInfoItem,
   AffiliateItem,
   AffiliateWithdrawalItem,
-  NewAffiliate,
   NewAffiliateInfo,
   UserItem,
+  UserSubscriptionItem,
 } from '@/database/schemas';
 import { lambdaClient } from '@/libs/trpc/client';
 
 interface affiliates { 
   affiliate:AffiliateItem;
-  user:UserItem
+  user:UserItem;
+  subscription:UserSubscriptionItem | null;
 }
 export interface AffiliateState {
   loading: boolean;

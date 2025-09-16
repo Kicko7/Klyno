@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { allModels as openRouterModels } from '@/config/aiModels/openrouter';
 import { useEnabledChatModels } from '@/hooks/useEnabledChatModels';
 import { useOrganizationStore } from '@/store/organization/store';
+import { useTeamChatStore } from '@/store/teamChat';
 import { ChatModelCard } from '@/types/llm';
 
 const { Title, Text } = Typography;
@@ -29,25 +30,25 @@ const useStyles = createStyles(({ token, css }) => ({
     transition: all ${token.motionDurationMid} ${token.motionEaseInOut};
     border: none;
     cursor: pointer;
-    
+
     &:disabled {
       background-color: ${token.colorFillTertiary};
       color: ${token.colorTextDisabled};
       cursor: not-allowed;
     }
-    
+
     &:not(:disabled) {
       background-color: #1890ff;
       color: #ffffff;
       border: 1px solid #1890ff;
       box-shadow: 0 2px 0 rgba(0, 0, 0, 0.045);
-      
+
       &:hover {
         background-color: #40a9ff;
         border-color: #40a9ff;
         box-shadow: 0 4px 8px rgba(24, 144, 255, 0.3);
       }
-      
+
       &:active {
         background-color: #096dd9;
         border-color: #096dd9;
@@ -70,9 +71,10 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
   const [organizationDefaultModels, setOrganizationDefaultModels] = useState<string[]>([]);
   const { getDefaultModels, updateOrganizationDefaultModels } = useOrganizationStore();
   const enabledChatModels = useEnabledChatModels();
-
+  const setActiveTeamChat = useTeamChatStore((state) => state.setActiveTeamChat);
   // Load OpenRouter models from static config and enabled models from settings
   useEffect(() => {
+    setActiveTeamChat(null);
     const loadModels = async () => {
       setLoading(true);
 
@@ -82,19 +84,18 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
 
         // Get only OpenRouter enabled models from settings
         const settingsEnabledModels = enabledChatModels
-          .filter(provider => provider.id === 'openrouter')
-          .flatMap(provider => provider.children)
-          .filter(model => model.id);
+          .filter((provider) => provider.id === 'openrouter')
+          .flatMap((provider) => provider.children)
+          .filter((model) => model.id);
 
         // Get OpenRouter models from static config
-        const staticOpenRouterModels = openRouterModels
-          .filter((model) => model.enabled === true);
+        const staticOpenRouterModels = openRouterModels.filter((model) => model.enabled === true);
 
         // Merge static config models with settings enabled models, removing duplicates
         const allModelsMap = new Map<string, ModelWithEnabled>();
-        
+
         // Add static config models first
-        staticOpenRouterModels.forEach(model => {
+        staticOpenRouterModels.forEach((model) => {
           allModelsMap.set(model.id, {
             ...model,
             enabled: orgDefaultModels.length === 0 ? true : orgDefaultModels.includes(model.id),
@@ -102,7 +103,7 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
         });
 
         // Add settings enabled models (will override static config if duplicate)
-        settingsEnabledModels.forEach(model => {
+        settingsEnabledModels.forEach((model) => {
           if (model.id && !allModelsMap.has(model.id)) {
             // Convert AiModelForSelect to ChatModelCard format
             allModelsMap.set(model.id, {
@@ -212,7 +213,9 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
   const filteredEnabledCount = filteredModels.filter((model) => model.enabled).length;
   const filteredTotalCount = filteredModels.length;
 
-  const currentOrganization = useOrganizationStore((state) => state.organizations.find((organization) => organization.id === organizationId));
+  const currentOrganization = useOrganizationStore((state) =>
+    state.organizations.find((organization) => organization.id === organizationId),
+  );
 
   const categories = [
     { key: 'all', label: 'All Models', count: models.length },
@@ -260,7 +263,7 @@ const DefaultModelsForOrganization = ({ organizationId }: DefaultModelsForOrgani
           <Settings className="w-6 h-6 text-blue-500" />
           <Title level={2} className="!mb-0">
             <span className={`${theme.appearance === 'dark' ? 'text-white' : 'text-black'}`}>
-            Default Models for Organization {currentOrganization?.name}
+              Default Models for Organization {currentOrganization?.name}
             </span>
           </Title>
         </div>

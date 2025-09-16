@@ -485,7 +485,7 @@ const AffiliatePage = () => {
                           : 'N/A'}
                       </td>
                       <td className={`px-6 py-4 whitespace-nowrap text-sm ${theme.appearance === "dark" ? "text-gray-400" : "text-gray-500"}`}>
-                        {item?.affiliate?.planPurchaseId || 'N/A'}
+                        {item?.subscription?.planName || 'N/A'}
                       </td>
                     </tr>
                   ))}

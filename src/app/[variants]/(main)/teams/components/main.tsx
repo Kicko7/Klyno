@@ -33,6 +33,7 @@ const Main = () => {
     hideCreateOrgModal,
   } = useOrganizationStore();
   const currentOrganization = organizations[0];
+
   useEffect(() => {
     fetchOrganizations()
   }, [fetchOrganizations]);

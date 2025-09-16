@@ -110,7 +110,6 @@ const CompanySelector = () => {
                   : 'hover:bg-slate-100 text-black hover:text-black'
               }`}
               onClick={()=>{
-                setActiveTeamChat(null);
                 handleWorkspaceMembersClick();
               }}
             >

@@ -24,6 +24,7 @@ import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { renderEmail } from '@/libs/emails/render-email';
 import { OrganizationInvitation } from '@/libs/emails/templates/organization-invitation';
 import { useOrganizationStore } from '@/store/organization/store';
+import { useTeamChatStore } from '@/store/teamChat';
 
 import AddOrganizationMemberModal from './AddOrganizationMemberModal';
 
@@ -42,6 +43,7 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const setActiveTeamChat = useTeamChatStore((state) => state.setActiveTeamChat);
 
   const {
     organizationMembers,
@@ -59,6 +61,7 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
     : organizations[0];
 
   useEffect(() => {
+    setActiveTeamChat(null);
     if (currentOrganization?.id && !isFetchingMembers) {
       console.log('🔄 Fetching members for organization:', currentOrganization.id);
       fetchOrganizationMembers(currentOrganization.id);

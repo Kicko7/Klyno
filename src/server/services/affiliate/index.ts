@@ -8,6 +8,7 @@ import {
     affiliateInfo,
     affiliateWithdrawals,
     users,
+    userSubscriptions,
 } from '@/database/schemas';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
@@ -41,9 +42,11 @@ export class AffiliateService implements IAffiliateService {
             .select({
                 affiliate: affiliate,
                 user: users,
+                subscription: userSubscriptions,
             })
             .from(affiliate)
             .innerJoin(users, eq(affiliate.affiliateUserId, users.id))
+            .leftJoin(userSubscriptions, eq(affiliate.planPurchaseId, userSubscriptions.id))
             .where(eq(affiliate.ownerId, data.ownerId));
 
         return myAffiliate;

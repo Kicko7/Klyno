@@ -10,6 +10,7 @@ import { useEnabledChatModels } from '@/hooks/useEnabledChatModels';
 import { lambdaClient } from '@/libs/trpc/client';
 import { useOrganizationStore } from '@/store/organization/store';
 import { ChatModelCard } from '@/types/llm';
+import { useTeamChatStore } from '@/store/teamChat';
 
 const { Title, Text } = Typography;
 const { Search: AntdSearch } = Input;
@@ -94,7 +95,9 @@ const DefaultModelsForTeamChat = ({
   }
 
   // Load OpenRouter models from static config and enabled models from settings
+  const setActiveTeamChat = useTeamChatStore((state) => state.setActiveTeamChat);
   useEffect(() => {
+    setActiveTeamChat(null);
     const loadModels = async () => {
       if (!open) return;
 
@@ -108,13 +111,11 @@ const DefaultModelsForTeamChat = ({
         // If no team chat default models, check organization default models
         if (modelsToUse.length === 0) {
           const orgDefaultModels = await getDefaultModels(organizationId);
-          console.log('🔍 No team chat defaults, using org defaults:', orgDefaultModels);
           modelsToUse = orgDefaultModels || [];
         }
 
         // If no organization default models either, use all enabled models
         if (modelsToUse.length === 0) {
-          console.log('🔍 No org defaults either, using all enabled models');
           modelsToUse = openRouterModels
             .filter((model) => model.enabled === true)
             .map((model) => model.id);
