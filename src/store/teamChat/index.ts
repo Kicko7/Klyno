@@ -1000,7 +1000,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
                   ...state.teamChatsByOrg,
                   [organizationId]: [...(state.teamChatsByOrg[organizationId] || []), newChat],
                 },
-                activeTeamChatId: newChat.id,
+                // activeTeamChatId: newChat.id,
                 currentOrganizationId: organizationId,
                 isLoading: false,
               }));
@@ -1035,7 +1035,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
                 ...state.teamChatsByOrg,
                 [organizationId]: [...(state.teamChatsByOrg[organizationId] || []), newChat],
               },
-              activeTeamChatId: newChat.id,
+              // activeTeamChatId: newChat.id,
               currentOrganizationId: organizationId,
               isLoading: false,
             }));
@@ -1157,6 +1157,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
         console.log('🎯 Setting active team chat:', id, topicId);
 
         // If id is null, clear both activeTeamChatId and activeTopicId
+        console.log('🎯 Setting active team chat:', id, topicId);
         if (id === null) {
           set({
             activeTeamChatId: null,

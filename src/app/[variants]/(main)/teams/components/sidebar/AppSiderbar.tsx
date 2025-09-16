@@ -54,13 +54,10 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
   const router = useRouter();
   const { organizations, selectedOrganizationId } = useOrganizationStore();
   const currentOrganization = organizations.find((org) => org.id === selectedOrganizationId);
-  // console.log('🔍 currentOrganization', currentOrganization);
   const userState = useUserStore();
 
-  // Use the team chat routing hook
   const { switchToTeamChat } = useTeamChatRoute();
 
-  // Use the new team chat store
   const {
     teamChatsByOrg,
     activeTeamChatId,
@@ -78,54 +75,8 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
     ? (teamChatsByOrg[currentOrganization.id] || []).filter((chat) => chat?.isInFolder === false)
     : [];
 
-  // Debug logging
-  // console.log('🔍 Sidebar debug:', {
-  //   currentOrganizationId: currentOrganization?.id,
-  //   teamChatStoreCurrentOrgId: currentOrganizationId,
-  //   teamChatsByOrgKeys: Object.keys(teamChatsByOrg),
-  //   teamChatsCount: teamChats.length,
-  //   isLoading,
-  //   userState: {
-  //     userId: userState.user?.id,
-  //     isSignedIn: userState.isSignedIn,
-  //     isLoaded: userState.isLoaded,
-  //   },
-  // });
-
-  // React.useEffect(() => {
-  //   if (currentOrganization?.id && userState.isSignedIn && userState.user?.id) {
-  //     // Only update if the organization ID is actually different
-  //     if (currentOrganizationId !== currentOrganization.id) {
-  //       console.log('🔍 Organization changed in sidebar:', currentOrganization.id);
-
-  //       // Synchronize organization ID in team chat store
-  //       setCurrentOrganizationId(currentOrganization.id);
-
-  //       // Clear active chat when organization changes
-  //       setActiveTeamChat(null);
-
-  //       // Load team chats for the new organization
-  //       refreshTeamChats();
-  //     }
-  //   }
-  // }, [
-  //   currentOrganization?.id, // Add this back
-  //   currentOrganizationId,
-  //   userState.isSignedIn,
-  //   userState.user?.id,
-  //   // Remove these from dependencies - they are stable Zustand store functions
-  //   // setActiveTeamChat,
-  //   // setCurrentOrganizationId,
-  //   // refreshTeamChats,
-  // ]);
-
-  // Initial load when component mounts and organization is already selected
   React.useEffect(() => {
-    if (
-      currentOrganization?.id &&
-      userState.isSignedIn &&
-      userState.user?.id
-    ) {
+    if (currentOrganization?.id && userState.isSignedIn && userState.user?.id) {
       console.log('🔍 Initial organization load in sidebar:', currentOrganization.id);
 
       // Synchronize organization ID in team chat store
@@ -143,7 +94,6 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
     // setCurrentOrganizationId,
     // refreshTeamChats,
   ]);
-
 
   const [openSections, setOpenSections] = React.useState({
     recent: true,
@@ -163,7 +113,7 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
     }));
   };
 
-  const handleNewPrivateChat = useCallback(async () => {
+  const handleNewPrivateChat = async () => {
     if (
       isCreatingChat ||
       !currentOrganization?.id ||
@@ -176,39 +126,13 @@ export function AppSidebar({ userOrgs, ...props }: AppSidebarProps) {
 
     try {
       setIsCreatingChat(true);
-      // console.log('🚀 Creating new team chat from sidebar button...');
-
-      // Create new chat and get its ID
-      const newChatId = await createTeamChat(currentOrganization.id);
-
-      // Generate a topic ID for the new chat
-      const topicId = `topic_${newChatId}_${Date.now()}`;
-
-      // Set active chat in store
-      setActiveTeamChat(newChatId, topicId);
-
-      // Navigate with chat ID and topic in URL
-      const query = new URLSearchParams({
-        view: 'chat',
-        chatId: newChatId,
-        topic: topicId,
-      }).toString();
-
-      router.push(`/teams?${query}`);
+      await createTeamChat(currentOrganization.id);
     } catch (error) {
       console.error('Failed to create new team chat:', error);
     } finally {
       setIsCreatingChat(false);
     }
-  }, [
-    createTeamChat,
-    currentOrganization?.id,
-    router,
-    isCreatingChat,
-    setActiveTeamChat,
-    userState.isSignedIn,
-    userState.user?.id,
-  ]);
+  };
 
   const handleChatClick = useCallback(
     async (chatId: string) => {

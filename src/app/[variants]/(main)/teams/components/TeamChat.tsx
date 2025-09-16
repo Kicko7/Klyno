@@ -96,6 +96,7 @@ const TeamChat = memo(() => {
     teamChats.length, // Only depend on length, not the full array
     router,
     selectedOrganizationId,
+    setActiveTeamChat,
   ]);
   // Only create first team chat if welcome page is shown and no chats exist
   useEffect(() => {

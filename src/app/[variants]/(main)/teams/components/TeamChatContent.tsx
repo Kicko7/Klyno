@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { memo } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
@@ -63,6 +63,9 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
     const { teamChatsByOrg, setActiveTeamChat, currentOrganizationId, activeChatStates } =
       useTeamChatStore();
     const currentUser = useUserStore(userProfileSelectors.userProfile);
+    
+    // Track if initial load has been performed for this chat
+    const initialLoadRef = useRef<Set<string>>(new Set());
 
     // Get chats for current organization
     const teamChats = currentOrganizationId ? teamChatsByOrg[currentOrganizationId] || [] : [];
@@ -226,11 +229,19 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
       await loadMessages(chatState.currentPage + 1);
     }, [teamChatId, loadMessages]);
 
-    // Initial load of messages
+    // Initial load of messages - only load once per chat ID
     useEffect(() => {
       if (!teamChatId || isCacheValid(teamChatId)) return;
+      
+      // Check if we've already loaded messages for this chat
+      if (initialLoadRef.current.has(teamChatId)) return;
+      
+      // Mark this chat as having been loaded
+      initialLoadRef.current.add(teamChatId);
+      
+      // Load messages
       loadMessages(1);
-    }, [teamChatId]);
+    }, [teamChatId, loadMessages]);
 
     // Use WebSocket for real-time updates instead of polling
     const { sendMessage, startTyping, stopTyping, updateReadReceipt } = useTeamChatWebSocket({
@@ -403,8 +414,6 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
         <TeamChatLayout
           teamChatId={teamChatId}
           mobile={mobile}
-          // onLoadMore={handleLoadMore}
-          // hasMore={chatState.hasMoreMessages}
           isLoading={isLoading}
           isTransitioning={switchState.isPending}
         />
