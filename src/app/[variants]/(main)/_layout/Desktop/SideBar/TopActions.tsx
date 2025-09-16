@@ -1,12 +1,10 @@
 import { ActionIcon, ActionIconProps } from '@lobehub/ui';
 import {
   Search,
-  DollarSign,
   FolderClosed,
   MessageSquare,
-  Share2,
-  User,
   Users,
+  Lock,
 } from 'lucide-react';
 import Link from 'next/link';
 import { memo } from 'react';
@@ -18,6 +16,8 @@ import { SidebarTabKey } from '@/store/global/initialState';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
 import { useSessionStore } from '@/store/session';
 import { useTeamChatStore } from '@/store/teamChat';
+import { useUserSubscription } from '@/hooks/useUserSubscription';
+import { useOrganizationStore } from '@/store/organization/store';
 
 const ICON_SIZE: ActionIconProps['size'] = {
   blockSize: 40,
@@ -34,6 +34,13 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
   const { t } = useTranslation('common');
   const switchBackToChat = useGlobalStore((s) => s.switchBackToChat);
   const { showMarket, enableKnowledgeBase } = useServerConfigStore(featureFlagsSelectors);
+  const { subscriptionInfo } = useUserSubscription();
+
+  // Get organization data
+  const { organizations, selectedOrganizationId } = useOrganizationStore();
+  const currentOrganization = useOrganizationStore((state) =>
+    state.organizations.find((organization) => organization.id === selectedOrganizationId),
+  );
 
   const isChatActive = tab === SidebarTabKey.Chat && !isPinned;
   const isFilesActive = tab === SidebarTabKey.Files;
@@ -41,6 +48,29 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
   const isDiscoverActive = tab === SidebarTabKey.Discover;
 
   const setActiveTeamChat = useTeamChatStore((state) => state.setActiveTeamChat);
+
+  // Console log organization information
+  console.log('🔍 User Organizations:', {
+    totalOrganizations: organizations.length,
+    organizations: organizations.map(org => ({
+      id: org.id,
+      name: org.name,
+      memberRole: org.memberRole,
+      isSelected: org.id === selectedOrganizationId
+    })),
+    selectedOrganizationId,
+    currentOrganization: currentOrganization ? {
+      id: currentOrganization.id,
+      name: currentOrganization.name,
+      memberRole: currentOrganization.memberRole
+    } : null
+  });
+
+  // Determine which features are locked based on subscription
+  const isUserHasSubscription = subscriptionInfo?.subscription?.status === 'active' && subscriptionInfo?.subscription?.planName !== 'Starter' && subscriptionInfo?.subscription?.planName !== 'Creator Pro';
+  const isUserUnlocked = isUserHasSubscription ? true: organizations.length > 0 ;
+  const isTeamsLocked = !isUserUnlocked;
+  
   return (
     <Flexbox gap={8}>
       <Link
@@ -65,14 +95,19 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
           tooltipProps={{ placement: 'right' }}
         />
       </Link>
-      <Link aria-label={t('tab.teams')} href={'/teams'}>
+      <Link aria-label="Teams" href={isTeamsLocked ? '#' : '/teams'}>
         <ActionIcon
-          active={isTeamsActive}
-          icon={Users}
+          active={isTeamsActive && !isTeamsLocked}
+          disabled={isTeamsLocked}
+          icon={isTeamsLocked ? Lock : Users}
           size={ICON_SIZE}
-          title={t('tab.teams')}
+          title={isTeamsLocked ? 'Teams (Premium Required)' : 'Teams'}
           tooltipProps={{ placement: 'right' }}
-          onClick={() => {
+          onClick={(e) => {
+            if (isTeamsLocked) {
+              e.preventDefault();
+              return;
+            }
             setActiveTeamChat(null);
           }}
         />
