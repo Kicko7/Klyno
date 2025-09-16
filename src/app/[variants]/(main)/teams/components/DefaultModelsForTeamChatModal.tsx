@@ -31,7 +31,7 @@ const DefaultModelsForTeamChatModal = memo<DefaultModelsForTeamChatModalProps>((
       width="90%"
       style={{ maxWidth: 1200 }}
       className="default-models-modal"
-      destroyOnClose
+      destroyOnHidden
     >
       <DefaultModelsForTeamChat
         teamChatId={teamChatId}

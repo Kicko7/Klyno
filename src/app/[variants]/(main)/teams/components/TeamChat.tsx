@@ -7,16 +7,13 @@ import { Alert, Button } from 'antd';
 import { useResponsive, useTheme } from 'antd-style';
 import { UserPlus } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useRef, useState } from 'react';
 import { memo, useCallback, useEffect, useMemo } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
 import HeaderAction from '@/app/[variants]/(main)/chat/(workspace)/_layout/Desktop/ChatHeader/HeaderAction';
 import { DESKTOP_HEADER_ICON_SIZE } from '@/const/layoutTokens';
 import { SkeletonList } from '@/features/Conversation';
-import ModelSwitchPanel from '@/features/ModelSwitchPanel';
-import { useAgentStore } from '@/store/agent';
-import { agentSelectors } from '@/store/agent/selectors';
 import { useOrganizationStore } from '@/store/organization/store';
 import { useTeamChatStore } from '@/store/teamChat';
 
@@ -26,6 +23,9 @@ import AddMemberModal from './AddMemberModal';
 import DefaultModelsForTeamChatModal from './DefaultModelsForTeamChatModal';
 import TeamChatContent from './TeamChatContent';
 import TeamMain from './TeamMain';
+import { io, Socket } from 'socket.io-client';
+import { useUserStore } from '@/store/user';
+import { userProfileSelectors } from '@/store/user/selectors';
 
 const TeamChat = memo(() => {
   const { mobile } = useResponsive();
@@ -37,6 +37,7 @@ const TeamChat = memo(() => {
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [showDefaultModelsModal, setShowDefaultModelsModal] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const currentUser = useUserStore(userProfileSelectors.userProfile);
 
   // Use dedicated team chat store
   const {
@@ -54,15 +55,8 @@ const TeamChat = memo(() => {
   // Get chats for current organization
   const teamChats = currentOrganization?.id ? teamChatsByOrg[currentOrganization.id] || [] : [];
 
-  // Get current model for the model switcher
-  const [model, provider] = useAgentStore((s) => [
-    agentSelectors.currentAgentModel(s),
-    agentSelectors.currentAgentModelProvider(s),
-  ]);
-
   useEffect(() => {
     if (currentOrganization?.id && currentOrganization.id !== currentOrganizationId) {
-      console.log('🔄 Organization changed, loading team chats:', currentOrganization.id);
       refreshTeamChats();
     }
   }, [currentOrganization?.id, currentOrganizationId]); // Remove refreshTeamChats
@@ -77,7 +71,6 @@ const TeamChat = memo(() => {
 
     // If we have chats loaded and can't find this chat, it might be invalid
     if (!chat) {
-      console.warn('⚠️ Chat not found in current organization:', chatId);
       setActiveTeamChat(null);
       router.push('/teams');
       return;
@@ -85,7 +78,6 @@ const TeamChat = memo(() => {
 
     // If we found the chat and it's not already active, set it
     if (activeTeamChatId !== chatId) {
-      console.log('🔍 Setting active chat from URL:', chatId);
       setActiveTeamChat(chatId);
     }
   }, [
@@ -108,10 +100,7 @@ const TeamChat = memo(() => {
       !isLoading
     ) {
       setHasInitialized(true);
-      console.log('🚀 No team chats found, creating first one...');
-      // Validate organization
       if (!organizations.some((org) => org.id === currentOrganization.id)) {
-        console.error('❌ Invalid organization selected for chat creation');
         return;
       }
       createTeamChat(currentOrganization.id, 'Team Chat', {
@@ -128,11 +117,13 @@ const TeamChat = memo(() => {
     organizations,
   ]);
 
+
+  
+
   const handleNewChat = useCallback(async () => {
     if (currentOrganization?.id) {
       // Validate organization
       if (!organizations.some((org) => org.id === currentOrganization.id)) {
-        console.error('❌ Invalid organization selected for chat creation');
         return;
       }
       await createTeamChat(currentOrganization.id, 'Team Chat', {
@@ -146,15 +137,6 @@ const TeamChat = memo(() => {
     const chatState = state.activeChatStates[activeTeamChatId || ''];
     return chatState?.presence || null;
   });
-
-  // Memoize active users to prevent infinite re-renders
-  // const memoizedActiveUsers = useMemo(() => {
-  //   return activeUsers || {};
-  // }, [activeUsers]);
-
-  // Presence is now handled by WebSocket in useTeamChatWebSocket hook
-
-  // Debug logging
 
   const theme = useTheme();
   return (

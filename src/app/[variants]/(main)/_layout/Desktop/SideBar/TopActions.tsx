@@ -37,10 +37,8 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
   const { subscriptionInfo } = useUserSubscription();
 
   // Get organization data
-  const { organizations, selectedOrganizationId } = useOrganizationStore();
-  const currentOrganization = useOrganizationStore((state) =>
-    state.organizations.find((organization) => organization.id === selectedOrganizationId),
-  );
+  const { organizations } = useOrganizationStore();
+
 
   const isChatActive = tab === SidebarTabKey.Chat && !isPinned;
   const isFilesActive = tab === SidebarTabKey.Files;
@@ -48,23 +46,6 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
   const isDiscoverActive = tab === SidebarTabKey.Discover;
 
   const setActiveTeamChat = useTeamChatStore((state) => state.setActiveTeamChat);
-
-  // Console log organization information
-  console.log('🔍 User Organizations:', {
-    totalOrganizations: organizations.length,
-    organizations: organizations.map(org => ({
-      id: org.id,
-      name: org.name,
-      memberRole: org.memberRole,
-      isSelected: org.id === selectedOrganizationId
-    })),
-    selectedOrganizationId,
-    currentOrganization: currentOrganization ? {
-      id: currentOrganization.id,
-      name: currentOrganization.name,
-      memberRole: currentOrganization.memberRole
-    } : null
-  });
 
   // Determine which features are locked based on subscription
   const isUserHasSubscription = subscriptionInfo?.subscription?.status === 'active' && subscriptionInfo?.subscription?.planName !== 'Starter' && subscriptionInfo?.subscription?.planName !== 'Creator Pro';

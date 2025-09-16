@@ -44,23 +44,24 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
   const agentConfig = useAgentStore(agentSelectors.currentAgentConfig);
   const agentState = useAgentStore();
   const teamChatStore = useTeamChatStore();
-
+  const removeWebSocketMessage = useTeamChatStore((state) => state.removeWebSocketMessage);
+  const editWebSocketMessage = useTeamChatStore((state) => state.editWebSocketMessage);
   const messageInfo: TeamChatMessageItem | undefined = useMemo(
     () => getMessageById(id),
     [getMessageById, id],
   );
 
   // Get WebSocket functions for real-time updates
-  const {
-    sendMessage: sendWebSocketMessage,
-    startTyping,
-    stopTyping,
-    isConnected,
-    deleteMessage: deleteWebSocketMessage,
-  } = useTeamChatWebSocket({
-    teamChatId: messageInfo?.teamChatId || '',
-    enabled: !!messageInfo?.teamChatId,
-  });
+  // const {
+  //   sendMessage: sendWebSocketMessage,
+  //   startTyping,
+  //   stopTyping,
+  //   isConnected,
+  //   deleteMessage: deleteWebSocketMessage,
+  // } = useTeamChatWebSocket({
+  //   teamChatId: messageInfo?.teamChatId || '',
+  //   enabled: !!messageInfo?.teamChatId,
+  // });
 
   // Socket reference for direct Redis events
   const socketRef = useRef<Socket | null>(null);
@@ -70,26 +71,6 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
   const virtuosoRef = use(VirtuosoContext);
 
   const [showShareModal, setShareModal] = useState(false);
-
-  // Helper function to send Redis events
-  const sendRedisEvent = useCallback(
-    (eventType: string, eventData: any) => {
-      if (isConnected() && messageInfo?.teamChatId) {
-        // For now, we'll use the WebSocket message function for Redis events
-        // In a full implementation, you'd have a separate Redis event emitter
-        console.log(`🔄 Redis Event: ${eventType}`, eventData);
-
-        // Send via WebSocket for real-time sync
-        // This would typically go to a Redis pub/sub system
-        if (sendWebSocketMessage) {
-          // Convert event to message format for WebSocket
-          const redisMessage = `[REDIS_EVENT]${eventType}:${JSON.stringify(eventData)}`;
-          sendWebSocketMessage(redisMessage, 'system');
-        }
-      }
-    },
-    [isConnected, messageInfo?.teamChatId, sendWebSocketMessage],
-  );
 
   const handleActionClick = useCallback(
     async (action: ActionIconGroupEvent) => {
@@ -101,13 +82,13 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
           toggleMessageEditing(id, true);
 
           // Send real-time typing indicator to all users
-          startTyping();
+          // startTyping();
 
           // Scroll to the message being edited
           virtuosoRef?.current?.scrollIntoView({ align: 'start', behavior: 'auto', index });
 
           // Stop typing after a delay
-          setTimeout(() => stopTyping(), 3000);
+          // setTimeout(() => stopTyping(), 3000);
           break;
         }
         case 'copy': {
@@ -117,23 +98,23 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
         }
         case 'reaction': {
           // Send reaction to Redis for real-time sync across all users
-          sendRedisEvent('message:reaction', {
-            messageId: id,
-            teamChatId: messageInfo.teamChatId,
-            userId: messageInfo.userId,
-            reaction: '👍', // Default reaction, could be made configurable
-            timestamp: new Date().toISOString(),
-          });
+          // sendRedisEvent('message:reaction', {
+          //   messageId: id,
+          //   teamChatId: messageInfo.teamChatId,
+          //   userId: messageInfo.userId,
+          //   reaction: '👍', // Default reaction, could be made configurable
+          //   timestamp: new Date().toISOString(),
+          // });
           break;
         }
         case 'read': {
           // Send read receipt to Redis for real-time sync
-          sendRedisEvent('message:read', {
-            messageId: id,
-            teamChatId: messageInfo.teamChatId,
-            userId: messageInfo.userId,
-            timestamp: new Date().toISOString(),
-          });
+          // sendRedisEvent('message:read', {
+          //   messageId: id,
+          //   teamChatId: messageInfo.teamChatId,
+          //   userId: messageInfo.userId,
+          //   timestamp: new Date().toISOString(),
+          // });
           break;
         }
         case 'branching': {
@@ -141,19 +122,19 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
           break;
         }
         case 'del': {
-          console.log('Deleting message via Redis');
 
           // Remove message locally first for immediate UI feedback
           removeMessage(messageInfo.teamChatId, id);
+          removeWebSocketMessage(id);
 
           // Send delete action to Redis for real-time sync across all users
-          deleteWebSocketMessage(id);
-          sendRedisEvent('message:delete', {
-            messageId: id,
-            teamChatId: messageInfo.teamChatId,
-            userId: messageInfo.userId,
-            timestamp: new Date().toISOString(),
-          });
+          // deleteWebSocketMessage(id);
+          // sendRedisEvent('message:delete', {
+          //   messageId: id,
+          //   teamChatId: messageInfo.teamChatId,
+          //   userId: messageInfo.userId,
+          //   timestamp: new Date().toISOString(),
+          // });
 
           message.success(t('deleteSuccess', { defaultValue: 'Message deleted' }));
           break;
@@ -165,7 +146,7 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
           sendMessage(messageInfo.teamChatId, '', 'assistant', assistantMessageId);
 
           // Send real-time typing indicator to all users
-          startTyping();
+          // startTyping();
 
           // Gather history including the original user message
           const agentConfig = agentSelectors.currentAgentConfig(agentState);
@@ -199,56 +180,56 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
                 sendMessage(messageInfo.teamChatId, aiResponse, 'assistant', assistantMessageId);
 
                 // Send real-time update to Redis for all users
-                sendRedisEvent('message:update', {
-                  messageId: assistantMessageId,
-                  teamChatId: messageInfo.teamChatId,
-                  content: aiResponse,
-                  messageType: 'assistant',
-                  userId: 'assistant',
-                  timestamp: new Date().toISOString(),
-                  isStreaming: true,
-                });
+                // sendRedisEvent('message:update', {
+                //   messageId: assistantMessageId,
+                //   teamChatId: messageInfo.teamChatId,
+                //   content: aiResponse,
+                //   messageType: 'assistant',
+                //   userId: 'assistant',
+                //   timestamp: new Date().toISOString(),
+                //   isStreaming: true,
+                // });
               }
             },
             onFinish: async (finalContent, context) => {
               // Stop typing indicator
-              stopTyping();
+              // stopTyping();
 
               // Update the final message with complete content
               sendMessage(messageInfo.teamChatId, finalContent, 'assistant', assistantMessageId);
 
               // Send final message to Redis for all users
-              sendRedisEvent('message:complete', {
-                messageId: assistantMessageId,
-                teamChatId: messageInfo.teamChatId,
-                content: finalContent,
-                messageType: 'assistant',
-                userId: 'assistant',
-                timestamp: new Date().toISOString(),
-                isStreaming: false,
-                metadata: {
-                  model: agentConfig.model,
-                  provider: agentConfig.provider,
-                  totalTokens: context?.usage?.totalTokens || 0,
-                },
-              });
+              // sendRedisEvent('message:complete', {
+              //   messageId: assistantMessageId,
+              //   teamChatId: messageInfo.teamChatId,
+              //   content: finalContent,
+              //   messageType: 'assistant',
+              //   userId: 'assistant',
+              //   timestamp: new Date().toISOString(),
+              //   isStreaming: false,
+              //   metadata: {
+              //     model: agentConfig.model,
+              //     provider: agentConfig.provider,
+              //     totalTokens: context?.usage?.totalTokens || 0,
+              //   },
+              // });
             },
             onErrorHandle: (error) => {
               // Stop typing indicator on error
-              stopTyping();
+              // stopTyping();
 
               console.error('AI regeneration error:', error);
 
               // Send error message to Redis for all users
-              sendRedisEvent('message:error', {
-                messageId: assistantMessageId,
-                teamChatId: messageInfo.teamChatId,
-                content: 'Failed to regenerate response',
-                messageType: 'assistant',
-                userId: 'assistant',
-                timestamp: new Date().toISOString(),
-                error: error.message,
-              });
+              // sendRedisEvent('message:error', {
+              //   messageId: assistantMessageId,
+              //   teamChatId: messageInfo.teamChatId,
+              //   content: 'Failed to regenerate response',
+              //   messageType: 'assistant',
+              //   userId: 'assistant',
+              //   timestamp: new Date().toISOString(),
+              //   error: error.message,
+              // });
             },
           });
           break;
@@ -268,10 +249,10 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
       sendMessage,
       agentState,
       chatService,
-      startTyping,
-      stopTyping,
-      sendRedisEvent,
-      deleteWebSocketMessage,
+      // startTyping,
+      // stopTyping,
+      // sendRedisEvent,
+      // deleteWebSocketMessage,
     ],
   );
 
@@ -288,13 +269,12 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
           key: 'edit',
           label: t('edit', { defaultValue: 'Edit' }),
         },
-    
+
         {
           icon: Trash,
           key: 'del',
           label: t('delete', { defaultValue: 'Delete' }),
         },
-      
       ]}
       onActionClick={handleActionClick}
     />

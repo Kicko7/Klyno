@@ -91,6 +91,8 @@ interface TeamChatState {
     width: number;
   };
 
+  socketRef:any;
+
   // Actions
   createTeamChat: (
     organizationId: string,
@@ -277,6 +279,10 @@ type TeamChatStore = TeamChatState & {
     reaction: string,
   ) => void;
   handleRedisReadReceipt: (messageId: string, teamChatId: string, userId: string) => void;
+  setSocketRef:(socketRef:any) => void;
+  removeWebSocketMessage:(messageId:string) => void;
+  editWebSocketMessage:(messageId:string,content:string) => void;
+
 };
 
 export const useTeamChatStore = create<TeamChatStore>()(
@@ -295,7 +301,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
       messageCache: {},
       messageSubscriptions: {},
       messageEditingIds: [],
-
+      socketRef:null,
       // Initialize credit tracking service
       creditService: teamChatCreditService,
 
@@ -1953,9 +1959,6 @@ export const useTeamChatStore = create<TeamChatStore>()(
         });
       },
       
-      
-
-      // Method to persist message to database
       persistMessageToDatabase: async (teamChatId: string, messageData: any) => {
         console.log(`💾 persistMessageToDatabase called:`, {
           teamChatId,
@@ -1994,12 +1997,21 @@ export const useTeamChatStore = create<TeamChatStore>()(
           throw error;
         }
       },
-      // getMessageById: (id: string) => {
-      //   const { messages } = get();
-      //   return Object.values(messages)
-      //     .flat()
-      //     .find((message) => message.id === id);
-      // },
+    
+      editWebSocketMessage:(messageId:string,content:string) => {
+        if (get().socketRef?.current?.connected) {
+          get().socketRef.current.emit('message:edit', messageId, content);
+        }
+      },
+
+      removeWebSocketMessage:(messageId) => {
+        if (get().socketRef?.current?.connected) {
+          get().socketRef.current.emit('message:delete', messageId);
+        }
+      },
+      setSocketRef:(socketRef:any) => {
+        set({ socketRef });
+      },
     }),
     {
       name: 'team-chat-store',

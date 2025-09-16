@@ -142,167 +142,167 @@ export const useTeamChatWebSocket = ({ teamChatId, enabled = true }: UseTeamChat
     }
   }, [teamChatId, currentUser?.id, unsubscribeFromChat]);
 
-  useEffect(() => {
-    isCleanupRef.current = false;
+  // useEffect(() => {
+  //   isCleanupRef.current = false;
 
-    if (!enabled || !teamChatId || !currentUser?.id) {
-      cleanup();
-      return;
-    }
+  //   if (!enabled || !teamChatId || !currentUser?.id) {
+  //     cleanup();
+  //     return;
+  //   }
 
-    if (socketRef.current?.connected) {
-      console.log('🔌 Reusing existing socket');
-      return;
-    }
+  //   if (socketRef.current?.connected) {
+  //     console.log('🔌 Reusing existing socket');
+  //     return;
+  //   }
 
-    const socketUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL;
-    console.log('🔌 Connecting socket to:', socketUrl);
+  //   const socketUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL;
+  //   console.log('🔌 Connecting socket to:', socketUrl);
 
-    const socket = io(socketUrl, socketConfig);
-    socketRef.current = socket;
+  //   const socket = io(socketUrl, socketConfig);
+  //   socketRef.current = socket;
 
-    // --- Enhanced Event listeners ---
-    socket.on('connect', () => {
-      console.log('✅ Socket connected:', socket.id);
-      lastPongRef.current = Date.now(); // Reset pong timer
+  //   // --- Enhanced Event listeners ---
+  //   socket.on('connect', () => {
+  //     console.log('✅ Socket connected:', socket.id);
+  //     lastPongRef.current = Date.now(); // Reset pong timer
 
-      socket.emit('room:join', teamChatId);
-      subscribeToChat(teamChatId, currentUser.id);
+  //     socket.emit('room:join', teamChatId);
+  //     subscribeToChat(teamChatId, currentUser.id);
 
-      // Start heartbeat only after connection
-    });
+  //     // Start heartbeat only after connection
+  //   });
 
-    socket.on('disconnect', (reason) => {
-      console.warn('❌ Socket disconnected:', reason);
+  //   socket.on('disconnect', (reason) => {
+  //     console.warn('❌ Socket disconnected:', reason);
 
-      // Clear heartbeat on disconnect
-      if (heartbeatRef.current) {
-        clearInterval(heartbeatRef.current);
-        heartbeatRef.current = null;
-      }
+  //     // Clear heartbeat on disconnect
+  //     if (heartbeatRef.current) {
+  //       clearInterval(heartbeatRef.current);
+  //       heartbeatRef.current = null;
+  //     }
 
-      // Handle different disconnect reasons
-      if (reason === 'ping timeout') {
-        console.warn('💔 Ping timeout detected - connection will auto-reconnect');
-      } else if (reason === 'transport close' || reason === 'transport error') {
-        console.warn('🔌 Transport issue - connection will auto-reconnect');
-      }
-    });
+  //     // Handle different disconnect reasons
+  //     if (reason === 'ping timeout') {
+  //       console.warn('💔 Ping timeout detected - connection will auto-reconnect');
+  //     } else if (reason === 'transport close' || reason === 'transport error') {
+  //       console.warn('🔌 Transport issue - connection will auto-reconnect');
+  //     }
+  //   });
 
-    socket.on('connect_error', (err) => {
-      console.error('❌ Socket connection error:', err.message);
+  //   socket.on('connect_error', (err) => {
+  //     console.error('❌ Socket connection error:', err.message);
 
-      // Implement exponential backoff for connection errors
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
+  //     // Implement exponential backoff for connection errors
+  //     if (reconnectTimeoutRef.current) {
+  //       clearTimeout(reconnectTimeoutRef.current);
+  //     }
 
-      reconnectTimeoutRef.current = setTimeout(() => {
-        if (!isCleanupRef.current && !socket.connected) {
-          console.log('🔄 Attempting manual reconnection...');
-          socket.connect();
-        }
-      }, 5000);
-    });
+  //     reconnectTimeoutRef.current = setTimeout(() => {
+  //       if (!isCleanupRef.current && !socket.connected) {
+  //         console.log('🔄 Attempting manual reconnection...');
+  //         socket.connect();
+  //       }
+  //     }, 5000);
+  //   });
 
-    socket.on('reconnect', (attempt) => {
-      console.log('🔄 Socket reconnected after', attempt, 'attempts');
-      lastPongRef.current = Date.now(); // Reset pong timer
-      socket.emit('room:join', teamChatId);
-    });
+  //   socket.on('reconnect', (attempt) => {
+  //     console.log('🔄 Socket reconnected after', attempt, 'attempts');
+  //     lastPongRef.current = Date.now(); // Reset pong timer
+  //     socket.emit('room:join', teamChatId);
+  //   });
 
-    // Add pong handler to track connection health
-    socket.on('pong', (timestamp) => {
-      lastPongRef.current = Date.now();
-      const latency = Date.now() - timestamp;
-      if (latency > 5000) {
-        // Log high latency
-        console.warn(`⚠️ High latency detected: ${latency}ms`);
-      }
-    });
+  //   // Add pong handler to track connection health
+  //   socket.on('pong', (timestamp) => {
+  //     lastPongRef.current = Date.now();
+  //     const latency = Date.now() - timestamp;
+  //     if (latency > 5000) {
+  //       // Log high latency
+  //       console.warn(`⚠️ High latency detected: ${latency}ms`);
+  //     }
+  //   });
 
-    // Handle user credits received from server
+  //   // Handle user credits received from server
 
-    // --- Chat events (unchanged) ---
-    socket.on('session:loaded', (data) => {
-      if (!data.messages?.length) return;
-      // console.log('Session loaded', data.messages);
-      const converted = data.messages
-        .map((m: any) => convertMessage(m, teamChatId))
-        .filter(Boolean)
-        .sort((a: any, b: any) => a.createdAt.getTime() - b.createdAt.getTime());
-      if (converted.length) {
-        batchUpdateMessages(teamChatId, converted);
-      }
-    });
+  //   // --- Chat events (unchanged) ---
+  //   socket.on('session:loaded', (data) => {
+  //     if (!data.messages?.length) return;
+  //     // console.log('Session loaded', data.messages);
+  //     const converted = data.messages
+  //       .map((m: any) => convertMessage(m, teamChatId))
+  //       .filter(Boolean)
+  //       .sort((a: any, b: any) => a.createdAt.getTime() - b.createdAt.getTime());
+  //     if (converted.length) {
+  //       batchUpdateMessages(teamChatId, converted);
+  //     }
+  //   });
 
-    socket.on('presence:list', (presence: Record<string, PresenceData>) => {
-      updatePresence(teamChatId, presence);
-    });
+  //   socket.on('presence:list', (presence: Record<string, PresenceData>) => {
+  //     updatePresence(teamChatId, presence);
+  //   });
 
-    socket.on('presence:update', (data: PresenceData) => {
-      updatePresence(teamChatId, { [data.userId]: data });
-    });
+  //   socket.on('presence:update', (data: PresenceData) => {
+  //     updatePresence(teamChatId, { [data.userId]: data });
+  //   });
 
-    socket.on('typing:start', (data: TypingData) => {
-      updateTypingStatus(teamChatId, data.userId, true);
-    });
+  //   socket.on('typing:start', (data: TypingData) => {
+  //     updateTypingStatus(teamChatId, data.userId, true);
+  //   });
 
-    socket.on('typing:stop', (data: TypingData) => {
-      updateTypingStatus(teamChatId, data.userId, false);
-    });
+  //   socket.on('typing:stop', (data: TypingData) => {
+  //     updateTypingStatus(teamChatId, data.userId, false);
+  //   });
 
-    socket.on('receipt:list', (receipts: Record<string, ReadReceiptData>) => {
-      updateReadReceipts(teamChatId, receipts);
-    });
+  //   socket.on('receipt:list', (receipts: Record<string, ReadReceiptData>) => {
+  //     updateReadReceipts(teamChatId, receipts);
+  //   });
 
-    socket.on('receipt:update', (data: ReadReceiptData & { teamId: string }) => {
-      updateReadReceipts(teamChatId, { [data.userId]: data });
-    });
+  //   socket.on('receipt:update', (data: ReadReceiptData & { teamId: string }) => {
+  //     updateReadReceipts(teamChatId, { [data.userId]: data });
+  //   });
 
-    socket.on('message:new', (message: MessageStreamData) => {
-      if (!message.id || message.teamId !== teamChatId) return;
-      const existingMessages = useTeamChatStore.getState().messages[message.teamId] || [];
-      if (isDuplicateMessage(message, existingMessages)) return;
+  //   socket.on('message:new', (message: MessageStreamData) => {
+  //     if (!message.id || message.teamId !== teamChatId) return;
+  //     const existingMessages = useTeamChatStore.getState().messages[message.teamId] || [];
+  //     if (isDuplicateMessage(message, existingMessages)) return;
 
-      const msg = {
-        id: message.id,
-        content: message.content,
-        messageType:
-          message.userId === 'assistant'
-            ? 'assistant'
-            : message.type === 'message'
-              ? 'user'
-              : (message.type as 'user' | 'assistant' | 'system'),
-        teamChatId: message.teamId,
-        userId: message.userId,
-        metadata: message.metadata || {},
-        createdAt: new Date(message.timestamp),
-        updatedAt: new Date(),
-        accessedAt: new Date(),
-      };
-      batchUpdateMessages(message.teamId, [msg as any]);
-    });
+  //     const msg = {
+  //       id: message.id,
+  //       content: message.content,
+  //       messageType:
+  //         message.userId === 'assistant'
+  //           ? 'assistant'
+  //           : message.type === 'message'
+  //             ? 'user'
+  //             : (message.type as 'user' | 'assistant' | 'system'),
+  //       teamChatId: message.teamId,
+  //       userId: message.userId,
+  //       metadata: message.metadata || {},
+  //       createdAt: new Date(message.timestamp),
+  //       updatedAt: new Date(),
+  //       accessedAt: new Date(),
+  //     };
+  //     batchUpdateMessages(message.teamId, [msg as any]);
+  //   });
 
-    socket.on('message:update', (data: { id: string; content: string }) => {
-      const state = useTeamChatStore.getState();
-      const existing = state.messages[teamChatId] || [];
-      const idx = existing.findIndex((m) => m.id === data.id);
-      if (idx !== -1) {
-        const updated = { ...existing[idx], content: data.content, updatedAt: new Date() };
-        batchUpdateMessages(teamChatId, [updated as any]);
-      }
-    });
+  //   socket.on('message:update', (data: { id: string; content: string }) => {
+  //     const state = useTeamChatStore.getState();
+  //     const existing = state.messages[teamChatId] || [];
+  //     const idx = existing.findIndex((m) => m.id === data.id);
+  //     if (idx !== -1) {
+  //       const updated = { ...existing[idx], content: data.content, updatedAt: new Date() };
+  //       batchUpdateMessages(teamChatId, [updated as any]);
+  //     }
+  //   });
 
-    socket.on('message:delete', (id: string) => {
-      removeMessage(teamChatId, id);
-    });
+  //   socket.on('message:delete', (id: string) => {
+  //     removeMessage(teamChatId, id);
+  //   });
 
-    // Manual connection start
-    socket.connect();
+  //   // Manual connection start
+  //   socket.connect();
 
-    return cleanup;
-  }, [teamChatId, enabled, currentUser?.id, socketConfig, cleanup]);
+  //   return cleanup;
+  // }, [teamChatId, enabled, currentUser?.id, socketConfig, cleanup]);
 
   // --- API methods (enhanced) ---
   const api = useMemo(

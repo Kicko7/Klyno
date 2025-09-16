@@ -264,9 +264,13 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
   const updateMessageContent = useTeamChatStore(
     useCallback((state) => state.updateMessageContent, []),
   );
+
+  const editWebSocketMessage = useTeamChatStore(
+    useCallback((state) => state.editWebSocketMessage, []),
+  );
   const handleUpdateMessage = async (teamChatId: string, messageId: string, content: string) => {
     updateMessageContent(teamChatId, messageId, content);
-    editMessage(messageId, content);
+    editWebSocketMessage(messageId, content);
   };
 
   // Memoized processed messages for better performance
