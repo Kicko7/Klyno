@@ -109,7 +109,10 @@ const CompanySelector = () => {
                   ? 'hover:bg-slate-800 text-slate-200 hover:text-white' 
                   : 'hover:bg-slate-100 text-black hover:text-black'
               }`}
-              onClick={handleWorkspaceMembersClick}
+              onClick={()=>{
+                setActiveTeamChat(null);
+                handleWorkspaceMembersClick();
+              }}
             >
               <Users className={`w-4 h-4 ${theme.appearance === "dark" ? 'text-slate-200' : "text-black"}`} />
               <span>Workspace members</span>
@@ -183,7 +186,10 @@ const CompanySelector = () => {
                     ? 'hover:bg-slate-800 text-slate-200 hover:text-white' 
                     : 'hover:bg-slate-100 text-black hover:text-black'
                 }`}
-                onClick={handleDefaultModelsForOrganizationClick}
+                onClick={()=>{
+                  setActiveTeamChat(null);
+                  handleDefaultModelsForOrganizationClick();
+                }}
                 >
                   <FileText className={`w-4 h-4 ${theme.appearance === "dark" ? "text-slate-200" : 'text-black'}`} />
                   <span>Default Models For Organization</span>

@@ -16,6 +16,8 @@ import TeamWelcome from './TeamWelcome';
 import { AppSidebar } from './sidebar/AppSiderbar';
 import { useTheme } from 'antd-style';
 import DefaultModelsForOrganization from './DefaultModelsForOrganization';
+import { message } from 'antd';
+import { useUserSubscription } from '@/hooks/useUserSubscription';
 
 const Main = () => {
   const searchParams = useSearchParams();
@@ -62,6 +64,7 @@ const Main = () => {
     );
   };
   const theme = useTheme();
+  const { subscriptionInfo } = useUserSubscription();
 
   return (
     <div className={` ${theme.appearance == "dark" ? "bg-black":"bg-white"} w-full h-full text-white`}>
@@ -78,7 +81,14 @@ const Main = () => {
             description="You are not part of any organization yet."
             image={Empty.PRESENTED_IMAGE_SIMPLE}
           >
-            <Button onClick={() => showCreateOrgModal()} size="large" type="primary">
+            <Button onClick={() => {
+              if (subscriptionInfo?.subscription && subscriptionInfo?.subscription?.status === 'active' && subscriptionInfo?.subscription?.planName !== 'Starter' && subscriptionInfo?.subscription?.planName !== 'Creator Pro') {
+                showCreateOrgModal();
+              }
+              else {
+                message.error('You need to subscribe to a team plan to create an organization');
+              }
+            }} size="large" type="primary">
               Create Organization
             </Button>
           </Empty>

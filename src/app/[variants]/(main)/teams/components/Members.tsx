@@ -245,28 +245,29 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
               Manage members and their roles in your organization
             </Text>
 
-            {subscriptionInfo?.subscription?.planName === 'Team Workspace' && currentOrganization.memberRole === 'owner' && (
-              <div>
-                <div className="mt-2 flex items-center gap-3">
-                  <Text className="text-gray-400 text-sm">
-                    You have {filteredMembers.length} existing member
-                    {filteredMembers.length !== 1 ? 's' : ''}
-                    {filteredMembers.length > 3 && (
-                      <span className="ml-2">
-                        ({Math.max(0, filteredMembers.length - 3)} paid)
-                      </span>
-                    )}
-                  </Text>
+            {subscriptionInfo?.subscription?.planName === 'Team Workspace' &&
+              currentOrganization.memberRole === 'owner' && (
+                <div>
+                  <div className="mt-2 flex items-center gap-3">
+                    <Text className="text-gray-400 text-sm">
+                      You have {filteredMembers.length} existing member
+                      {filteredMembers.length !== 1 ? 's' : ''}
+                      {filteredMembers.length > 3 && (
+                        <span className="ml-2">
+                          ({Math.max(0, filteredMembers.length - 3)} paid)
+                        </span>
+                      )}
+                    </Text>
+                  </div>
+                  <div className="mt-1">
+                    <Text className="text-gray-500 text-xs">
+                      {filteredMembers.length < 3
+                        ? 'First 3 members are free. Additional members cost $5/month each.'
+                        : 'Free tier: 3 members • Paid tier: $5/month per additional member'}
+                    </Text>
+                  </div>
                 </div>
-                <div className="mt-1">
-                  <Text className="text-gray-500 text-xs">
-                    {filteredMembers.length < 3
-                      ? 'First 3 members are free. Additional members cost $5/month each.'
-                      : 'Free tier: 3 members • Paid tier: $5/month per additional member'}
-                  </Text>
-                </div>
-              </div>
-            )}
+              )}
           </div>
           {isAdmin && (
             <div className="flex gap-2">

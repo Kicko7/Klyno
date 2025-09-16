@@ -119,6 +119,9 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
             }))
             .filter((provider) => provider.children.length > 0);
         }
+        else {
+          filteredEnabledList = enabledList.filter((provider) => provider.id === 'openrouter');
+        }
       }
 
       // If no default models, show all enabled models (filteredEnabledList remains as enabledList)
