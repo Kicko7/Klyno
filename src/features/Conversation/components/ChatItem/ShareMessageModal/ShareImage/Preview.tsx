@@ -67,9 +67,11 @@ const Preview = memo<PreviewProps>(({ title, withBackground, withFooter, message
             <ChatItem id={message.id} index={0} />
           </Flexbox>
           {withFooter ? (
-            <Flexbox align={'center'} className={styles.footer} gap={4}>
+            <Flexbox align={'center'} className={styles.footer} gap={4} direction={'vertical'}>
               <ProductLogo type={'combine'} />
-              <div className={styles.url}>{pkg.homepage}</div>
+              <a href="https://klyno.ai" target="_blank" rel="noopener noreferrer" className={styles.url}>
+                klyno.ai
+              </a>
             </Flexbox>
           ) : (
             <div />
