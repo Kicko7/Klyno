@@ -1,4 +1,5 @@
 import { ActionIcon, Icon } from '@lobehub/ui';
+import { Spin } from 'antd';
 import { createStyles } from 'antd-style';
 import type { ItemType } from 'antd/es/menu/interface';
 import { LucideArrowRight, LucideBolt } from 'lucide-react';
@@ -14,11 +15,14 @@ import ActionDropdown from '@/features/ChatInput/ActionBar/components/ActionDrop
 import { useEnabledChatModels } from '@/hooks/useEnabledChatModels';
 import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { lambdaClient } from '@/libs/trpc/client';
+import { useAiInfraStore } from '@/store/aiInfra';
 import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/slices/chat';
 import { useOrganizationStore } from '@/store/organization/store';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
 import { useTeamChatStore } from '@/store/teamChat';
+import { useUserStore } from '@/store/user';
+import { authSelectors } from '@/store/user/selectors';
 import { EnabledProviderWithModels } from '@/types/aiProvider';
 
 const useStyles = createStyles(({ css, prefixCls }) => ({
@@ -68,6 +72,11 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
   const { showLLM } = useServerConfigStore(featureFlagsSelectors);
   const router = useRouter();
   const enabledList = useEnabledChatModels();
+  
+  const isLogin = useUserStore(authSelectors.isLogin);
+  
+  // Get loading state for model list
+  const { isLoading: isModelListLoading } = useAiInfraStore((s) => s.useFetchAiProviderRuntimeState(isLogin, undefined));
 
   const pathname = usePathname();
   const isTeamChat = pathname.includes('teams');
@@ -96,6 +105,22 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
   }, [activeTeamChatId]);
 
   const items = useMemo<ItemType[]>(() => {
+    // Show loading state if model list is being fetched
+    if (isModelListLoading || !enabledList || enabledList.length === 0) {
+      return [
+        {
+          key: 'loading',
+          label: (
+            <Flexbox align="center" gap={8} horizontal justify="center" style={{ padding: '12px' }}>
+              <Spin size="small" />
+              <span style={{ color: theme.colorTextTertiary }}>Loading models...</span>
+            </Flexbox>
+          ),
+          disabled: true,
+        },
+      ];
+    }
+
     // Filter models based on team chat, subscription, and organization default models
     let filteredEnabledList = enabledList;
 
@@ -235,6 +260,9 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
     showLLM,
     updateAgentConfig,
     sessionId,
+    isModelListLoading,
+    teamChatDefaultModels,
+    currentOrganization,
   ]);
 
   const icon = <div className={styles.tag}>{children}</div>;

@@ -1,4 +1,5 @@
 import { ModelIcon } from '@lobehub/icons';
+import { Spin } from 'antd';
 import { createStyles } from 'antd-style';
 import { Settings2Icon } from 'lucide-react';
 import { memo } from 'react';
@@ -11,6 +12,8 @@ import { agentSelectors } from '@/store/agent/selectors';
 import { aiModelSelectors, useAiInfraStore } from '@/store/aiInfra';
 import { useOrganizationStore } from '@/store/organization/store';
 import { useTeamChatStore } from '@/store/teamChat';
+import { useUserStore } from '@/store/user';
+import { authSelectors } from '@/store/user/selectors';
 
 import Action from '../components/Action';
 import ControlsForm from './ControlsForm';
@@ -71,6 +74,10 @@ const ModelSwitch = memo(() => {
     agentSelectors.getAgentConfigBySessionId(sessionId)(s)?.provider || 'openai',
   ]);
 
+  const isLogin = useUserStore(authSelectors.isLogin);
+
+  // Get loading state for model list
+  const { isLoading: isModelListLoading } = useAiInfraStore((s) => s.useFetchAiProviderRuntimeState(isLogin, undefined));
 
   const isModelHasExtendParams = useAiInfraStore(
     aiModelSelectors.isModelHasExtendParams(model || 'gpt-4', provider || 'openai'),
@@ -85,7 +92,11 @@ const ModelSwitch = memo(() => {
           width={36}
         >
           <div className={styles.icon}>
-            <ModelIcon model={model} size={22} />
+            {isModelListLoading ? (
+              <Spin size="small" />
+            ) : (
+              <ModelIcon model={model} size={22} />
+            )}
           </div>
         </Center>
       </ModelSwitchPanel>

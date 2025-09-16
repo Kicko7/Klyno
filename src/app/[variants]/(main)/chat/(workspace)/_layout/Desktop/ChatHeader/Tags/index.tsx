@@ -1,5 +1,5 @@
 import { ModelTag } from '@lobehub/icons';
-import { Skeleton } from 'antd';
+import { Skeleton, Spin } from 'antd';
 import { createStyles } from 'antd-style';
 import isEqual from 'fast-deep-equal';
 import { memo } from 'react';
@@ -9,6 +9,7 @@ import ModelSwitchPanel from '@/features/ModelSwitchPanel';
 import PluginTag from '@/features/PluginTag';
 import { useAgentEnableSearch } from '@/hooks/useAgentEnableSearch';
 import { useModelSupportToolUse } from '@/hooks/useModelSupportToolUse';
+import { useAiInfraStore } from '@/store/aiInfra';
 import { useAgentStore } from '@/store/agent';
 import { agentChatConfigSelectors, agentSelectors } from '@/store/agent/selectors';
 import { useUserStore } from '@/store/user';
@@ -57,13 +58,20 @@ const TitleTags = memo(() => {
 
   const isAgentEnableSearch = useAgentEnableSearch();
 
+  // Get loading state for model list
+  const { data: runtimeState, isLoading: isModelListLoading } = useAiInfraStore((s) => s.useFetchAiProviderRuntimeState(isLogin, undefined));
+
   return isLoading && isLogin ? (
     <Skeleton.Button active size={'small'} style={{ height: 20 }} />
   ) : (
     <Flexbox align={'center'} gap={4} horizontal>
       <ModelSwitchPanel>
         <div className={styles.modelSwitchButton}>
-          <ModelTag model={model} />
+          {isModelListLoading ? (
+            <Spin size="small" />
+          ) : (
+            <ModelTag model={model} />
+          )}
         </div>
       </ModelSwitchPanel>
       {isAgentEnableSearch && <SearchTags />}
