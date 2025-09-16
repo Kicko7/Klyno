@@ -8,7 +8,6 @@ import { DEFAULT_USER_AVATAR } from '@/const/meta';
 import { TeamChatMessageItem } from '@/database/schemas/teamChat';
 import ChatItem from '@/features/ChatItem';
 import Usage from '@/features/Conversation/Extras/Usage';
-import { useTeamChatWebSocket } from '@/hooks/useTeamChatWebSocket';
 import { useTeamChatStore } from '@/store/teamChat';
 import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
@@ -246,7 +245,6 @@ const getMessageTimestamp = (createdAt: any): number => {
 
 const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLoading }) => {
   const teamChatId = useTeamChatStore(useCallback((state) => state.activeTeamChatId, []));
-  const { editMessage } = useTeamChatWebSocket({ teamChatId: teamChatId || '' });
   // ALL HOOKS AT THE TOP
   const userAvatar = useUserStore(userProfileSelectors.userAvatar);
   const currentUser = useUserStore(userProfileSelectors.userProfile);

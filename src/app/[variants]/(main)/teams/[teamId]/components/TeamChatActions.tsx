@@ -9,7 +9,6 @@ import { Socket } from 'socket.io-client';
 
 import { TeamChatMessageItem } from '@/database/schemas/teamChat';
 import { VirtuosoContext } from '@/features/Conversation/components/VirtualizedList/VirtuosoContext';
-import { useTeamChatWebSocket } from '@/hooks/useTeamChatWebSocket';
 import { chatService } from '@/services/chat';
 import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
@@ -50,20 +49,7 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
     () => getMessageById(id),
     [getMessageById, id],
   );
-
-  // Get WebSocket functions for real-time updates
-  // const {
-  //   sendMessage: sendWebSocketMessage,
-  //   startTyping,
-  //   stopTyping,
-  //   isConnected,
-  //   deleteMessage: deleteWebSocketMessage,
-  // } = useTeamChatWebSocket({
-  //   teamChatId: messageInfo?.teamChatId || '',
-  //   enabled: !!messageInfo?.teamChatId,
-  // });
-
-  // Socket reference for direct Redis events
+  
   const socketRef = useRef<Socket | null>(null);
 
   const { t } = useTranslation('common');

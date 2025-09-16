@@ -191,7 +191,7 @@ export class WebSocketServer {
       socket.on(
         'message:send',
         async (message: { teamId: string; content: string; type?: string; metadata?: any, timestamp?: any }) => {
-          console.log("message timestamp",message.timestamp)
+          console.log("message timestamp", message.timestamp)
           try {
             console.log(message.metadata);
             const timestamp = new Date().toISOString();

@@ -9,7 +9,6 @@ import { ActionKeys } from '@/features/ChatInput/ActionBar/config';
 import Head from '@/features/ChatInput/Desktop/Header';
 import InputArea from '@/features/ChatInput/Desktop/InputArea';
 import { useModelSupportVision } from '@/hooks/useModelSupportVision';
-import { useTeamChatWebSocket } from '@/hooks/useTeamChatWebSocket';
 import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { chatService } from '@/services/chat';
 import { useAgentStore } from '@/store/agent';
@@ -222,12 +221,6 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     },
     [],
   );
-
-  // Use WebSocket for real-time messaging
-  // const { sendMessage: sendWebSocketMessage } = useTeamChatWebSocket({
-  //   teamChatId,
-  //   enabled: true,
-  // });
 
   const handleInputChange = (value: string) => {
     setInputMessage(value);
