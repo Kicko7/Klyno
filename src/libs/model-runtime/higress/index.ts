@@ -18,8 +18,8 @@ export interface HigressModelCard {
 export const LobeHigressAI = createOpenAICompatibleRuntime({
   constructorOptions: {
     defaultHeaders: {
-      'HTTP-Referer': 'https://chat-preview.lobehub.com',
-      'X-Title': 'Lobe Chat',
+      'HTTP-Referer': 'https://klyno.ai',
+      'X-Title': 'KlynoAI',
       'x-Request-Id': uniqueId('lobe-chat-'),
     },
   },

@@ -68,7 +68,9 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
 
   // Determine which features are locked based on subscription
   const isUserHasSubscription = subscriptionInfo?.subscription?.status === 'active' && subscriptionInfo?.subscription?.planName !== 'Starter' && subscriptionInfo?.subscription?.planName !== 'Creator Pro';
-  const isUserUnlocked = isUserHasSubscription ? true: organizations.length > 0 ;
+
+  
+  const isUserUnlocked = isUserHasSubscription || organizations.length > 0;
   const isTeamsLocked = !isUserUnlocked;
   
   return (
