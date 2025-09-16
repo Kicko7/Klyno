@@ -265,8 +265,8 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
                   <div className="mt-1">
                     <Text className="text-gray-500 text-xs">
                       {filteredMembers.length < 3
-                        ? 'First 3 members are free. Additional members cost $5/month each.'
-                        : 'Free tier: 3 members • Paid tier: $5/month per additional member'}
+                        ? 'First 3 members are free. Additional members cost $8/month each.'
+                        : 'Free tier: 3 members • Paid tier: $8/month per additional member'}
                     </Text>
                   </div>
                 </div>
@@ -281,7 +281,7 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
                 className="bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-lg"
                 title={
                   filteredMembers.length >= 3
-                    ? 'Additional members require paid subscription ($5/month per member)'
+                    ? 'Additional members require paid subscription ($8/month per member)'
                     : 'Invite a new member'
                 }
               >

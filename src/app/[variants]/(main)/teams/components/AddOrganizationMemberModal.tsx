@@ -368,13 +368,13 @@ const AddOrganizationMemberModal = ({
             <p className="text-yellow-800 font-medium">
               ⚠️{' '}
               {inviteMode === 'existing'
-                ? 'You will be charged $5/month for this user'
-                : 'You will be charged $5/month when the user accepts'}
+                ? 'You will be charged $8/month for this user'
+                : 'You will be charged $8/month when the user accepts'}
             </p>
             <p className="text-sm text-yellow-700 mt-1">
               {inviteMode === 'existing'
-                ? 'Adding this user will result in a $5/month recurring charge to your account.'
-                : 'A $5/month recurring charge will apply once the invited user accepts the invitation and joins your organization.'}
+                ? 'Adding this user will result in a $8/month recurring charge to your account ($96/year if on yearly billing).'
+                : 'A $8/month recurring charge will apply once the invited user accepts the invitation and joins your organization ($96/year if on yearly billing).'}
             </p>
           </div>
           {formValues && (
