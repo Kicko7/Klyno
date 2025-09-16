@@ -42,13 +42,25 @@ const ProviderItem = memo<AiProviderListItem>(({ id, name, source, enabled, logo
   const { styles, cx } = useStyles();
   const pathname = usePathname();
 
-  const activeKey = pathname.split('/').pop();
+  const activeKey = pathname.split('/').pop() || '';
 
   const isCustom = source === AiProviderSourceEnum.Custom;
+  
+  // Custom URL mapping for specific providers
+  const getProviderUrl = (providerId: string, providerName: string) => {
+    if (providerId === 'openrouter') {
+      return '/settings/provider/klyno';
+    }
+    return `/settings/provider/${providerId}`;
+  };
+
+  // Check if this provider is active (handle klyno URL mapping)
+  const isActive = activeKey === id || (id === 'openrouter' && activeKey === 'klyno');
+
   return (
     <Link
-      className={cx(styles.container, activeKey === id && styles.active)}
-      href={`/settings/provider/${id}`}
+      className={cx(styles.container, isActive && styles.active)}
+      href={getProviderUrl(id, name || '')}
     >
       <Flexbox gap={8} horizontal>
         {isCustom && logo ? (

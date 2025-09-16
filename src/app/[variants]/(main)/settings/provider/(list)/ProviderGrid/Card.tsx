@@ -31,10 +31,18 @@ const ProviderCard = memo<ProviderCardProps>(
 
     /* ↑ cloud slot ↑ */
 
+    // Custom URL mapping for specific providers
+    const getProviderUrl = (providerId: string, providerName: string) => {
+      if (providerId === 'openrouter' && providerName === 'KlynoAI') {
+        return '/settings/provider/klyno';
+      }
+      return `/settings/provider/${providerId}`;
+    };
+
     return (
       <Flexbox className={cx(styles.container)} gap={24}>
         <Flexbox gap={12} padding={16} width={'100%'}>
-          <Link href={`/settings/provider/${id}`}>
+          <Link href={getProviderUrl(id, name)}>
             <Flexbox gap={12} width={'100%'}>
               <Flexbox align={'center'} horizontal justify={'space-between'}>
                 {source === 'builtin' ? (

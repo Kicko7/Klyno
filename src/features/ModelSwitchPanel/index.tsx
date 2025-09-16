@@ -189,8 +189,16 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
               </Flexbox>
             ),
             onClick: () => {
+              // Custom URL mapping for specific providers
+              const getProviderUrl = (providerId: string, providerName: string) => {
+                if (providerId === 'openrouter') {
+                  return '/settings/provider/klyno';
+                }
+                return `/settings/provider/${providerId}`;
+              };
+              
               router.push(
-                isDeprecatedEdition ? '/settings/llm' : `/settings/provider/${provider.id}`,
+                isDeprecatedEdition ? '/settings/llm' : getProviderUrl(provider.id, provider.name),
               );
             },
           },
@@ -235,7 +243,7 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
             ((isTeamChat && currentOrganization?.memberRole === 'owner') ||
               (!isTeamChat && subscriptionInfo?.subscription?.status === 'active')) && (
               <Link
-                href={isDeprecatedEdition ? '/settings/llm' : `/settings/provider/${provider.id}`}
+                href={isDeprecatedEdition ? '/settings/llm' : (provider.id === 'openrouter' && provider.name === 'KlynoAI' ? '/settings/provider/klyno' : `/settings/provider/${provider.id}`)}
               >
                 <ActionIcon
                   icon={LucideBolt}
