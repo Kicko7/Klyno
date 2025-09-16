@@ -195,6 +195,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     return () => {
       socketRef.current?.emit('room:leave', teamChatId);
       socketRef.current?.disconnect();
+      setSocketRef(null);
 
       console.log('Socket disconnected');
     };
