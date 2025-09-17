@@ -95,9 +95,7 @@ const DefaultModelsForTeamChat = ({
   }
 
   // Load OpenRouter models from static config and enabled models from settings
-  const setActiveTeamChat = useTeamChatStore((state) => state.setActiveTeamChat);
   useEffect(() => {
-    setActiveTeamChat(null);
     const loadModels = async () => {
       if (!open) return;
 

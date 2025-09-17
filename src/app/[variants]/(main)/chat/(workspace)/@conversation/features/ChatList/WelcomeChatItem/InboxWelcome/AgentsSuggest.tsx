@@ -62,12 +62,6 @@ const AgentsSuggest = memo<{ mobile?: boolean }>(({ mobile }) => {
         color: '#ff6b6b',
       },
       {
-        category: AssistantCategory.Education,
-        icon: BookOpen,
-        label: 'Reading & Learning',
-        color: '#4ecdc4',
-      },
-      {
         category: AssistantCategory.CopyWriting,
         icon: Search,
         label: 'SEO & Content',
