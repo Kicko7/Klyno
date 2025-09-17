@@ -50,8 +50,6 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
     isFetchingMembers,
     fetchOrganizationMembers,
     organizations,
-    inviteMember,
-    isInviting,
     removeMember,
     deleteOrganization,
   } = useOrganizationStore();

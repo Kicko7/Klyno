@@ -467,7 +467,7 @@ export class StripeCheckoutService {
     billingInterval: "month" | "year"
   ) {
     try {
-      const amountInCents = billingInterval === "month" ? 500 : 5000;
+      const amountInCents = billingInterval === "month" ? 800 : 9600;
 
       await this.stripe.invoiceItems.create({
         customer: customerId,
