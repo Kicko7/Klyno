@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
           (user?.firstName && user?.lastName
             ? `${user.firstName} ${user.lastName}`
             : user?.firstName || user?.lastName) ?? 'assistant',
+            avatar: user?.avatar ?? '',
       },
       isMultiUserChat: true,
     };

@@ -8,10 +8,10 @@ import { DEFAULT_USER_AVATAR } from '@/const/meta';
 import { TeamChatMessageItem } from '@/database/schemas/teamChat';
 import ChatItem from '@/features/ChatItem';
 import Usage from '@/features/Conversation/Extras/Usage';
-import { useTeamChatWebSocket } from '@/hooks/useTeamChatWebSocket';
 import { useTeamChatStore } from '@/store/teamChat';
 import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
+import { userGeneralSettingsSelectors } from '@/store/user/selectors';
 
 import TeamChatActions from '../[teamId]/components/TeamChatActions';
 import TeamAPIKeyForm from './TeamAPIKeyForm';
@@ -246,14 +246,20 @@ const getMessageTimestamp = (createdAt: any): number => {
 
 const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLoading }) => {
   const teamChatId = useTeamChatStore(useCallback((state) => state.activeTeamChatId, []));
-  const { editMessage } = useTeamChatWebSocket({ teamChatId: teamChatId || '' });
   // ALL HOOKS AT THE TOP
   const userAvatar = useUserStore(userProfileSelectors.userAvatar);
   const currentUser = useUserStore(userProfileSelectors.userProfile);
   const theme = useTheme();
+  const transitionMode = useUserStore(userGeneralSettingsSelectors.transitionMode);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const lastMessageCountRef = useRef(messages?.length || 0);
+
+  // Track message generation state for smooth animations
+  const [generatingMessages, setGeneratingMessages] = useState<Set<string>>(new Set());
+  const previousMessageContentRef = useRef<Record<string, string>>({});
+  const lastMessageContentRef = useRef<string>('');
+  const messageAnimationTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
 
   // Zustand store selectors with stability
   const isMessageEditing = useTeamChatStore(useCallback((state) => state.messageEditingIds, []));
@@ -264,9 +270,13 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
   const updateMessageContent = useTeamChatStore(
     useCallback((state) => state.updateMessageContent, []),
   );
+
+  const editWebSocketMessage = useTeamChatStore(
+    useCallback((state) => state.editWebSocketMessage, []),
+  );
   const handleUpdateMessage = async (teamChatId: string, messageId: string, content: string) => {
     updateMessageContent(teamChatId, messageId, content);
-    editMessage(messageId, content);
+    editWebSocketMessage(messageId, content);
   };
 
   // Memoized processed messages for better performance
@@ -277,6 +287,67 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
       (msg) => msg && msg.id && (msg.content || msg.content === 'Thinking...'),
     );
   }, [messages]);
+
+  // Track message generation state for smooth animations
+  useEffect(() => {
+    const newGeneratingMessages = new Set<string>();
+    const currentContent = previousMessageContentRef.current;
+
+    processedMessages.forEach((message) => {
+      const messageId = message.id;
+      const currentMessageContent = message.content || '';
+      const previousContent = currentContent[messageId] || '';
+
+      // Check if message is currently being generated
+      const isThinking = message.content === 'Thinking...';
+      const isStreaming =
+        message.messageType === 'assistant' &&
+        currentMessageContent.length > previousContent.length &&
+        !message.metadata?.isComplete &&
+        !message.metadata?.finalMessage;
+      const isNewlyGenerated =
+        message.messageType === 'assistant' &&
+        currentMessageContent.length > 0 &&
+        !previousContent &&
+        !message.metadata?.isComplete;
+
+      // Check if user message is being sent (newly added with no previous content)
+      const isUserBeingSent =
+        message.messageType === 'user' && currentMessageContent.length > 0 && !previousContent;
+
+      const isGenerating = isThinking || isStreaming || isNewlyGenerated || isUserBeingSent;
+
+      if (isGenerating) {
+        newGeneratingMessages.add(messageId);
+
+        // For user messages, set a timeout to remove animation after a short period
+        if (isUserBeingSent && !messageAnimationTimeouts.current[messageId]) {
+          messageAnimationTimeouts.current[messageId] = setTimeout(() => {
+            setGeneratingMessages((prev) => {
+              const newSet = new Set(prev);
+              newSet.delete(messageId);
+              return newSet;
+            });
+            delete messageAnimationTimeouts.current[messageId];
+          }, 800); // 800ms animation duration for user messages
+        }
+      }
+
+      // Update the previous content tracking
+      currentContent[messageId] = currentMessageContent;
+    });
+
+    setGeneratingMessages(newGeneratingMessages);
+  }, [processedMessages]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(messageAnimationTimeouts.current).forEach((timeout) => {
+        clearTimeout(timeout);
+      });
+    };
+  }, []);
 
   // Optimized scroll to bottom with debouncing
   const scrollToBottom = useCallback(() => {
@@ -291,18 +362,48 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
     }
   }, [processedMessages.length, isAtBottom]);
 
+  // More aggressive scroll for streaming updates
+  const scrollToBottomForStreaming = useCallback(() => {
+    if (processedMessages.length > 0 && isAtBottom) {
+      // Use multiple animation frames for smoother streaming scroll
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          virtuosoRef.current?.scrollToIndex({
+            index: processedMessages.length - 1,
+            behavior: 'smooth',
+            align: 'end',
+          });
+        });
+      });
+    }
+  }, [processedMessages.length, isAtBottom]);
+
   // Auto-scroll effect with optimization
   useEffect(() => {
     const currentCount = processedMessages.length;
     const previousCount = lastMessageCountRef.current;
 
-    // Only scroll if new messages were added and user is at bottom
+    // Scroll if new messages were added and user is at bottom
     if (currentCount > previousCount && isAtBottom) {
       scrollToBottom();
     }
 
     lastMessageCountRef.current = currentCount;
   }, [processedMessages.length, isAtBottom, scrollToBottom]);
+
+  // Auto-scroll when the last message content changes (for streaming)
+  useEffect(() => {
+    if (processedMessages.length > 0 && isAtBottom) {
+      const lastMessage = processedMessages[processedMessages.length - 1];
+      const currentLastContent = lastMessage?.content || '';
+
+      // If the last message content has changed and user is at bottom, scroll
+      if (currentLastContent !== lastMessageContentRef.current && currentLastContent) {
+        scrollToBottomForStreaming();
+        lastMessageContentRef.current = currentLastContent;
+      }
+    }
+  }, [processedMessages, isAtBottom, scrollToBottomForStreaming]);
 
   // Memoized avatar generator
   const getAvatar = useCallback(
@@ -331,6 +432,10 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
       const userInfo = message.metadata?.userInfo;
       const isCurrentUser = currentUser?.id === userInfo?.id;
 
+      // Check if message is currently being generated for animation
+      const isGenerating = generatingMessages.has(message.id);
+      const animated = transitionMode === 'fadeIn' && isGenerating;
+
       // Parse error and content
       let actualMessage = message.content;
       let isApiKeyError = false;
@@ -351,7 +456,18 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
       const messageTime = getMessageTimestamp(message.createdAt);
 
       return (
-        <div style={{ padding: '8px 16px' }}>
+        <div
+          style={{
+            padding: '8px 16px',
+            transition: 'opacity 0.4s ease-in-out, transform 0.3s ease-out',
+            opacity: animated ? (isAssistant ? 0.8 : 0.9) : 1,
+            transform: animated
+              ? isAssistant
+                ? 'translateY(2px)'
+                : 'translateY(1px)'
+              : 'translateY(0)',
+          }}
+        >
           {isApiKeyError ? (
             <APIKeyErrorMessage messageId={message.id} errorProvider={errorProvider} />
           ) : (
@@ -385,6 +501,10 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
                 ) : undefined
               }
               variant="bubble"
+              markdownProps={{
+                animated,
+                variant: 'chat' as const,
+              }}
             />
           )}
         </div>
@@ -398,6 +518,8 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
       getAvatar,
       toggleMessageEditing,
       updateMessageContent,
+      generatingMessages,
+      transitionMode,
     ],
   );
 
@@ -425,20 +547,22 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
     return <TeamChatWelcome />;
   }
 
-  // Determine Virtuoso configuration based on message count
+  // Determine Virtuoso configuration based on message count and generation state
   const shouldUseVirtualization = processedMessages.length > 10;
+  const hasGeneratingMessages = generatingMessages.size > 0;
+
   const virtuosoProps = shouldUseVirtualization
     ? {
-        followOutput: 'smooth' as const,
+        followOutput: hasGeneratingMessages ? ('smooth' as const) : ('auto' as const),
         alignToBottom: true,
         initialTopMostItemIndex: Math.max(0, processedMessages.length - 1),
         overscan: 10,
         increaseViewportBy: { top: 200, bottom: 200 },
       }
     : {
-        // For few messages, don't use aggressive bottom alignment
-        followOutput: false as const,
-        alignToBottom: false,
+        // For few messages, enable smooth follow when generating
+        followOutput: hasGeneratingMessages ? ('smooth' as const) : (false as const),
+        alignToBottom: hasGeneratingMessages,
         initialTopMostItemIndex: 0,
         overscan: 2,
       };

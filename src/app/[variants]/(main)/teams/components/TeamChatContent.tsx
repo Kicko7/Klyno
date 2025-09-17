@@ -2,9 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { memo } from 'react';
-import { Flexbox } from 'react-layout-kit';
 
-import { useTeamChatWebSocket } from '@/hooks/useTeamChatWebSocket';
 import { lambdaClient } from '@/libs/trpc/client';
 import { useTeamChatStore } from '@/store/teamChat';
 import { useUserStore } from '@/store/user';
@@ -243,11 +241,6 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
       loadMessages(1);
     }, [teamChatId, loadMessages]);
 
-    // Use WebSocket for real-time updates instead of polling
-    const { sendMessage, startTyping, stopTyping, updateReadReceipt } = useTeamChatWebSocket({
-      teamChatId,
-      enabled: isActive,
-    });
 
     // Get messages from store (updated via WebSocket) - Fixed to return stable reference
     const messages = useTeamChatStore((state) => state.messages[teamChatId] || null);
@@ -277,8 +270,6 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
 
         const state = useTeamChatStore.getState();
         const messages = state.messages[teamChatId];
-
-        // Real-time updates are now handled by WebSocket in useTeamChatWebSocket hook
 
         if (messages?.length > 0) {
           // Cache messages before unmounting

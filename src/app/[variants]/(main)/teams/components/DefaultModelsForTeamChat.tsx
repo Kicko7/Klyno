@@ -172,7 +172,7 @@ const DefaultModelsForTeamChat = ({
     };
 
     loadModels();
-  }, [teamChatId, organizationId, open, enabledChatModels]);
+  }, [ organizationId, open, enabledChatModels]);
 
   // Filter models based on search term and category
   useEffect(() => {

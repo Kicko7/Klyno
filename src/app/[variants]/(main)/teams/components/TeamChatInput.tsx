@@ -1,14 +1,14 @@
 import { DraggablePanel, FluentEmoji } from '@lobehub/ui';
 import { notification } from 'antd';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Flexbox } from 'react-layout-kit';
+import { Socket, io } from 'socket.io-client';
 
 import { CHAT_TEXTAREA_HEIGHT } from '@/const/layoutTokens';
 import { ActionKeys } from '@/features/ChatInput/ActionBar/config';
 import Head from '@/features/ChatInput/Desktop/Header';
 import InputArea from '@/features/ChatInput/Desktop/InputArea';
 import { useModelSupportVision } from '@/hooks/useModelSupportVision';
-import { useTeamChatWebSocket } from '@/hooks/useTeamChatWebSocket';
 import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { chatService } from '@/services/chat';
 import { useAgentStore } from '@/store/agent';
@@ -23,6 +23,7 @@ import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
 import { MessageRoleType } from '@/types/message';
 import { CreateMessageParams } from '@/types/message';
+import { MessageStreamData } from '@/types/redis';
 import { calculateCreditsByPlan } from '@/utils/calculateCredits';
 import { nanoid } from '@/utils/uuid';
 
@@ -108,21 +109,120 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   ]);
 
   // Get team chat store methods and routing
-  const { createNewTeamChatWithTopic, activeTopicId } = useTeamChatStore();
+  const { batchUpdateMessages, removeMessage, setSocketRef } = useTeamChatStore();
 
-  const storeFunctions = useMemo(
-    () => ({
-      createNewTeamChatWithTopic,
-      activeTopicId,
-    }),
+  const activeTeamChatId = useTeamChatStore((state) => state.activeTeamChatId);
+  const socketRef = useRef<Socket | null>(null);
+
+  const isDuplicateMessage = useCallback((message: MessageStreamData, existingMessages: any[]) => {
+    if (!message.id) return false;
+
+    return existingMessages.some(
+      (existing) =>
+        existing.id === message.id ||
+        (existing.content === message.content &&
+          existing.userId === message.userId &&
+          Math.abs(existing.createdAt.getTime() - new Date(message.timestamp).getTime()) < 1000),
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!activeTeamChatId || !currentUser?.id) return;
+
+    socketRef.current = io(process.env.NEXT_PUBLIC_WEBSOCKET_URL, {
+      auth: { userId: currentUser.id },
+      transports: ['websocket'],
+      upgrade: false,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 10000,
+      timeout: 25000,
+    });
+
+    socketRef.current.on('connect', () => {
+      console.log('Connected to socket:', socketRef.current?.id);
+      setSocketRef(socketRef);
+      socketRef.current?.emit('room:join', activeTeamChatId);
+    });
+
+    socketRef.current.on('connect_error', (err) => {
+      console.error('Socket connection error:', err.message);
+    });
+
+    socketRef.current.on('disconnect', () => {
+      console.log('Socket disconnected');
+    });
+
+    socketRef.current.on('message:new', (message: MessageStreamData) => {
+      if (!message.id || message.teamId !== activeTeamChatId) return;
+      const existingMessages = useTeamChatStore.getState().messages[message.teamId] || [];
+      if (isDuplicateMessage(message, existingMessages)) return;
+
+      const msg = {
+        id: message.id,
+        content: message.content,
+        messageType:
+          message.userId === 'assistant'
+            ? 'assistant'
+            : message.type === 'message'
+              ? 'user'
+              : (message.type as 'user' | 'assistant' | 'system'),
+        teamChatId: message.teamId,
+        userId: message.userId,
+        metadata: message.metadata || {},
+        createdAt: new Date(message.timestamp),
+        updatedAt: new Date(),
+        accessedAt: new Date(),
+      };
+      teamChatStore.batchUpdateMessages(message.teamId, [msg as any]);
+    });
+
+    socketRef.current.on('message:update', (data: { id: string; content: string }) => {
+      console.log('message:update', data);
+      const state = useTeamChatStore.getState();
+      const existing = state.messages[teamChatId] || [];
+      const idx = existing.findIndex((m) => m.id === data.id);
+      if (idx !== -1) {
+        const updated = { ...existing[idx], content: data.content, updatedAt: new Date() };
+        batchUpdateMessages(teamChatId, [updated as any]);
+      }
+    });
+
+    socketRef.current.on('message:delete', (id: string) => {
+      removeMessage(teamChatId, id);
+    });
+
+    return () => {
+      socketRef.current?.emit('room:leave', teamChatId);
+      socketRef.current?.disconnect();
+      setSocketRef(null);
+
+      console.log('Socket disconnected');
+    };
+  }, [activeTeamChatId, currentUser?.id]);
+
+  const sendWebSocketMessage = useCallback(
+    (
+      content: string,
+      type: 'user' | 'assistant' | 'system' = 'user',
+      metadata?: any,
+      messageId?: string,
+      timestamp?: any,
+    ) => {
+      if (socketRef.current?.connected) {
+        socketRef.current?.emit('message:send', {
+          teamId: activeTeamChatId,
+          content,
+          type,
+          metadata,
+          messageId,
+          timestamp,
+        });
+      }
+    },
     [],
   );
-
-  // Use WebSocket for real-time messaging
-  const { sendMessage: sendWebSocketMessage } = useTeamChatWebSocket({
-    teamChatId,
-    enabled: true,
-  });
 
   const handleInputChange = (value: string) => {
     setInputMessage(value);
@@ -149,7 +249,6 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   const teamChatsByOrg = useTeamChatStore((state) => state.teamChatsByOrg);
 
   const teamChats = selectedOrganizationId ? teamChatsByOrg[selectedOrganizationId] || [] : [];
-  const activeTeamChatId = useTeamChatStore((state) => state.activeTeamChatId);
   const activeTeamChat = teamChats.find((chat) => chat.id === activeTeamChatId);
   const sessionId = activeTeamChat?.metadata?.sessionId;
   const agentConfigSession = useAgentStore(agentSelectors.getAgentConfigBySessionId(sessionId));
@@ -269,7 +368,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         message.sendTime,
       );
       // Send message via WebSocket
-      // console.log('Sending message to WebSocket');
+      console.log('Sending message to WebSocket');
 
       // Create temporary assistant message
       setTimeout(async () => {

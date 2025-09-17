@@ -129,7 +129,6 @@ export const useUserSubscription = () => {
           creditsUsed,
         });
         if (result.success) {
-          console.log('🔍 result', result);
           setOrganizationSubscriptionInfo((prev) =>
             prev
               ? {
