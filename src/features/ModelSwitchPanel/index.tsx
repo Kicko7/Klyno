@@ -104,52 +104,6 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
     }
   }, [activeTeamChatId]);
 
-  // Auto-select first default model when user joins team chat
-  useEffect(() => {
-    if (!isTeamChat || !sessionId || !activeTeamChatId || !enabledList || enabledList.length === 0 || isModelListLoading) {
-      return;
-    }
-
-    // Use the same filtering logic as items to get the first available model
-    let filteredEnabledList = enabledList;
-
-    if (isTeamChat) {
-      // In team chat: show organization default models, if empty then show all models
-      if (teamChatDefaultModels.length > 0) {
-        filteredEnabledList = enabledList
-          .map((provider) => ({
-            ...provider,
-            children: provider.children.filter((model) => teamChatDefaultModels.includes(model.id)),
-          }))
-          .filter((provider) => provider.children.length > 0);
-      } else {
-        if (selectedOrganizationId && defaultModels.length > 0) {
-          const orgDefaultModels = defaultModels;
-          filteredEnabledList = enabledList
-            .map((provider) => ({
-              ...provider,
-              children: provider.children.filter((model) => orgDefaultModels.includes(model.id)),
-            }))
-            .filter((provider) => provider.children.length > 0);
-        } else {
-          filteredEnabledList = enabledList.filter((provider) => provider.id === 'openrouter');
-        }
-      }
-    }
-
-    // Get the first model from the filtered list (same as what appears first in items)
-    if (filteredEnabledList.length > 0) {
-      const firstProvider = filteredEnabledList[0];
-      if (firstProvider.children.length > 0) {
-        const firstModel = firstProvider.children[0];
-        
-        // Auto-select the first available model
-        updateAgentConfig({ model: firstModel.id, provider: firstProvider.id }, sessionId);
-        console.log(`Auto-selected first available model: ${firstProvider.id}/${firstModel.id}`);
-      }
-    }
-  }, [sessionId, isModelListLoading]);
-
   const items = useMemo<ItemType[]>(() => {
     // Show loading state if model list is being fetched
     if (isModelListLoading || !enabledList || enabledList.length === 0) {
@@ -272,6 +226,14 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
           },
         },
       ];
+
+    // Auto-select first model when user joins team chat (only if sessionId exists and we have models)
+    if (isTeamChat && sessionId && filteredEnabledList.length > 0 && filteredEnabledList[0].children.length > 0) {
+      updateAgentConfig({
+        model: filteredEnabledList[0].children[0].id, 
+        provider: filteredEnabledList[0].id
+      }, sessionId);
+    }
 
     // otherwise show with provider group
     return filteredEnabledList.map((provider) => ({

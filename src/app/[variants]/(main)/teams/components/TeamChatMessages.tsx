@@ -460,7 +460,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
           style={{
             padding: '8px 16px',
             transition: 'opacity 0.4s ease-in-out, transform 0.3s ease-out',
-            opacity: animated ? (isAssistant ? 0.8 : 0.9) : 1,
+            // opacity: animated ? (isAssistant ? 0.8 : 0.9) : 1,
             transform: animated
               ? isAssistant
                 ? 'translateY(2px)'
