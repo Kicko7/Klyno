@@ -299,6 +299,13 @@ export class WebSocketServer {
         try {
           console.log(`✏️ Message edit request: ${messageId} by user ${socket.data.userId}`);
 
+
+          for (const roomId of socket.data.activeRooms) {
+            this.io.to(roomId).emit('message:update', {
+              id: messageId,
+              content,
+            });
+          }
           // First, check if message exists in Redis session
           const session = await this.sessionManager.getSessionByMessageId(messageId);
 
@@ -314,22 +321,21 @@ export class WebSocketServer {
               updatedBy: socket.data.userId,
             });
 
-            console.log(`✅ Message ${messageId} updated in Redis session ${session.sessionId}`);
+            // Broadcast to all clients in the room EXCEPT the sender
+        
+
           } else {
             try {
-              console.log(`✅ Message ${messageId} updated in database`);
-              const message = await this.apiService.updateMessage(messageId, {
+               await this.apiService.updateMessage(messageId, {
                 content,
                 updatedAt: new Date(),
                 updatedBy: socket.data.userId,
               });
-              console.log(`✅ Message ${messageId} updated in database`, message);
             } catch (dbError) {
               console.error('❌ Failed to update message in database:', dbError);
-
-              return;
             }
           }
+        
         } catch (error) {
           console.error('❌ Error editing message:', error);
         }

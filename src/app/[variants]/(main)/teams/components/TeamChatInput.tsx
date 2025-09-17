@@ -179,6 +179,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     });
 
     socketRef.current.on('message:update', (data: { id: string; content: string }) => {
+      console.log('message:update', data);
       const state = useTeamChatStore.getState();
       const existing = state.messages[teamChatId] || [];
       const idx = existing.findIndex((m) => m.id === data.id);
