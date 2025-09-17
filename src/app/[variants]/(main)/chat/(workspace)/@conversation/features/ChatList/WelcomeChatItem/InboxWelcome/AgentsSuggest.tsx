@@ -1,17 +1,17 @@
 'use client';
 
-import { ActionIcon, Avatar, Block, Grid, Text, Tag } from '@lobehub/ui';
+import { ActionIcon, Avatar, Block, Grid, Tag, Text } from '@lobehub/ui';
 import { Skeleton } from 'antd';
 import { createStyles } from 'antd-style';
-import { RefreshCw, TrendingUp, BookOpen, Search, Briefcase, Palette } from 'lucide-react';
+import { BookOpen, Briefcase, Palette, RefreshCw, Search, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
-import { memo, useState, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Flexbox } from 'react-layout-kit';
 import urlJoin from 'url-join';
 
 import { useDiscoverStore } from '@/store/discover';
-import { DiscoverAssistantItem, AssistantCategory } from '@/types/discover';
+import { AssistantCategory, DiscoverAssistantItem } from '@/types/discover';
 
 const useStyles = createStyles(({ css, token, responsive }) => ({
   card: css`
@@ -49,31 +49,59 @@ const useStyles = createStyles(({ css, token, responsive }) => ({
 
 const AgentsSuggest = memo<{ mobile?: boolean }>(({ mobile }) => {
   const { t } = useTranslation('welcome');
-  const [refreshKey, setRefreshKey] = useState(0);
   const useAssistantList = useDiscoverStore((s) => s.useAssistantList);
+  const [page, setPage] = useState(1);
 
   // Define recommended categories with their icons and display names
-  const recommendedCategories = useMemo(() => [
-    { category: AssistantCategory.Marketing, icon: TrendingUp, label: 'Marketing', color: '#ff6b6b' },
-    { category: AssistantCategory.Education, icon: BookOpen, label: 'Reading & Learning', color: '#4ecdc4' },
-    { category: AssistantCategory.CopyWriting, icon: Search, label: 'SEO & Content', color: '#45b7d1' },
-    { category: AssistantCategory.Career, icon: Briefcase, label: 'Career & Business', color: '#96ceb4' },
-    { category: AssistantCategory.Design, icon: Palette, label: 'Design & Creative', color: '#feca57' },
-  ], []);
-
-  // Fetch assistants from each category
-  const categoryQueries = recommendedCategories.map(({ category }) => 
-    useAssistantList({
-      category,
-      page: 1,
-      pageSize: 1, // Get 1 assistant per category
-    })
+  const recommendedCategories = useMemo(
+    () => [
+      {
+        category: AssistantCategory.Marketing,
+        icon: TrendingUp,
+        label: 'Marketing',
+        color: '#ff6b6b',
+      },
+      {
+        category: AssistantCategory.Education,
+        icon: BookOpen,
+        label: 'Reading & Learning',
+        color: '#4ecdc4',
+      },
+      {
+        category: AssistantCategory.CopyWriting,
+        icon: Search,
+        label: 'SEO & Content',
+        color: '#45b7d1',
+      },
+      {
+        category: AssistantCategory.Career,
+        icon: Briefcase,
+        label: 'Career & Business',
+        color: '#96ceb4',
+      },
+      {
+        category: AssistantCategory.Design,
+        icon: Palette,
+        label: 'Design & Creative',
+        color: '#feca57',
+      },
+    ],
+    [],
   );
 
-  const isLoading = categoryQueries.some(query => query.isLoading);
-  const hasError = categoryQueries.some(query => query.error);
+  // Fetch assistants from each category
+  const categoryQueries = recommendedCategories.map(({ category }) =>
+    useAssistantList({
+      category,
+      page,
+      pageSize: mobile ? 2 : 4,
+    }),
+  );
+
+  const isLoading = categoryQueries.some((query) => query.isLoading);
+  const hasError = categoryQueries.some((query) => query.error);
   const allData = categoryQueries
-    .map(query => query.data?.items?.[0])
+    .map((query) => query.data?.items?.[0])
     .filter((item): item is DiscoverAssistantItem => Boolean(item));
 
   const { styles } = useStyles();
@@ -85,7 +113,7 @@ const AgentsSuggest = memo<{ mobile?: boolean }>(({ mobile }) => {
   ));
 
   const handleRefresh = () => {
-    setRefreshKey(prev => prev + 1);
+    setPage((prev) => prev + 1);
   };
 
   // if no assistant data, just hide the component
@@ -108,7 +136,7 @@ const AgentsSuggest = memo<{ mobile?: boolean }>(({ mobile }) => {
           : allData.map((item, index) => {
               const categoryInfo = recommendedCategories[index];
               const IconComponent = categoryInfo?.icon || TrendingUp;
-              
+
               return (
                 <Link
                   href={urlJoin('/discover/assistant', item.identifier)}
