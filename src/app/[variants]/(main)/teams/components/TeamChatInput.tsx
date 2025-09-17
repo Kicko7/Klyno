@@ -252,11 +252,13 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   const activeTeamChat = teamChats.find((chat) => chat.id === activeTeamChatId);
   const sessionId = activeTeamChat?.metadata?.sessionId;
   const agentConfigSession = useAgentStore(agentSelectors.getAgentConfigBySessionId(sessionId));
+  
 
   // Get current model and check if it supports vision (images)
   const currentModel = agentConfigSession?.model || 'gpt-4';
   const currentProvider = agentConfigSession?.provider || 'openai';
   const modelSupportsVision = useModelSupportVision(currentModel, currentProvider);
+
 
   // If model supports vision (images), allow all file uploads
   const canUpload = modelSupportsVision;
