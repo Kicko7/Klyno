@@ -1,23 +1,17 @@
 import { ActionIcon, ActionIconProps } from '@lobehub/ui';
-import {
-  Search,
-  FolderClosed,
-  MessageSquare,
-  Users,
-  Lock,
-} from 'lucide-react';
+import { FolderClosed, Lock, MessageSquare, Search, Users } from 'lucide-react';
 import Link from 'next/link';
 import { memo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Flexbox } from 'react-layout-kit';
 
+import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { useGlobalStore } from '@/store/global';
 import { SidebarTabKey } from '@/store/global/initialState';
+import { useOrganizationStore } from '@/store/organization/store';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
 import { useSessionStore } from '@/store/session';
 import { useTeamChatStore } from '@/store/teamChat';
-import { useUserSubscription } from '@/hooks/useUserSubscription';
-import { useOrganizationStore } from '@/store/organization/store';
 
 const ICON_SIZE: ActionIconProps['size'] = {
   blockSize: 40,
@@ -37,7 +31,7 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
   const { subscriptionInfo } = useUserSubscription();
 
   // Get organization data
-  const { organizations ,fetchOrganizations} = useOrganizationStore();
+  const { organizations, fetchOrganizations } = useOrganizationStore();
 
   const isChatActive = tab === SidebarTabKey.Chat && !isPinned;
   const isFilesActive = tab === SidebarTabKey.Files;
@@ -46,8 +40,11 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
 
   const setActiveTeamChat = useTeamChatStore((state) => state.setActiveTeamChat);
 
-  const isUserHasSubscription = subscriptionInfo?.subscription?.status === 'active' && subscriptionInfo?.subscription?.planName !== 'Starter' && subscriptionInfo?.subscription?.planName !== 'Creator Pro';
-  
+  const isUserHasSubscription =
+    subscriptionInfo?.subscription?.status === 'active' &&
+    subscriptionInfo?.subscription?.planName !== 'Starter' &&
+    subscriptionInfo?.subscription?.planName !== 'Creator Pro';
+
   const isUserUnlocked = isUserHasSubscription || organizations.length > 0;
   const isTeamsLocked = !isUserUnlocked;
 
@@ -110,7 +107,7 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
           />
         </Link>
       )}
-   
+
       {showMarket && (
         <Link aria-label={t('tab.discover')} href={'/discover'}>
           <ActionIcon
@@ -125,7 +122,6 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
           />
         </Link>
       )}
- 
     </Flexbox>
   );
 });
