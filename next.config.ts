@@ -40,6 +40,9 @@ const nextConfig: NextConfig = {
     webpackMemoryOptimizations: true,
     webpackBuildWorker: true,
   },
+  compiler: {
+    removeConsole: isProd ? true : false
+  },
   async headers() {
     return [
       {
@@ -144,19 +147,6 @@ const nextConfig: NextConfig = {
   webpack(config) {
     config.experiments = { asyncWebAssembly: true, layers: true };
 
-    // Hide console logs in production (runtime safeguard)
-    if (isProd) {
-      config.plugins.push({
-        apply: (compiler) => {
-          compiler.hooks.emit.tap('RemoveConsoleLogsPlugin', () => {
-            console.log = () => {};
-            console.debug = () => {};
-            console.info = () => {};
-          });
-        },
-      });
-    }
-
     if (enableReactScan && !isUsePglite) {
       config.plugins.push(ReactComponentName({}));
     }
@@ -187,22 +177,22 @@ const hasSentry = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
 const withSentry =
   isProd && hasSentry
     ? (c: NextConfig) =>
-        withSentryConfig(
-          c,
-          {
-            org: process.env.SENTRY_ORG,
-            project: process.env.SENTRY_PROJECT,
-            silent: true,
-          },
-          {
-            automaticVercelMonitors: true,
-            disableLogger: true,
-            hideSourceMaps: true,
-            transpileClientSDK: true,
-            tunnelRoute: '/monitoring',
-            widenClientFileUpload: true,
-          },
-        )
+      withSentryConfig(
+        c,
+        {
+          org: process.env.SENTRY_ORG,
+          project: process.env.SENTRY_PROJECT,
+          silent: true,
+        },
+        {
+          automaticVercelMonitors: true,
+          disableLogger: true,
+          hideSourceMaps: true,
+          transpileClientSDK: true,
+          tunnelRoute: '/monitoring',
+          widenClientFileUpload: true,
+        },
+      )
     : noWrapper;
 
 export default withBundleAnalyzer(withPWA(withSentry(nextConfig) as NextConfig));
