@@ -109,7 +109,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   ]);
 
   // Get team chat store methods and routing
-  const { batchUpdateMessages, removeMessage, setSocketRef  } = useTeamChatStore();
+  const { batchUpdateMessages, removeMessage, setSocketRef } = useTeamChatStore();
 
   const activeTeamChatId = useTeamChatStore((state) => state.activeTeamChatId);
   const socketRef = useRef<Socket | null>(null);
@@ -129,7 +129,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   useEffect(() => {
     if (!activeTeamChatId || !currentUser?.id) return;
 
-    socketRef.current = io(process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:3001', {
+    socketRef.current = io(process.env.NEXT_PUBLIC_WEBSOCKET_URL, {
       auth: { userId: currentUser.id },
       transports: ['websocket'],
       upgrade: false,
