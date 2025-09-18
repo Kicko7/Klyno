@@ -16,7 +16,7 @@ const isInVercel = process.env.VERCEL === '1';
 
 const vercelUrl = `https://${process.env.VERCEL_URL}`;
 
-const APP_URL = process.env.APP_URL ? process.env.APP_URL :'https://klyno.ai';
+const APP_URL = process.env.APP_URL ? process.env.APP_URL : 'https://klyno.ai';
 
 // only throw error in server mode and server side
 if (typeof window === 'undefined' && isServerMode && !APP_URL) {
