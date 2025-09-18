@@ -5,13 +5,13 @@ import { useChatListActionsBar } from '../hooks/useChatListActionsBar';
 import type { RenderAction } from '../types';
 
 export const DefaultActionsBar: RenderAction = memo(({ onActionClick }) => {
-  const { del } = useChatListActionsBar();
+  const { del, feedback } = useChatListActionsBar();
 
   return (
     <ActionIconGroup
       items={[]}
       menu={{
-        items: [del],
+        items: [del, feedback],
       }}
       onActionClick={onActionClick}
     />

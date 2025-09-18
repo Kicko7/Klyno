@@ -15,7 +15,7 @@ export const UserActionsBar: RenderAction = memo(({ onActionClick, id }) => {
     !!s.activeThreadId,
     threadSelectors.hasThreadBySourceMsgId(id)(s),
   ]);
-  const { regenerate, edit, copy, divider, del, branching } = useChatListActionsBar({ hasThread });
+  const { regenerate, edit, copy, divider, del, branching, feedback } = useChatListActionsBar({ hasThread });
   const { translate, tts } = useCustomActions();
 
   const inPortalThread = useContext(InPortalThreadContext);
@@ -31,7 +31,7 @@ export const UserActionsBar: RenderAction = memo(({ onActionClick, id }) => {
     <ActionIconGroup
       items={items}
       menu={{
-        items: [edit, copy, divider, tts, translate, divider, regenerate, del],
+        items: [edit, copy, divider, tts, translate, divider, regenerate, del, feedback],
       }}
       onActionClick={onActionClick}
     />
