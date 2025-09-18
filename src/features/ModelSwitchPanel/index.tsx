@@ -15,9 +15,9 @@ import ActionDropdown from '@/features/ChatInput/ActionBar/components/ActionDrop
 import { useEnabledChatModels } from '@/hooks/useEnabledChatModels';
 import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { lambdaClient } from '@/libs/trpc/client';
-import { useAiInfraStore } from '@/store/aiInfra';
 import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/slices/chat';
+import { useAiInfraStore } from '@/store/aiInfra';
 import { useOrganizationStore } from '@/store/organization/store';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
 import { useTeamChatStore } from '@/store/teamChat';
@@ -72,11 +72,13 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
   const { showLLM } = useServerConfigStore(featureFlagsSelectors);
   const router = useRouter();
   const enabledList = useEnabledChatModels();
-  
+
   const isLogin = useUserStore(authSelectors.isLogin);
-  
+
   // Get loading state for model list
-  const { isLoading: isModelListLoading } = useAiInfraStore((s) => s.useFetchAiProviderRuntimeState(isLogin, undefined));
+  const { isLoading: isModelListLoading } = useAiInfraStore((s) =>
+    s.useFetchAiProviderRuntimeState(isLogin, undefined),
+  );
 
   const pathname = usePathname();
   const isTeamChat = pathname.includes('teams');
@@ -143,8 +145,7 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
               children: provider.children.filter((model) => orgDefaultModels.includes(model.id)),
             }))
             .filter((provider) => provider.children.length > 0);
-        }
-        else {
+        } else {
           filteredEnabledList = enabledList.filter((provider) => provider.id === 'openrouter');
         }
       }
@@ -196,7 +197,7 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
                 }
                 return `/settings/provider/${providerId}`;
               };
-              
+
               router.push(
                 isDeprecatedEdition ? '/settings/llm' : getProviderUrl(provider.id, provider.name),
               );
@@ -228,11 +229,19 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
       ];
 
     // Auto-select first model when user joins team chat (only if sessionId exists and we have models)
-    if (isTeamChat && sessionId && filteredEnabledList.length > 0 && filteredEnabledList[0].children.length > 0) {
-      updateAgentConfig({
-        model: filteredEnabledList[0].children[0].id, 
-        provider: filteredEnabledList[0].id
-      }, sessionId);
+    if (
+      isTeamChat &&
+      sessionId &&
+      filteredEnabledList.length > 0 &&
+      filteredEnabledList[0].children.length > 0
+    ) {
+      updateAgentConfig(
+        {
+          model: filteredEnabledList[0].children[0].id,
+          provider: filteredEnabledList[0].id,
+        },
+        sessionId,
+      );
     }
 
     // otherwise show with provider group
@@ -251,7 +260,13 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId
             ((isTeamChat && currentOrganization?.memberRole === 'owner') ||
               (!isTeamChat && subscriptionInfo?.subscription?.status === 'active')) && (
               <Link
-                href={isDeprecatedEdition ? '/settings/llm' : (provider.id === 'openrouter' && provider.name === 'KlynoAI' ? '/settings/provider/klyno' : `/settings/provider/${provider.id}`)}
+                href={
+                  isDeprecatedEdition
+                    ? '/settings/llm'
+                    : provider.id === 'openrouter' && provider.name === 'KlynoAI'
+                      ? '/settings/provider/klyno'
+                      : `/settings/provider/${provider.id}`
+                }
               >
                 <ActionIcon
                   icon={LucideBolt}

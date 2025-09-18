@@ -76,7 +76,7 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
           tooltipProps={{ placement: 'right' }}
         />
       </Link>
-      <Link aria-label="Teams" href={isTeamsLocked ? '#' : '/teams'}>
+      <Link aria-label="Teams" href={isTeamsLocked ? '/pricing' : '/teams'}>
         <ActionIcon
           active={isTeamsActive && !isTeamsLocked}
           disabled={isTeamsLocked}
