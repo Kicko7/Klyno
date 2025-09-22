@@ -7,7 +7,6 @@ import { authedProcedure, router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { CreditManager } from '@/server/services/credits/creditManager';
 import { UsageTracker } from '@/server/services/usage/usageTracker';
-import { creditServerService } from '@/services/creditService';
 import { TeamChatService } from '@/services/teamChatService';
 import type { ModelTokensUsage } from '@/types/message';
 import { calculateMessageCredits } from '@/utils/creditCalculation';
