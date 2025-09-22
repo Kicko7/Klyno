@@ -82,7 +82,7 @@ const TopActions = memo<TopActionProps>(({ tab, isPinned }) => {
           disabled={isTeamsLocked}
           icon={isTeamsLocked ? Lock : Users}
           size={ICON_SIZE}
-          title={isTeamsLocked ? 'Teams (Premium Required)' : 'Teams'}
+          title={isTeamsLocked ? 'Teams (Team Subscription Required)' : 'Teams'}
           tooltipProps={{ placement: 'right' }}
           onClick={(e) => {
             if (isTeamsLocked) {
