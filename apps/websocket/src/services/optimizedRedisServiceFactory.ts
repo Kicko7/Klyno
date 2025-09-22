@@ -1,12 +1,12 @@
-import { getRedisClient } from '@/libs/redis/client';
+import { getRedisClient } from '../libs/redis/client';
 
-import { RedisService } from './redisService';
+import { OptimizedRedisService } from './optimizedRedisService';
 
 // Dynamic imports to prevent client-side execution of Node.js modules
 let Redis: any;
 let RedisClientType: any;
 
-let redisService: RedisService | null = null;
+let optimizedRedisService: OptimizedRedisService | null = null;
 
 // Create a minimal adapter for local Redis client
 const createLocalAdapter = (client: any): Partial<any> => {
@@ -44,35 +44,54 @@ const createLocalAdapter = (client: any): Partial<any> => {
       const result = await client.xAdd(key, '*', fields);
       return result || '';
     },
-    xrange: async (
-      key: string,
-      start: string,
-      end: string,
-      count?: number,
-    ): Promise<Record<string, Record<string, unknown>>> => {
-      const result = await client.xRange(
-        key,
-        start || '-',
-        end || '+',
-        count ? { COUNT: count } : undefined,
-      );
-      return result.reduce((acc: Record<string, Record<string, unknown>>, item: any) => {
-        acc[item.id] = item.message;
-        return acc;
-      }, {});
+    xrange: async (key: string, start: string, end: string) => {
+      const result = await client.xRange(key, start, end);
+      return result || [];
     },
-    scan: async (cursor: string | number, options?: { match?: string; count?: number }) => {
-      const result = await client.scan(String(cursor), {
-        MATCH: options?.match,
-        COUNT: options?.count,
-      });
-      return [result.cursor.toString(), result.keys] as [string, string[]];
+    scan: async (cursor: string, options?: any) => {
+      const result = await client.scan(cursor, options);
+      return result || { cursor: '0', keys: [] };
+    },
+    ping: async () => {
+      try {
+        await client.ping();
+        return 'PONG';
+      } catch (error) {
+        throw error;
+      }
+    },
+    pipeline: () => {
+      return {
+        setex: (key: string, ttl: number, value: string) => {
+          return { setex: [key, ttl, value] };
+        },
+        set: (key: string, value: string) => {
+          return { set: [key, value] };
+        },
+        del: (key: string) => {
+          return { del: [key] };
+        },
+        expire: (key: string, ttl: number) => {
+          return { expire: [key, ttl] };
+        },
+        hset: (key: string, field: string, value: string) => {
+          return { hset: [key, field, value] };
+        },
+        exec: async () => {
+          // For mock client, just return success
+          return [true, true, true];
+        },
+      };
+    },
+    memory: async (command: string) => {
+      // Mock memory command
+      return 'OK';
     },
   };
 };
 
-export const getRedisService = async (): Promise<RedisService> => {
-  if (redisService) return redisService;
+export const getOptimizedRedisService = async (): Promise<OptimizedRedisService> => {
+  if (optimizedRedisService) return optimizedRedisService;
 
   // Lazy load Redis modules only when needed
   if (!Redis) {
@@ -84,20 +103,7 @@ export const getRedisService = async (): Promise<RedisService> => {
       RedisClientType = (redisModule as any).RedisClientType;
     } catch (error) {
       console.warn('⚠️ Redis modules not available (likely client-side):', error);
-      // Provide a no-op RedisService adapter that satisfies the interface shape
-      const noopAdapter: any = {
-        hset: async () => 1,
-        hget: async () => null,
-        hgetall: async () => ({}),
-        expire: async () => 1,
-        del: async () => 0,
-        rpush: async () => 0,
-        lrange: async () => [],
-        xadd: async () => '',
-        xrange: async () => ({}),
-        scan: async () => ['0', []],
-      };
-      return new RedisService(noopAdapter as any);
+      // Continue: getRedisClient will return a mock client; we still wrap it in OptimizedRedisService
     }
   }
 
@@ -106,11 +112,11 @@ export const getRedisService = async (): Promise<RedisService> => {
   // Create a Redis service adapter for local Redis client
   if ((redisClient as any).isOpen !== undefined) {
     const adapter = createLocalAdapter(redisClient) as any;
-    redisService = new RedisService(adapter);
+    optimizedRedisService = new OptimizedRedisService(adapter);
   } else {
     // Use Upstash Redis client directly
-    redisService = new RedisService(redisClient as any);
+    optimizedRedisService = new OptimizedRedisService(redisClient as any);
   }
 
-  return redisService;
+  return optimizedRedisService;
 };

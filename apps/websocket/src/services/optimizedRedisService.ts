@@ -16,7 +16,7 @@ import {
   RedisTTL,
   TypingData,
   TypingSchema,
-} from '@/types/redis';
+} from '../types/redis';
 
 interface BatchOperation {
   type: 'set' | 'del' | 'expire';

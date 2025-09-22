@@ -1,17 +1,42 @@
-import { TeamChatMessageItem } from '@/database/schemas';
 
-interface ApiResponse<T> {
-  data?: T;
-  error?: string;
-  success: boolean;
+type TeamChatMessageItem = {
+    userId: string;
+    id: string;
+    content: string;
+    metadata: {
+        [key: string]: any;
+        userInfo?: {
+            id: string;
+            username?: string;
+            email?: string;
+            fullName?: string;
+            firstName?: string;
+            lastName?: string;
+            avatar?: string;
+        };
+        isMultiUserChat?: boolean;
+        totalUsersInChat?: number;
+        totalTokens?: number;
+        tokens?: number;
+        model?: string;
+        provider?: string;
+    } | null;
+    accessedAt: Date;
+    createdAt: Date;
+    updatedAt: Date;
+    teamChatId: string;
+    messageType: string | null;
+    sendTime: Date;
 }
+
+
 
 export class ApiService {
   private baseUrl: string;
 
   constructor() {
     // Use environment variable for API base URL
-    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    this.baseUrl = process.env.API_URL || 'http://localhost:3000';
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {

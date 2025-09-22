@@ -2,7 +2,7 @@ import { nanoid } from 'nanoid';
 
 
 import { ApiService } from './fetchService';
-import { OptimizedRedisService } from './optimized-redis-service';
+import { OptimizedRedisService } from './optimizedRedisService';
 import { SyncService } from './syncService';
 
 export interface ChatSession {

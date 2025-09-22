@@ -1,4 +1,4 @@
-import { getOptimizedRedisService } from './optimized-redis-service-factory';
+import { getOptimizedRedisService } from './optimizedRedisServiceFactory';
 import { SessionManager } from './sessionManager';
 import { SyncService } from './syncService';
 

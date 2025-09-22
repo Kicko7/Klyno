@@ -14,7 +14,7 @@ import {
   RedisTTL,
   TypingData,
   TypingSchema,
-} from '@/types/redis';
+} from '../types/redis';
 
 export class RedisService {
   private redis: Redis;

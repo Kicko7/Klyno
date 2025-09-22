@@ -2,18 +2,18 @@ import { Server as HttpServer } from 'http';
 import { nanoid } from 'nanoid';
 import { Server } from 'socket.io';
 
-import { ApiService } from '@/services/fetchService';
-import { RedisService } from '@/services/redisService';
-import { getRedisService } from '@/services/redisServiceFactory';
-import { MessageData, SessionManager } from '@/services/sessionManager';
-import { getSessionManager } from '@/services/sessionManagerFactory';
-import { MessageStreamData } from '@/types/redis';
+import { ApiService } from './services/fetchService';
+import { RedisService } from './services/redisService';
+import { getRedisService } from './services/redisServiceFactory';
+import { MessageData, SessionManager } from './services/sessionManager';
+import { getSessionManager } from './services/sessionManagerFactory';
+import { MessageStreamData } from './types/redis';
 import {
   ClientToServerEvents,
   InterServerEvents,
   ServerToClientEvents,
   SocketData,
-} from '@/types/socket';
+} from './types/socket';
 
 export class WebSocketServer {
   private io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
@@ -228,7 +228,7 @@ export class WebSocketServer {
 
             // Check if we need background sync (approaching 1000 message limit)
             if (await this.sessionManager.needsBackgroundSync(message.teamId)) {
-              this.sessionManager.performBackgroundSync(message.teamId).catch((error) => {
+              this.sessionManager.performBackgroundSync(message.teamId).catch((error:any) => {
                 console.error('Background sync failed:', error);
               });
             }
