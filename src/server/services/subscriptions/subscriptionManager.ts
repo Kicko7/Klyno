@@ -103,7 +103,10 @@ export class SubscriptionManager {
     cancelAtPeriodEnd: boolean = false,
     canceledAt?: Date,
     stripePlan?: any,
-    cancelled?: boolean
+    updateType?: {
+      type: 'new_billing_period' | 'plan_change' | 'status_change' | 'cancellation' | 'reactivation' | 'other';
+      details: Record<string, any>;
+    }
   ) {
 
 
@@ -117,72 +120,89 @@ export class SubscriptionManager {
 
 
       if (existingSubscription.length > 0) {
-        let subscription: any;
-        // Update existing subscription
-        if (cancelled) {
-          subscription = await tx
-            .update(userSubscriptions)
-            .set({
-              planId: plan.id,
-              status: status,
-              currentPeriodStart,
-              currentPeriodEnd,
-              cancelAtPeriodEnd,
-              canceledAt,
-              planName: plan.name,
-              fileStorageLimit: plan.fileStorageLimitGB,
-              vectorStorageLimit: plan.vectorStorageLimitMB,
-              amount: plan.price,
-              stripePriceId: stripePriceId,
-              updatedAt: new Date(),
-              canceledPeriodDate: plan.interval === "month"
-                ? new Date(new Date(currentPeriodStart).setMonth(new Date(currentPeriodStart).getMonth() + 1))
-                : new Date(new Date(currentPeriodStart).setFullYear(new Date(currentPeriodStart).getFullYear() + 1)),
-            })
-            .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId))
-            .returning();
+        // Determine if we should reset balance and limits
+        const shouldResetBalanceAndLimits = updateType &&
+          (updateType.type === 'new_billing_period' || updateType.type === 'plan_change');
+
+        console.log(`🔄 Update type: ${updateType?.type || 'unknown'}, Should reset balance/limits: ${shouldResetBalanceAndLimits}`);
+        console.log(`🔄 Cancel at period end: ${cancelAtPeriodEnd}`);
+
+        if (updateType?.type === 'reactivation') {
+          console.log(`🔄 Reactivation detected - preserving existing balance and file storage`);
+          console.log(`🔄 Setting cancel_at_period_end to false and clearing canceledPeriodDate`);
         }
-        else {
-          subscription = await tx
-            .update(userSubscriptions)
-            .set({
-              planId: plan.id,
-              status,
-              currentPeriodStart,
-              currentPeriodEnd,
-              cancelAtPeriodEnd,
-              canceledAt,
-              planName: plan.name,
-              monthlyCredits: plan.monthlyCredits,
-              fileStorageLimit: plan.fileStorageLimitGB,
-              vectorStorageLimit: plan.vectorStorageLimitMB,
-              amount: stripePlan?.unit_amount,
-              stripePriceId: stripePriceId,
-              updatedAt: new Date(),
-              // Reset balance and storage for plan renewal/change
-              balance: plan.monthlyCredits,
-              fileStorageRemaining: plan.fileStorageLimitGB * 1024, // Convert GB to MB
-              fileStorageUsed: 0,
-            })
-            .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId))
-            .returning();
 
-          const user = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
+        const updateData: any = {
+          planId: plan.id,
+          status,
+          currentPeriodStart,
+          currentPeriodEnd,
+          cancelAtPeriodEnd: cancelAtPeriodEnd, // Explicitly set the value
+          canceledAt: canceledAt, // Explicitly set the value
+          planName: plan.name,
+          monthlyCredits: plan.monthlyCredits,
+          fileStorageLimit: plan.fileStorageLimitGB,
+          vectorStorageLimit: plan.vectorStorageLimitMB,
+          amount: stripePlan?.unit_amount,
+          stripePriceId: stripePriceId,
+          updatedAt: new Date(),
+        };
 
-          if (user[0].affiliateId) {
+        console.log(`🔄 Database update data - cancelAtPeriodEnd: ${cancelAtPeriodEnd}, canceledAt: ${canceledAt}`);
+        console.log(`🔄 Full updateData object:`, JSON.stringify(updateData, null, 2));
 
-            const price = plan.price;
-            const twoPercent = Math.round((stripePlan?.unit_amount * 0.02) / 100);
-            const link = process.env.APP_URL + '/signup?ref=' + user[0].affiliateId;
-            const affiliateinfo = await tx.select().from(affiliateInfo).where(eq(affiliateInfo.link, link)).limit(1);
-            if (affiliateinfo.length > 0) {
-              await tx.update(affiliateInfo).set({
-                totalRevenue: (affiliateinfo[0].totalRevenue || 0) + twoPercent,
-              }).where(eq(affiliateInfo.id, affiliateinfo[0].id));
-              await tx.update(affiliate).set({
-                planPurchaseId: subscription[0].id,
-              }).where(eq(affiliate.affiliateUserId, userId));
-            }
+        // Handle canceledPeriodDate based on cancellation status
+        if (cancelAtPeriodEnd) {
+          // Subscription is cancelled - set canceledPeriodDate based on actual billing interval
+          const billingInterval = stripePlan?.recurring?.interval || plan.interval || 'month';
+          console.log(`🔄 Subscription cancelled - billing interval: ${billingInterval}`);
+
+          if (billingInterval === 'month') {
+            updateData.canceledPeriodDate = new Date(new Date(currentPeriodStart).setMonth(new Date(currentPeriodStart).getMonth() + 1));
+          } else if (billingInterval === 'year') {
+            updateData.canceledPeriodDate = new Date(new Date(currentPeriodStart).setFullYear(new Date(currentPeriodStart).getFullYear() + 1));
+          } else {
+            // Fallback to monthly if interval is unknown
+            updateData.canceledPeriodDate = new Date(new Date(currentPeriodStart).setMonth(new Date(currentPeriodStart).getMonth() + 1));
+            console.log(`⚠️ Unknown billing interval '${billingInterval}', defaulting to monthly`);
+          }
+
+          console.log(`🔄 Subscription cancelled - set canceledPeriodDate to ${updateData.canceledPeriodDate} (${billingInterval}ly billing)`);
+        } else {
+          // Subscription is active/renewed - clear canceledPeriodDate
+          updateData.canceledPeriodDate = null;
+          console.log(`🔄 Subscription renewed - cleared canceledPeriodDate`);
+        }
+
+        // Only reset balance and storage for plan changes and new billing periods
+        if (shouldResetBalanceAndLimits) {
+          updateData.balance = plan.monthlyCredits;
+          updateData.fileStorageRemaining = plan.fileStorageLimitGB * 1024; // Convert GB to MB
+          updateData.fileStorageUsed = 0;
+          console.log(`🔄 Resetting balance to ${plan.monthlyCredits} credits and file storage to 0 for ${updateType.type}`);
+        }
+
+        const subscription = await tx
+          .update(userSubscriptions)
+          .set(updateData)
+          .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId))
+          .returning();
+
+        console.log(`🔄 Database update completed - Updated cancelAtPeriodEnd: ${subscription[0]?.cancelAtPeriodEnd}, canceledPeriodDate: ${subscription[0]?.canceledPeriodDate}`);
+
+        const user = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
+
+        if (user[0].affiliateId) {
+          const twoPercent = Math.round((stripePlan?.unit_amount * 0.02) / 100);
+          const link = process.env.APP_URL + '/signup?ref=' + user[0].affiliateId;
+          const affiliateinfo = await tx.select().from(affiliateInfo).where(eq(affiliateInfo.link, link)).limit(1);
+          if (affiliateinfo.length > 0) {
+            await tx.update(affiliateInfo).set({
+              totalRevenue: (affiliateinfo[0].totalRevenue || 0) + twoPercent,
+            }).where(eq(affiliateInfo.id, affiliateinfo[0].id));
+            await tx.update(affiliate).set({
+              planPurchaseId: subscription[0].id,
+            }).where(eq(affiliate.affiliateUserId, userId));
           }
         }
 
@@ -754,36 +774,36 @@ export class SubscriptionManager {
    */
 
 
-   isFromLastMonth(dateString: string | Date): boolean {
+  isFromLastMonth(dateString: string | Date): boolean {
     const date = new Date(dateString);
-  
+
     const now = new Date();
     const currentMonth = now.getMonth(); // 0-11
     const currentYear = now.getFullYear();
-  
+
     const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
     const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-  
+
     return (
       date.getMonth() === lastMonth &&
       date.getFullYear() === lastMonthYear
     );
   }
-  
 
-   isSubscriptionActive(createdAtString: string | Date): boolean {
+
+  isSubscriptionActive(createdAtString: string | Date): boolean {
     const createdAt = new Date(createdAtString);
-  
+
     // subscription ends 1 year later
     const endDate = new Date(createdAt);
     endDate.setFullYear(endDate.getFullYear() + 1);
-  
+
     const now = new Date();
-  
+
     return now < endDate; // true = active, false = expired
   }
 
-  
+
   async getUserSubscriptionInfo(userId: string) {
     const subscription = await db
       .select()
@@ -796,20 +816,20 @@ export class SubscriptionManager {
       return null;
     }
 
-    if(subscription[0]?.interval === 'year' && subscription[0]?.status === 'active') {
+    if (subscription[0]?.interval === 'year' && subscription[0]?.status === 'active') {
       const toUpdate = this.isFromLastMonth(subscription[0].updatedAt);
-      if(toUpdate) {
-       const isNotExpired = this.isSubscriptionActive(subscription[0].createdAt);
-       if(isNotExpired) {
-        await db.update(userSubscriptions).set({
-          updatedAt: new Date(),
-          balance: subscription[0].monthlyCredits,
-          fileStorageRemaining: subscription[0].fileStorageLimit * 1024,
-          fileStorageUsed: 0,
-        }).where(eq(userSubscriptions.id, subscription[0].id));
-       }
+      if (toUpdate) {
+        const isNotExpired = this.isSubscriptionActive(subscription[0].createdAt);
+        if (isNotExpired) {
+          await db.update(userSubscriptions).set({
+            updatedAt: new Date(),
+            balance: subscription[0].monthlyCredits,
+            fileStorageRemaining: subscription[0].fileStorageLimit * 1024,
+            fileStorageUsed: 0,
+          }).where(eq(userSubscriptions.id, subscription[0].id));
+        }
       }
-      
+
     }
 
     if (

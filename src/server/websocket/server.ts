@@ -2,7 +2,6 @@ import { Server as HttpServer } from 'http';
 import { nanoid } from 'nanoid';
 import { Server } from 'socket.io';
 
-import { SubscriptionManager } from '@/server/services/subscriptions/subscriptionManager';
 import { ApiService } from '@/services/fetchService';
 import { RedisService } from '@/services/redisService';
 import { getRedisService } from '@/services/redisServiceFactory';
@@ -20,7 +19,6 @@ export class WebSocketServer {
   private io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
   private redisService!: RedisService;
   private sessionManager!: SessionManager;
-  private subscriptionManager!: SubscriptionManager;
   private apiService!: ApiService;
   private connectionStats = {
     totalConnections: 0,
@@ -57,7 +55,6 @@ export class WebSocketServer {
   public async initialize() {
     this.redisService = await getRedisService();
     this.sessionManager = await getSessionManager();
-    this.subscriptionManager = new SubscriptionManager();
     this.apiService = new ApiService();
     this.setupMiddleware();
     this.setupEventHandlers();
