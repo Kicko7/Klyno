@@ -5,6 +5,6 @@
     "buildCommand": "pnpm run build"
   },
   "deploy": {
-    "startCommand": "pnpm run dev:server"
+    "startCommand": "pnpm run start"
   }
 }
