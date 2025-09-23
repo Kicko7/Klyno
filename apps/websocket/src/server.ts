@@ -228,7 +228,7 @@ export class WebSocketServer {
 
             // Check if we need background sync (approaching 1000 message limit)
             if (await this.sessionManager.needsBackgroundSync(message.teamId)) {
-              this.sessionManager.performBackgroundSync(message.teamId).catch((error:any) => {
+              this.sessionManager.performBackgroundSync(message.teamId).catch((error: any) => {
                 console.error('Background sync failed:', error);
               });
             }
@@ -296,7 +296,6 @@ export class WebSocketServer {
         try {
           console.log(`✏️ Message edit request: ${messageId} by user ${socket.data.userId}`);
 
-
           for (const roomId of socket.data.activeRooms) {
             this.io.to(roomId).emit('message:update', {
               id: messageId,
@@ -312,18 +311,16 @@ export class WebSocketServer {
               content,
               updatedAt: new Date(),
             });
+
             await this.apiService.updateMessage(messageId, {
               content,
               updatedAt: new Date(),
               updatedBy: socket.data.userId,
-            });
-
-            // Broadcast to all clients in the room EXCEPT the sender
-        
+            });        
 
           } else {
             try {
-               await this.apiService.updateMessage(messageId, {
+              await this.apiService.updateMessage(messageId, {
                 content,
                 updatedAt: new Date(),
                 updatedBy: socket.data.userId,
@@ -332,7 +329,7 @@ export class WebSocketServer {
               console.error('❌ Failed to update message in database:', dbError);
             }
           }
-        
+
         } catch (error) {
           console.error('❌ Error editing message:', error);
         }

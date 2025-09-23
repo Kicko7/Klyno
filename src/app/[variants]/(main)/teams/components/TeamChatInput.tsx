@@ -383,6 +383,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
           isLocal: true,
           sendTime: new Date(),
         });
+      
       }, 1000);
 
       // Generate AI response
