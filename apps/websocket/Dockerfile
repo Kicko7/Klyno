@@ -7,14 +7,11 @@ RUN npm install -g pnpm@9.15.0
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package.json ./
-
-# Install dependencies (without frozen lockfile since there's no pnpm-lock.yaml)
-RUN pnpm install
-
-# Copy source code
+# Copy all files first
 COPY . .
+
+# Install dependencies
+RUN pnpm install
 
 # Build the application
 RUN pnpm run build

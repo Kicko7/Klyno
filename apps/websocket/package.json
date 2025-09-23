@@ -5,8 +5,7 @@
   "scripts": {
     "dev": "nodemon --watch src --exec ts-node src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
-    "postinstall": "npm run build"
+    "start": "node dist/index.js"
   },
   "keywords": [],
   "author": "",
@@ -27,5 +26,8 @@
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
