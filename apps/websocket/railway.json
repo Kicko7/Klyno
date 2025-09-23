@@ -2,7 +2,7 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "DOCKERFILE",
-    "dockerfilePath": "Dockerfile"
+    "dockerfilePath": "apps/websocket/Dockerfile"
   },
   "deploy": {
     "startCommand": "pnpm start",
