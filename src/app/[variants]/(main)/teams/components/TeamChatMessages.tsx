@@ -1,6 +1,5 @@
-'use client';
-
 import { useTheme } from 'antd-style';
+import { Loader2, LoaderCircle } from 'lucide-react';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 
@@ -20,15 +19,29 @@ import TeamChatWelcome from './TeamChatWelcome';
 interface TeamChatMessagesProps {
   messages: TeamChatMessageItem[];
   isLoading?: boolean;
+  teamId?: string; // Add teamId for loading older messages
 }
 
-// Memoized components for better performance
-const LoadingState = memo(() => (
-  <div className="flex-1 flex items-center justify-center text-slate-400">
-    <div>Loading messages...</div>
+// Top loader component
+const TopLoader = memo(() => (
+  <div
+    style={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: '16px',
+      backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    }}
+  >
+    <LoaderCircle className="animate-spin" size={20} />
+    <span style={{ marginLeft: '8px', fontSize: '14px', color: '#6b7280' }}>
+      Loading older messages...
+    </span>
   </div>
 ));
-LoadingState.displayName = 'LoadingState';
+TopLoader.displayName = 'TopLoader';
+
+// Memoized components for better performance (keeping your existing ones)
 
 const APIKeyErrorMessage = memo<{
   messageId: string;
@@ -54,7 +67,7 @@ const APIKeyErrorMessage = memo<{
 ));
 APIKeyErrorMessage.displayName = 'APIKeyErrorMessage';
 
-// Optimized message extra content components
+// Keep your existing optimized components
 const AssistantExtra = memo<{
   metadata: any;
   theme: any;
@@ -114,12 +127,10 @@ const UserExtra = memo<{
       alignItems: 'flex-start',
     }}
   >
-    {/* Display all uploaded files */}
     {Array.isArray(files) && files.length > 0 && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
         {files.map((file, index) => {
           if (file.type?.startsWith('image/')) {
-            // Display images
             return (
               <img
                 key={`${file.id || index}`}
@@ -136,7 +147,6 @@ const UserExtra = memo<{
               />
             );
           } else {
-            // Display other file types as file items
             return (
               <div
                 key={`${file.id || index}`}
@@ -202,7 +212,6 @@ const UserExtra = memo<{
       </div>
     )}
 
-    {/* Display user info */}
     {userInfo?.email && (
       <div
         style={{
@@ -221,7 +230,7 @@ const UserExtra = memo<{
 ));
 UserExtra.displayName = 'UserExtra';
 
-// Utility functions moved outside component to prevent recreation
+// Utility functions (keeping your existing ones)
 const parseErrorMessage = (content: string) => {
   try {
     const parsed = JSON.parse(content);
@@ -244,135 +253,168 @@ const getMessageTimestamp = (createdAt: any): number => {
   return Date.now();
 };
 
-const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLoading }) => {
-  const userAvatar = useUserStore(userProfileSelectors.userAvatar);
-  const currentUser = useUserStore(userProfileSelectors.userProfile);
-  const theme = useTheme();
-  const transitionMode = useUserStore(userGeneralSettingsSelectors.transitionMode);
-  const virtuosoRef = useRef<VirtuosoHandle>(null);
-  const [isAtBottom, setIsAtBottom] = useState(true);
-  const lastMessageCountRef = useRef(messages?.length || 0);
+const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
+  ({ messages, isLoading, teamId }) => {
+    const LoadingState = memo(() => (
+      <div className="flex-1 flex items-center justify-center">
+        {/* <div>Loading messages...</div> */}
+        <LoaderCircle
+          className={`animate-spin ${theme.appearance === 'dark' ? 'text-white' : 'text-black'}`}
+          size={50}
+        />
+      </div>
+    ));
 
-  // Track message generation state for smooth animations
-  const [generatingMessages, setGeneratingMessages] = useState<Set<string>>(new Set());
-  const previousMessageContentRef = useRef<Record<string, string>>({});
-  const lastMessageContentRef = useRef<string>('');
-  const messageAnimationTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
+    const teamLoading = useTeamChatStore(useCallback((state) => state.teamLoading, []));
+    const userAvatar = useUserStore(userProfileSelectors.userAvatar);
+    const currentUser = useUserStore(userProfileSelectors.userProfile);
+    const theme = useTheme();
+    const transitionMode = useUserStore(userGeneralSettingsSelectors.transitionMode);
+    const virtuosoRef = useRef<VirtuosoHandle>(null);
+    const [isAtBottom, setIsAtBottom] = useState(true);
+    const lastMessageCountRef = useRef(messages?.length || 0);
 
-  // Zustand store selectors with stability
-  const isMessageEditing = useTeamChatStore(useCallback((state) => state.messageEditingIds, []));
-  const toggleMessageEditing = useTeamChatStore(
-    useCallback((state) => state.toggleMessageEditing, []),
-  );
+    // NEW STATE FOR INFINITE SCROLLING
+    const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
+    const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(true);
+    const [page, setPage] = useState(1);
 
-  const updateMessageContent = useTeamChatStore(
-    useCallback((state) => state.updateMessageContent, []),
-  );
+    // Keep your existing state
+    const [generatingMessages, setGeneratingMessages] = useState<Set<string>>(new Set());
+    const previousMessageContentRef = useRef<Record<string, string>>({});
+    const lastMessageContentRef = useRef<string>('');
+    const messageAnimationTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
 
-  const editWebSocketMessage = useTeamChatStore(
-    useCallback((state) => state.editWebSocketMessage, []),
-  );
-  const handleUpdateMessage = async (teamChatId: string, messageId: string, content: string) => {
-    updateMessageContent(teamChatId, messageId, content);
-    editWebSocketMessage(messageId, content);
-  };
-
-  // Memoized processed messages for better performance
-  const processedMessages = useMemo(() => {
-    if (!messages || !Array.isArray(messages)) return [];
-
-    return messages.filter(
-      (msg) => msg && msg.id && (msg.content || msg.content === 'Thinking...'),
+    // Keep your existing store selectors
+    const isMessageEditing = useTeamChatStore(useCallback((state) => state.messageEditingIds, []));
+    const toggleMessageEditing = useTeamChatStore(
+      useCallback((state) => state.toggleMessageEditing, []),
     );
-  }, [messages]);
 
-  // Track message generation state for smooth animations
-  useEffect(() => {
-    const newGeneratingMessages = new Set<string>();
-    const currentContent = previousMessageContentRef.current;
+    const updateMessageContent = useTeamChatStore(
+      useCallback((state) => state.updateMessageContent, []),
+    );
 
-    processedMessages.forEach((message) => {
-      const messageId = message.id;
-      const currentMessageContent = message.content || '';
-      const previousContent = currentContent[messageId] || '';
+    const editWebSocketMessage = useTeamChatStore(
+      useCallback((state) => state.editWebSocketMessage, []),
+    );
 
-      // Check if message is currently being generated
-      const isThinking = message.content === 'Thinking...';
-      const isStreaming =
-        message.messageType === 'assistant' &&
-        currentMessageContent.length > previousContent.length &&
-        !message.metadata?.isComplete &&
-        !message.metadata?.finalMessage;
-      const isNewlyGenerated =
-        message.messageType === 'assistant' &&
-        currentMessageContent.length > 0 &&
-        !previousContent &&
-        !message.metadata?.isComplete;
-
-      // Check if user message is being sent (newly added with no previous content)
-      const isUserBeingSent =
-        message.messageType === 'user' && currentMessageContent.length > 0 && !previousContent;
-
-      const isGenerating = isThinking || isStreaming || isNewlyGenerated || isUserBeingSent;
-
-      if (isGenerating) {
-        newGeneratingMessages.add(messageId);
-
-        // For user messages, set a timeout to remove animation after a short period
-        if (isUserBeingSent && !messageAnimationTimeouts.current[messageId]) {
-          messageAnimationTimeouts.current[messageId] = setTimeout(() => {
-            setGeneratingMessages((prev) => {
-              const newSet = new Set(prev);
-              newSet.delete(messageId);
-              return newSet;
-            });
-            delete messageAnimationTimeouts.current[messageId];
-          }, 800); // 800ms animation duration for user messages
-        }
-      }
-
-      // Update the previous content tracking
-      currentContent[messageId] = currentMessageContent;
-    });
-
-    // Only update if there's actually a change to prevent infinite loops
-    setGeneratingMessages((prev) => {
-      const prevArray = Array.from(prev).sort();
-      const newArray = Array.from(newGeneratingMessages).sort();
-      if (prevArray.length !== newArray.length || !prevArray.every((id, index) => id === newArray[index])) {
-        return newGeneratingMessages;
-      }
-      return prev;
-    });
-  }, [processedMessages]);
-
-  // Cleanup timeouts on unmount
-  useEffect(() => {
-    return () => {
-      Object.values(messageAnimationTimeouts.current).forEach((timeout) => {
-        clearTimeout(timeout);
-      });
+    const handleUpdateMessage = async (teamChatId: string, messageId: string, content: string) => {
+      updateMessageContent(teamChatId, messageId, content);
+      editWebSocketMessage(messageId, content);
     };
-  }, []);
 
-  // Optimized scroll to bottom with debouncing
-  const scrollToBottom = useCallback(() => {
-    if (processedMessages.length > 0 && isAtBottom) {
-      requestAnimationFrame(() => {
-        virtuosoRef.current?.scrollToIndex({
-          index: processedMessages.length - 1,
-          behavior: 'smooth',
-          align: 'end',
-        });
+    const loadMessages = useTeamChatStore(useCallback((state) => state.loadMessages, []));
+
+    // FUNCTION TO LOAD OLDER MESSAGES
+    const loadOlderMessages = useCallback(async () => {
+      console.log('Loading older messages...', loadingOlderMessages, hasMoreOlderMessages, teamId);
+      if (loadingOlderMessages === true || hasMoreOlderMessages === false || teamId === undefined) {
+        return;
+      }
+
+      console.log('Loading older messages...');
+      setLoadingOlderMessages(true);
+
+      try {
+        const lastMessage = messages[messages.length - 1];
+        const res = await loadMessages(
+          teamId as string,
+          20,
+          page,
+          lastMessage.id,
+          lastMessage.createdAt instanceof Date
+            ? lastMessage.createdAt.toISOString()
+            : lastMessage.createdAt,
+        );
+        setPage(page + 1);
+        setHasMoreOlderMessages(res.hasMore);
+      } catch (error) {
+        console.error('Error loading older messages:', error);
+      } finally {
+        setLoadingOlderMessages(false);
+      }
+    }, [hasMoreOlderMessages, teamId, page, messages, loadMessages]);
+
+    // Keep your existing processedMessages logic
+    const processedMessages = useMemo(() => {
+      if (!messages || !Array.isArray(messages)) return [];
+
+      return messages.filter(
+        (msg) => msg && msg.id && (msg.content || msg.content === 'Thinking...'),
+      );
+    }, [messages]);
+
+    // Keep your existing useEffect for tracking message generation
+    useEffect(() => {
+      const newGeneratingMessages = new Set<string>();
+      const currentContent = previousMessageContentRef.current;
+
+      processedMessages.forEach((message) => {
+        const messageId = message.id;
+        const currentMessageContent = message.content || '';
+        const previousContent = currentContent[messageId] || '';
+
+        const isThinking = message.content === 'Thinking...';
+        const isStreaming =
+          message.messageType === 'assistant' &&
+          currentMessageContent.length > previousContent.length &&
+          !message.metadata?.isComplete &&
+          !message.metadata?.finalMessage;
+        const isNewlyGenerated =
+          message.messageType === 'assistant' &&
+          currentMessageContent.length > 0 &&
+          !previousContent &&
+          !message.metadata?.isComplete;
+
+        const isUserBeingSent =
+          message.messageType === 'user' && currentMessageContent.length > 0 && !previousContent;
+
+        const isGenerating = isThinking || isStreaming || isNewlyGenerated || isUserBeingSent;
+
+        if (isGenerating) {
+          newGeneratingMessages.add(messageId);
+
+          if (isUserBeingSent && !messageAnimationTimeouts.current[messageId]) {
+            messageAnimationTimeouts.current[messageId] = setTimeout(() => {
+              setGeneratingMessages((prev) => {
+                const newSet = new Set(prev);
+                newSet.delete(messageId);
+                return newSet;
+              });
+              delete messageAnimationTimeouts.current[messageId];
+            }, 800);
+          }
+        }
+
+        currentContent[messageId] = currentMessageContent;
       });
-    }
-  }, [processedMessages.length, isAtBottom]);
 
-  // More aggressive scroll for streaming updates
-  const scrollToBottomForStreaming = useCallback(() => {
-    if (processedMessages.length > 0 && isAtBottom) {
-      // Use multiple animation frames for smoother streaming scroll
-      requestAnimationFrame(() => {
+      setGeneratingMessages((prev) => {
+        const prevArray = Array.from(prev).sort();
+        const newArray = Array.from(newGeneratingMessages).sort();
+        if (
+          prevArray.length !== newArray.length ||
+          !prevArray.every((id, index) => id === newArray[index])
+        ) {
+          return newGeneratingMessages;
+        }
+        return prev;
+      });
+    }, [processedMessages]);
+
+    // Keep your existing cleanup
+    useEffect(() => {
+      return () => {
+        Object.values(messageAnimationTimeouts.current).forEach((timeout) => {
+          clearTimeout(timeout);
+        });
+      };
+    }, []);
+
+    // Keep your existing scroll functions
+    const scrollToBottom = useCallback(() => {
+      if (processedMessages.length > 0 && isAtBottom) {
         requestAnimationFrame(() => {
           virtuosoRef.current?.scrollToIndex({
             index: processedMessages.length - 1,
@@ -380,234 +422,271 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
             align: 'end',
           });
         });
-      });
-    }
-  }, [processedMessages.length, isAtBottom]);
-
-  // Auto-scroll effect with optimization
-  useEffect(() => {
-    const currentCount = processedMessages.length;
-    const previousCount = lastMessageCountRef.current;
-
-    // Scroll if new messages were added and user is at bottom
-    if (currentCount > previousCount && isAtBottom) {
-      scrollToBottom();
-    }
-
-    lastMessageCountRef.current = currentCount;
-  }, [processedMessages.length, isAtBottom]); // Removed scrollToBottom from deps
-
-  // Auto-scroll when the last message content changes (for streaming)
-  useEffect(() => {
-    if (processedMessages.length > 0 && isAtBottom) {
-      const lastMessage = processedMessages[processedMessages.length - 1];
-      const currentLastContent = lastMessage?.content || '';
-
-      // If the last message content has changed and user is at bottom, scroll
-      if (currentLastContent !== lastMessageContentRef.current && currentLastContent) {
-        scrollToBottomForStreaming();
-        lastMessageContentRef.current = currentLastContent;
       }
-    }
-  }, [processedMessages, isAtBottom]); // Removed scrollToBottomForStreaming from deps
+    }, [processedMessages.length, isAtBottom]);
 
-  // Memoized avatar generator
-  const getAvatar = useCallback(
-    (message: TeamChatMessageItem) => {
-      const isAssistant =
-      (message.messageType === 'assistant') ||
-      ('type' in message && message.type === 'assistant');
-          if (isAssistant) {
-        return { avatar: '🤖', title: 'AI Assistant' };
+    const scrollToBottomForStreaming = useCallback(() => {
+      if (processedMessages.length > 0 && isAtBottom) {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            virtuosoRef.current?.scrollToIndex({
+              index: processedMessages.length - 1,
+              behavior: 'smooth',
+              align: 'end',
+            });
+          });
+        });
+      }
+    }, [processedMessages.length, isAtBottom]);
+
+    // Keep your existing scroll effects
+    useEffect(() => {
+      const currentCount = processedMessages.length;
+      const previousCount = lastMessageCountRef.current;
+
+      if (currentCount > previousCount && isAtBottom) {
+        scrollToBottom();
       }
 
-      const userInfo = message.metadata?.userInfo;
-      return {
-        avatar: userInfo?.avatar || userAvatar || DEFAULT_USER_AVATAR,
-        title: userInfo?.fullName || userInfo?.username || userInfo?.email || 'Unknown User',
-      };
-    },
-    [userAvatar],
-  );
+      lastMessageCountRef.current = currentCount;
+    }, [processedMessages.length, isAtBottom]);
 
-  // Highly optimized message renderer
-  const MessageRenderer = useCallback(
-    ({ index }: { index: number }) => {
-      const message = processedMessages[index];
-      if (!message) return null;
+    useEffect(() => {
+      if (processedMessages.length > 0 && isAtBottom) {
+        const lastMessage = processedMessages[processedMessages.length - 1];
+        const currentLastContent = lastMessage?.content || '';
 
-      const isAssistant =
-      (message.messageType === 'assistant') ||
-      ('type' in message && message.type === 'assistant');
-      const userInfo = message.metadata?.userInfo;
-      const isCurrentUser = currentUser?.id === userInfo?.id;
-
-      // Check if message is currently being generated for animation
-      const isGenerating = generatingMessages.has(message.id);
-      const animated = transitionMode === 'fadeIn' && isGenerating;
-
-      // Parse error and content
-      let actualMessage = message.content;
-      let isApiKeyError = false;
-      let errorProvider = 'openai';
-
-      if (isAssistant && message.content && message.content !== 'Thinking...') {
-        const parsed = parseErrorMessage(message.content);
-        isApiKeyError = parsed.isApiKeyError;
-        errorProvider = parsed.errorProvider;
-        actualMessage = parsed.actualMessage;
+        if (currentLastContent !== lastMessageContentRef.current && currentLastContent) {
+          scrollToBottomForStreaming();
+          lastMessageContentRef.current = currentLastContent;
+        }
       }
+    }, [processedMessages, isAtBottom]);
 
-      if (message.content === 'Thinking...') {
-        actualMessage = '';
-      }
+    // Keep your existing getAvatar function
+    const getAvatar = useCallback(
+      (message: TeamChatMessageItem) => {
+        const isAssistant =
+          message.messageType === 'assistant' ||
+          ('type' in message && message.type === 'assistant');
+        if (isAssistant) {
+          return { avatar: '🤖', title: 'AI Assistant' };
+        }
 
-      const avatar = getAvatar(message);
-      const messageTime = getMessageTimestamp(message.createdAt);
+        const userInfo = message.metadata?.userInfo;
+        return {
+          avatar: userInfo?.avatar || userAvatar || DEFAULT_USER_AVATAR,
+          title: userInfo?.fullName || userInfo?.username || userInfo?.email || 'Unknown User',
+        };
+      },
+      [userAvatar],
+    );
 
+    // Keep your existing MessageRenderer
+    const MessageRenderer = useCallback(
+      ({ index }: { index: number }) => {
+        const message = processedMessages[index];
+        if (!message) return null;
+
+        const isAssistant =
+          message.messageType === 'assistant' ||
+          ('type' in message && message.type === 'assistant');
+        const userInfo = message.metadata?.userInfo;
+        const isCurrentUser = currentUser?.id === userInfo?.id;
+
+        const isGenerating = generatingMessages.has(message.id);
+        const animated = transitionMode === 'fadeIn' && isGenerating;
+
+        let actualMessage = message.content;
+        let isApiKeyError = false;
+        let errorProvider = 'openai';
+
+        if (isAssistant && message.content && message.content !== 'Thinking...') {
+          const parsed = parseErrorMessage(message.content);
+          isApiKeyError = parsed.isApiKeyError;
+          errorProvider = parsed.errorProvider;
+          actualMessage = parsed.actualMessage;
+        }
+
+        if (message.content === 'Thinking...') {
+          actualMessage = '';
+        }
+
+        const avatar = getAvatar(message);
+        const messageTime = getMessageTimestamp(message.createdAt);
+
+        return (
+          <div
+            style={{
+              padding: '8px 16px',
+              transition: 'opacity 0.4s ease-in-out, transform 0.3s ease-out',
+              transform: animated
+                ? isAssistant
+                  ? 'translateY(2px)'
+                  : 'translateY(1px)'
+                : 'translateY(0)',
+            }}
+          >
+            {isApiKeyError ? (
+              <APIKeyErrorMessage messageId={message.id} errorProvider={errorProvider} />
+            ) : (
+              <ChatItem
+                style={{
+                  color: theme.appearance === 'dark' ? '#fefefe' : '#080808',
+                  borderRadius: 8,
+                  padding: 8,
+                }}
+                avatar={avatar}
+                actions={<TeamChatActions id={message.id} index={index} />}
+                editing={isMessageEditing.includes(message.id)}
+                loading={message.content === 'Thinking...'}
+                message={actualMessage || ''}
+                placement={isAssistant ? 'left' : isCurrentUser ? 'right' : 'left'}
+                primary={!isAssistant}
+                time={messageTime}
+                onChange={(value: string) =>
+                  handleUpdateMessage(message.teamChatId, message.id, value)
+                }
+                onEditingChange={(editing: boolean) => toggleMessageEditing(message.id, editing)}
+                messageExtra={
+                  isAssistant ? (
+                    <AssistantExtra metadata={message.metadata} theme={theme} />
+                  ) : userInfo ? (
+                    <UserExtra
+                      userInfo={userInfo}
+                      files={message.metadata?.files || []}
+                      theme={theme}
+                    />
+                  ) : undefined
+                }
+                variant="bubble"
+                markdownProps={{
+                  animated,
+                  variant: 'chat' as const,
+                }}
+              />
+            )}
+          </div>
+        );
+      },
+      [
+        processedMessages,
+        currentUser?.id,
+        theme,
+        isMessageEditing,
+        getAvatar,
+        toggleMessageEditing,
+        updateMessageContent,
+        generatingMessages,
+        transitionMode,
+      ],
+    );
+
+    // Keep your existing scroll handlers
+    const handleAtBottomStateChange = useCallback((atBottom: boolean) => {
+      setIsAtBottom(atBottom);
+    }, []);
+
+    // UPDATED: Handle scroll to top with infinite loading
+    const handleRangeChanged = useCallback(
+      (range: { startIndex: number; endIndex: number }) => {
+        // If user scrolls to the very top and we're not already loading
+        if (range.startIndex === 0 && hasMoreOlderMessages && !loadingOlderMessages) {
+          console.log('User scrolled to top - triggering load older messages');
+          loadOlderMessages();
+        }
+      },
+      [hasMoreOlderMessages, loadingOlderMessages, loadOlderMessages],
+    );
+
+    // UPDATED: Components with conditional top loader
+    const components = useMemo(
+      () => ({
+        Footer: () => <div style={{ height: '16px' }} />,
+        Header: () => {
+          if (loadingOlderMessages && hasMoreOlderMessages) {
+            return <TopLoader />;
+          }
+          return processedMessages.length <= 5 ? (
+            <div style={{ height: '20px', flexShrink: 0 }} />
+          ) : null;
+        },
+      }),
+      [processedMessages.length, loadingOlderMessages, hasMoreOlderMessages],
+    );
+
+    // Keep your existing conditional returns
+    if (teamLoading) {
       return (
         <div
           style={{
-            padding: '8px 16px',
-            transition: 'opacity 0.4s ease-in-out, transform 0.3s ease-out',
-            // opacity: animated ? (isAssistant ? 0.8 : 0.9) : 1,
-            transform: animated
-              ? isAssistant
-                ? 'translateY(2px)'
-                : 'translateY(1px)'
-              : 'translateY(0)',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '500px',
           }}
         >
-          {isApiKeyError ? (
-            <APIKeyErrorMessage messageId={message.id} errorProvider={errorProvider} />
-          ) : (
-            <ChatItem
-              style={{
-                color: theme.appearance === 'dark' ? '#fefefe' : '#080808',
-                borderRadius: 8,
-                padding: 8,
-              }}
-              avatar={avatar}
-              actions={<TeamChatActions id={message.id} index={index} />}
-              editing={isMessageEditing.includes(message.id)}
-              loading={message.content === 'Thinking...'}
-              message={actualMessage || ''}
-              placement={isAssistant ? 'left' : isCurrentUser ? 'right' : 'left'}
-              primary={!isAssistant}
-              time={messageTime}
-              onChange={(value: string) =>
-                handleUpdateMessage(message.teamChatId, message.id, value)
-              }
-              onEditingChange={(editing: boolean) => toggleMessageEditing(message.id, editing)}
-              messageExtra={
-                isAssistant ? (
-                  <AssistantExtra metadata={message.metadata} theme={theme} />
-                ) : userInfo ? (
-                  <UserExtra
-                    userInfo={userInfo}
-                    files={message.metadata?.files || []}
-                    theme={theme}
-                  />
-                ) : undefined
-              }
-              variant="bubble"
-              markdownProps={{
-                animated,
-                variant: 'chat' as const,
-              }}
-            />
-          )}
+          <LoadingState />
         </div>
       );
-    },
-    [
-      processedMessages,
-      currentUser?.id,
-      theme,
-      isMessageEditing,
-      getAvatar,
-      toggleMessageEditing,
-      updateMessageContent,
-      generatingMessages,
-      transitionMode,
-    ],
-  );
+    }
 
-  // Virtuoso callbacks for scroll management
-  const handleAtBottomStateChange = useCallback((atBottom: boolean) => {
-    setIsAtBottom(atBottom);
-  }, []);
+    if (!processedMessages || processedMessages.length === 0) {
+      return <TeamChatWelcome />;
+    }
 
-  // Memoized components - Fix for few messages
-  const components = useMemo(
-    () => ({
-      Footer: () => <div style={{ height: '16px' }} />,
-      Header: () =>
-        processedMessages.length <= 5 ? <div style={{ height: '20px', flexShrink: 0 }} /> : null,
-    }),
-    [processedMessages.length],
-  );
+    // Keep your existing Virtuoso configuration
+    const shouldUseVirtualization = processedMessages.length > 10;
+    const hasGeneratingMessages = generatingMessages.size > 0;
 
-  // CONDITIONAL RETURNS AFTER ALL HOOKS
-  if (isLoading) {
-    return <LoadingState />;
-  }
+    const virtuosoProps = shouldUseVirtualization
+      ? {
+          followOutput: hasGeneratingMessages ? ('smooth' as const) : ('auto' as const),
+          alignToBottom: true,
+          initialTopMostItemIndex: Math.max(0, processedMessages.length - 1),
+          overscan: 10,
+          increaseViewportBy: { top: 200, bottom: 200 },
+        }
+      : {
+          followOutput: hasGeneratingMessages ? ('smooth' as const) : (false as const),
+          alignToBottom: hasGeneratingMessages,
+          initialTopMostItemIndex: 0,
+          overscan: 2,
+        };
 
-  if (!processedMessages || processedMessages.length === 0) {
-    return <TeamChatWelcome />;
-  }
-
-  // Determine Virtuoso configuration based on message count and generation state
-  const shouldUseVirtualization = processedMessages.length > 10;
-  const hasGeneratingMessages = generatingMessages.size > 0;
-
-  const virtuosoProps = shouldUseVirtualization
-    ? {
-        followOutput: hasGeneratingMessages ? ('smooth' as const) : ('auto' as const),
-        alignToBottom: true,
-        initialTopMostItemIndex: Math.max(0, processedMessages.length - 1),
-        overscan: 10,
-        increaseViewportBy: { top: 200, bottom: 200 },
-      }
-    : {
-        // For few messages, enable smooth follow when generating
-        followOutput: hasGeneratingMessages ? ('smooth' as const) : (false as const),
-        alignToBottom: hasGeneratingMessages,
-        initialTopMostItemIndex: 0,
-        overscan: 2,
-      };
-
-  return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: '500px',
-      }}
-    >
-      <Virtuoso
-        ref={virtuosoRef}
-        data={processedMessages}
-        itemContent={(index) => MessageRenderer({ index })}
+    return (
+      <div
         style={{
+          width: '100%',
           height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
           minHeight: '500px',
-          // Fix for few messages - prevent empty space at top
-          ...(processedMessages.length <= 5 && {
-            justifyContent: 'flex-start',
-          }),
         }}
-        components={components}
-        atBottomStateChange={handleAtBottomStateChange}
-        {...virtuosoProps}
-        // Custom scroll behavior for few messages
-        computeItemKey={(index) => processedMessages[index]?.id || index}
-      />
-    </div>
-  );
-});
+      >
+        <Virtuoso
+          ref={virtuosoRef}
+          data={processedMessages}
+          itemContent={(index) => MessageRenderer({ index })}
+          style={{
+            height: '100%',
+            minHeight: '500px',
+            ...(processedMessages.length <= 5 && {
+              justifyContent: 'flex-start',
+            }),
+          }}
+          components={components}
+          atBottomStateChange={handleAtBottomStateChange}
+          rangeChanged={handleRangeChanged}
+          {...virtuosoProps}
+          computeItemKey={(index) => processedMessages[index]?.id || index}
+        />
+      </div>
+    );
+  },
+);
 
 TeamChatMessages.displayName = 'TeamChatMessages';
 

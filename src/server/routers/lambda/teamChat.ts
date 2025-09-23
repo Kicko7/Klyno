@@ -195,21 +195,23 @@ export const teamChatRouter = router({
     .input(
       z.object({
         teamChatId: z.string(),
-        limit: z.number().optional().default(50),
-        offset: z.number().optional(),
+        limit: z.number().optional().default(20),
+        page: z.number().optional().default(1),
         lastMessageId: z.string().optional(),
+        lastMessageCreatedAt: z.string().optional(),
       }),
     )
     .query(async ({ input, ctx }) => {
       // Update presence when fetching messages
       await ctx.teamChatService.updatePresence(input.teamChatId);
-      const messages = await ctx.teamChatService.getMessages(
+      const result = await ctx.teamChatService.getMessages(
         input.teamChatId,
         input.limit,
-        input.offset,
+        input.page,
         input.lastMessageId,
+        input.lastMessageCreatedAt,
       );
-      return messages;
+      return result;
     }),
 
   // Check for new messages without fetching all messages

@@ -7,11 +7,8 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     
-    // Get query parameters
+    // Get teamChatId parameter
     const teamChatId = searchParams.get('teamChatId');
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : undefined;
-    const lastMessageId = searchParams.get('lastMessageId');
 
     // Validate required parameters
     if (!teamChatId) {
@@ -21,6 +18,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Check if team chat exists
     const teamChatIdCheck = await db.query.teamChats.findFirst({
       where: eq(teamChats.id, teamChatId),
     });
@@ -32,36 +30,14 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Validate limit
-    if (limit < 1 || limit > 100) {
-      return NextResponse.json(
-        { error: 'Limit must be between 1 and 100' },
-        { status: 400 }
-      );
-    }
-
-    const conditions = [eq(teamChatMessages.teamChatId, teamChatId)];
-
-    // If lastMessageId is provided, get messages after that ID
-    if (lastMessageId) {
-      const lastMessage = await db.query.teamChatMessages.findFirst({
-        where: eq(teamChatMessages.id, lastMessageId),
-      });
-
-      if (lastMessage) {
-        conditions.push(sql`${teamChatMessages.createdAt} > ${lastMessage.createdAt}`);
-      }
-    }
-
-    // Get messages
+    // Get last 20 messages ordered by newest first
     const messages = await db.query.teamChatMessages.findMany({
-      where: and(...conditions),
-      orderBy: [desc(teamChatMessages.createdAt)], // Order by descending (newest first) for chat display
-      limit,
-      offset,
+      where: eq(teamChatMessages.teamChatId, teamChatId),
+      orderBy: [desc(teamChatMessages.createdAt)], // Order by descending (newest first)
+      limit: 20,
     });
 
-    // Return messages with metadata
+    // Return last 20 messages
     return NextResponse.json(messages);
 
   } catch (error) {

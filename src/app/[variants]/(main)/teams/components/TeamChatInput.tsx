@@ -111,6 +111,8 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   // Get team chat store methods and routing
   const { batchUpdateMessages, removeMessage, setSocketRef } = useTeamChatStore();
 
+  const setActiveChatState = useTeamChatStore(useCallback((state) => state.setActiveChatState, []));
+
   const activeTeamChatId = useTeamChatStore((state) => state.activeTeamChatId);
   const socketRef = useRef<Socket | null>(null);
 
@@ -129,6 +131,10 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   useEffect(() => {
     if (!activeTeamChatId || !currentUser?.id) return;
 
+    setTimeout(() => {
+      setActiveChatState(true);
+    }, 0);
+
     socketRef.current = io(process.env.NEXT_PUBLIC_WEBSOCKET_URL, {
       auth: { userId: currentUser.id },
       transports: ['websocket'],
@@ -144,6 +150,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       console.log('Connected to socket:', socketRef.current?.id);
       setSocketRef(socketRef);
       socketRef.current?.emit('room:join', activeTeamChatId);
+   
     });
 
     socketRef.current.on('connect_error', (err) => {
@@ -194,12 +201,11 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     });
 
     socketRef.current.on('session:loaded', (session: any) => {
-      console.log("session",session)
-      // Defer state update to avoid setState during render
       setTimeout(() => {
         if(session?.messages && session.messages.length > 0) {
-          batchUpdateMessages(teamChatId, session.messages);
+          batchUpdateMessages(teamChatId, session.messages,false);
         }
+        setActiveChatState(false);
       }, 0);
     });
 
@@ -207,8 +213,6 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       socketRef.current?.emit('room:leave', teamChatId);
       socketRef.current?.disconnect();
       setSocketRef(null);
-
-      console.log('Socket disconnected');
     };
   }, [activeTeamChatId, currentUser?.id]);
 

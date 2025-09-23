@@ -64,7 +64,7 @@ export class ApiService {
   }
 
   // Team Chat Messages API
-  async getMessages(teamChatId: string, limit = 50, offset = 0): Promise<TeamChatMessageItem[]> {
+  async getMessages(teamChatId: string, limit = 20, offset = 0): Promise<TeamChatMessageItem[]> {
     const params = new URLSearchParams({
       teamChatId,
       limit: limit.toString(),

@@ -64,6 +64,8 @@ interface TeamChatState {
       lastMessageId?: string;
       pageSize: number;
       currentPage: number;
+      totalPages?: number;
+      totalCount?: number;
       presence?: Record<string, any>;
       typingUsers?: Record<string, number | undefined>;
       readReceipts?: Record<string, any>;
@@ -91,8 +93,8 @@ interface TeamChatState {
     width: number;
   };
 
-  socketRef:any;
-
+  socketRef: any;
+  teamLoading: boolean;
   // Actions
   createTeamChat: (
     organizationId: string,
@@ -120,7 +122,7 @@ interface TeamChatState {
     data: { title?: string; description?: string; metadata?: any },
   ) => Promise<void>;
   deleteTeamChat: (id: string) => Promise<void>;
-  loadMessages: (teamChatId: string) => Promise<void>;
+  loadMessages: (teamChatId: string, limit?: number, page?: number, lastMessageId?: string, lastMessageCreatedAt?: string) => Promise<{ messages: TeamChatMessageItem[], hasMore: boolean, totalCount: number, currentPage: number, totalPages: number }>;
   sendMessage: (
     teamChatId: string,
     content: string,
@@ -173,11 +175,13 @@ interface TeamChatState {
   ) => any;
 
   // Batch update messages (for WebSocket reconciliation)
-  batchUpdateMessages: (teamChatId: string, messages: TeamChatMessageItem[]) => void;
+  batchUpdateMessages: (teamChatId: string, messages: TeamChatMessageItem[], checkSorting?: boolean) => void;
 
   // Method to persist message to database
   persistMessageToDatabase: (teamChatId: string, messageData: any) => Promise<void>;
   messageEditingIds: string[];
+
+  setActiveChatState: (isLoading: boolean) => void;
 }
 
 const getTeamChatService = async () => {
@@ -279,9 +283,9 @@ type TeamChatStore = TeamChatState & {
     reaction: string,
   ) => void;
   handleRedisReadReceipt: (messageId: string, teamChatId: string, userId: string) => void;
-  setSocketRef:(socketRef:any) => void;
-  removeWebSocketMessage:(messageId:string) => void;
-  editWebSocketMessage:(messageId:string,content:string) => void;
+  setSocketRef: (socketRef: any) => void;
+  removeWebSocketMessage: (messageId: string) => void;
+  editWebSocketMessage: (messageId: string, content: string) => void;
 
 };
 
@@ -301,7 +305,8 @@ export const useTeamChatStore = create<TeamChatStore>()(
       messageCache: {},
       messageSubscriptions: {},
       messageEditingIds: [],
-      socketRef:null,
+      socketRef: null,
+      teamLoading: false,
       // Initialize credit tracking service
       creditService: teamChatCreditService,
 
@@ -1336,119 +1341,51 @@ export const useTeamChatStore = create<TeamChatStore>()(
       },
 
       // Method to load messages with proper ordering and deduplication
-      loadMessages: async (teamChatId: string, limit: number = 50, offset?: number) => {
+      loadMessages: async (teamChatId: string, limit: number = 20, page: number = 1, lastMessageId?: string, lastMessageCreatedAt?: string) => {
         try {
-          set((state) => ({
-            activeChatStates: {
-              ...state.activeChatStates,
-              [teamChatId]: {
-                ...(state.activeChatStates?.[teamChatId] || {
-                  isActive: false,
-                  isLoading: true,
-                  lastViewedAt: 0,
-                  hasMoreMessages: false,
-                  lastMessageId: undefined,
-                  pageSize: limit,
-                  currentPage: offset ? Math.floor(offset / limit) + 1 : 1,
-                  presence: {},
-                  typingUsers: {},
-                  readReceipts: {},
-                }),
-                isLoading: true,
-              },
-            },
-          }));
 
-          let messages: TeamChatMessageItem[] = [];
+          let result: {
+            messages: TeamChatMessageItem[];
+            hasMore: boolean;
+            totalCount: number;
+            currentPage: number;
+            totalPages: number;
+          };
 
           if (isServerMode) {
             const { lambdaClient } = await import('@/libs/trpc/client/lambda');
-            messages = await lambdaClient.teamChat.getMessages.query({
+            result = await lambdaClient.teamChat.getMessages.query({
               teamChatId,
               limit,
-              offset,
+              page,
+              lastMessageId,
+              lastMessageCreatedAt,
             });
           } else {
             const service = await getTeamChatService();
-            messages = await service.getMessages(teamChatId, limit, offset);
+            result = await service.getMessages(teamChatId, limit, page, lastMessageId, lastMessageCreatedAt);
           }
 
-          // Ensure messages are properly sorted chronologically
-          const sortedMessages = messages.sort((a, b) => {
-            const dateA =
-              a.createdAt instanceof Date
-                ? a.createdAt.getTime()
-                : typeof a.createdAt === 'string'
-                  ? new Date(a.createdAt).getTime()
-                  : 0;
-            const dateB =
-              b.createdAt instanceof Date
-                ? b.createdAt.getTime()
-                : typeof b.createdAt === 'string'
-                  ? new Date(b.createdAt).getTime()
-                  : 0;
+          const { messages, hasMore, totalCount, currentPage, totalPages } = result;
 
-            if (dateA !== dateB) return dateA - dateB;
-            return a.id.localeCompare(b.id);
-          });
-
+          const sortedMessages = messages;
           // Update store with loaded messages
           set((state) => {
             const existingMessages = state.messages[teamChatId] || [];
-            const messageMap = new Map(existingMessages.map((m) => [m.id, m]));
-
-            // Add new messages, preserving existing ones
-            sortedMessages.forEach((message) => {
-              messageMap.set(message.id, message);
-            });
-
-            const allMessages = Array.from(messageMap.values()).sort((a, b) => {
-              const dateA =
-                a.createdAt instanceof Date
-                  ? a.createdAt.getTime()
-                  : typeof a.createdAt === 'string'
-                    ? new Date(a.createdAt).getTime()
-                    : 0;
-              const dateB =
-                b.createdAt instanceof Date
-                  ? b.createdAt.getTime()
-                  : typeof b.createdAt === 'string'
-                    ? new Date(b.createdAt).getTime()
-                    : 0;
-
-              if (dateA !== dateB) return dateA - dateB;
-              return a.id.localeCompare(b.id);
-            });
+            const existingIds = new Set(existingMessages.map(m => m.id));
+            const newMessages = sortedMessages.filter(msg => !existingIds.has(msg.id));
+            const allMessages = [...newMessages, ...existingMessages];
 
             return {
               messages: {
                 ...state.messages,
                 [teamChatId]: allMessages,
               },
-              activeChatStates: {
-                ...state.activeChatStates,
-                [teamChatId]: {
-                  ...(state.activeChatStates?.[teamChatId] || {
-                    isActive: false,
-                    isLoading: true,
-                    lastViewedAt: 0,
-                    hasMoreMessages: false,
-                    lastMessageId: undefined,
-                    pageSize: limit,
-                    currentPage: offset ? Math.floor(offset / limit) + 1 : 1,
-                    presence: {},
-                    typingUsers: {},
-                    readReceipts: {},
-                  }),
-                  isLoading: false,
-                  hasMoreMessages: messages.length === limit,
-                  currentPage: offset ? Math.floor(offset / limit) + 1 : 1,
-                },
-              },
             };
           });
 
-          console.log(`✅ Loaded ${sortedMessages.length} messages for team chat: ${teamChatId}`);
+          console.log(`✅ Loaded ${sortedMessages.length} messages for team chat: ${teamChatId} (Page ${currentPage}/${totalPages}, Total: ${totalCount})`);
+          return { messages, hasMore, totalCount, currentPage, totalPages }
         } catch (error) {
           console.error('Failed to load messages:', error);
           set((state) => ({
@@ -1462,8 +1399,8 @@ export const useTeamChatStore = create<TeamChatStore>()(
                   lastViewedAt: 0,
                   hasMoreMessages: false,
                   lastMessageId: undefined,
-                  pageSize: 50,
-                  currentPage: 1,
+                  pageSize: 20,
+                  currentPage: page,
                   presence: {},
                   typingUsers: {},
                   readReceipts: {},
@@ -1878,18 +1815,18 @@ export const useTeamChatStore = create<TeamChatStore>()(
       },
 
       // Batch update messages (for WebSocket reconciliation)
-      batchUpdateMessages: (teamChatId: string, newMessages: any[]) => {
+      batchUpdateMessages: (teamChatId: string, newMessages: any[], checkSorting: boolean = true) => {
         console.log(newMessages)
         set((state) => {
           const existingMessages = state.messages[teamChatId] || [];
-          
+
           const messageMap = new Map<string, any>();
-          
+
           // Add existing messages
           existingMessages.forEach((msg) => {
             if (msg.id) messageMap.set(msg.id, msg);
           });
-          
+
           // Add/merge new messages (this will overwrite duplicates)
           newMessages.forEach((msg) => {
             if (msg.id) {
@@ -1899,10 +1836,60 @@ export const useTeamChatStore = create<TeamChatStore>()(
               });
             }
           });
-          
+
           // Convert back to array without sorting - keep original order
           const mergedMessages = Array.from(messageMap.values());
-          
+          let messages:any[] = mergedMessages;
+          if (checkSorting) {
+            const sortedMessages = mergedMessages.sort((a, b) => {
+              const getTimestamp = (msg: any): number => {
+                if (msg.createdAt instanceof Date) return msg.createdAt.getTime();
+                if (typeof msg.createdAt === "string") {
+                  // Handle PostgreSQL timestamp formats
+                  // Examples: "2025-09-01 09:25:12.564+00", "2025-09-01T09:25:12.564Z", etc.
+                  let timestampString = msg.createdAt.trim();
+
+                  // Convert PostgreSQL format to ISO format if needed
+                  if (timestampString.includes(' ') && !timestampString.includes('T')) {
+                    // Replace space with 'T' for ISO format
+                    timestampString = timestampString.replace(' ', 'T');
+                  }
+
+                  // Handle timezone offset format (+00 instead of +00:00)
+                  if (/[+-]\d{2}$/.test(timestampString)) {
+                    timestampString += ':00';
+                  }
+
+                  // If no timezone info, assume UTC
+                  if (!timestampString.includes('+') && !timestampString.includes('-') && !timestampString.endsWith('Z')) {
+                    timestampString += 'Z';
+                  }
+
+                  const parsed = new Date(timestampString).getTime();
+                  return isNaN(parsed) ? 0 : parsed;
+                }
+                return 0;
+              };
+
+              const tsA = getTimestamp(a);
+              const tsB = getTimestamp(b);
+
+              // 1. chronological order
+
+              if (tsA !== tsB) return tsA - tsB;
+
+              console.log("User Message before assistant");
+
+              // 2. user messages before assistant
+              const isAssistantA = a.metadata?.userInfo?.id === "assistant";
+              const isAssistantB = b.metadata?.userInfo?.id === "assistant";
+              if (isAssistantA !== isAssistantB) return isAssistantA ? 1 : -1;
+
+              // 3. fallback by ID
+              return String(a.id).localeCompare(String(b.id));
+            });
+            messages = sortedMessages;
+          }
           return {
             messages: {
               ...state.messages,
@@ -1911,7 +1898,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
           };
         });
       },
-      
+
       persistMessageToDatabase: async (teamChatId: string, messageData: any) => {
         console.log(`💾 persistMessageToDatabase called:`, {
           teamChatId,
@@ -1931,7 +1918,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
               messageType: messageData.messageType,
               metadata: messageData.metadata || {},
             });
-            console.log(`   ✅ Server mode persistence successful:`, result);
+            console.log(`✅ Server mode persistence successful:`, result);
           } else {
             console.log(`   📱 Using client mode (PGlite)`);
             const service = await getTeamChatService();
@@ -1950,20 +1937,25 @@ export const useTeamChatStore = create<TeamChatStore>()(
           throw error;
         }
       },
-    
-      editWebSocketMessage:(messageId:string,content:string) => {
+
+      editWebSocketMessage: (messageId: string, content: string) => {
         if (get().socketRef?.current?.connected) {
           get().socketRef.current.emit('message:edit', messageId, content);
         }
       },
 
-      removeWebSocketMessage:(messageId) => {
+      removeWebSocketMessage: (messageId) => {
         if (get().socketRef?.current?.connected) {
           get().socketRef.current.emit('message:delete', messageId);
         }
       },
-      setSocketRef:(socketRef:any) => {
+      setSocketRef: (socketRef: any) => {
         set({ socketRef });
+      },
+      setActiveChatState(isLoading) {
+        set((state) => ({
+          teamLoading: isLoading
+        }));
       },
     }),
     {

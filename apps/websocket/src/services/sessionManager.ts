@@ -68,7 +68,7 @@ export class SessionManager {
   async getSession(teamChatId: string): Promise<ChatSession | any> {
     try {
       const session = await this.redisService.getSession(teamChatId);
-      console.info("session",session?.messages)
+      // console.info("session",session?.messages)
       if (session && session.status === 'active') {
         return session;
       }

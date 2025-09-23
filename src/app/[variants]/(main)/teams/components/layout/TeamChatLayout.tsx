@@ -82,6 +82,7 @@ const TeamChatLayout = ({
     }
   };
 
+  const activeTeamChatId = useTeamChatStore(useCallback((state) => state.activeTeamChatId, []));
   return (
     <div className={styles.container}>
       {/* DragUpload for copy-paste and drag-and-drop file uploads */}
@@ -95,7 +96,7 @@ const TeamChatLayout = ({
       {/* Messages */}
       <div className={styles.messagesContainer}>
         <Suspense fallback={<SkeletonList mobile={mobile} />}>
-          <TeamChatMessages messages={messages} isLoading={isLoadingState} />
+          <TeamChatMessages messages={messages} isLoading={isLoadingState} teamId={activeTeamChatId as string}/>
         </Suspense>
       </div>
 

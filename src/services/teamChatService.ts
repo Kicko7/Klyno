@@ -132,32 +132,137 @@ export class TeamChatService {
     return result[0];
   };
 
-  // Get messages for a team chat with pagination
+  /**
+   * Get messages for a team chat with cursor-based pagination using lastMessageId and page numbers
+   * 
+   * Pagination Logic (starts from bottom/oldest messages):
+   * - If lastMessageId is provided and found: Page 1 gets messages after lastMessageId, Page 2 gets more after that, etc.
+   * - If lastMessageId is provided but not found: Check with createdAt and return data from before that creation time
+   * - If no lastMessageId: Regular pagination starting from oldest messages (bottom)
+   * 
+   * @param teamChatId - The team chat ID
+   * @param limit - Number of messages per page (default: 20)
+   * @param page - Page number (default: 1)
+   * @param lastMessageId - Optional cursor message ID for pagination
+   * @param lastMessageCreatedAt - Optional createdAt timestamp for fallback when message ID not found
+   * @returns Object with messages, pagination metadata
+   */
   getMessages = async (
     teamChatId: string,
-    limit = 50,
-    offset?: number,
+    limit = 20,
+    page = 1,
     lastMessageId?: string,
-  ): Promise<TeamChatMessageItem[]> => {
+    lastMessageCreatedAt?: string | Date,
+  ): Promise<{
+    messages: TeamChatMessageItem[];
+    hasMore: boolean;
+    totalCount: number;
+    currentPage: number;
+    totalPages: number;
+  }> => {
     const conditions = [eq(teamChatMessages.teamChatId, teamChatId)];
 
-    // If lastMessageId is provided, get messages after that ID
+    let cursorMessage: TeamChatMessageItem | undefined = undefined;
+
+    // If lastMessageId is provided, find the cursor message
     if (lastMessageId) {
-      const lastMessage = await this.db.query.teamChatMessages.findFirst({
+      cursorMessage = await this.db.query.teamChatMessages.findFirst({
         where: eq(teamChatMessages.id, lastMessageId),
       });
 
-      if (lastMessage) {
-        conditions.push(sql`${teamChatMessages.createdAt} > ${lastMessage.createdAt}`);
+      if (cursorMessage) {
+        // For cursor-based pagination starting from bottom, we get messages after the cursor
+        conditions.push(sql`${teamChatMessages.createdAt} > ${cursorMessage.createdAt}`);
+      } else if (lastMessageCreatedAt) {
+        // Fallback: If message ID not found but createdAt is provided, use createdAt for pagination
+        console.log(`⚠️ Message ID ${lastMessageId} not found, using createdAt fallback: ${lastMessageCreatedAt}`);
+        const fallbackDate = typeof lastMessageCreatedAt === 'string' 
+          ? new Date(lastMessageCreatedAt) 
+          : lastMessageCreatedAt;
+        conditions.push(sql`${teamChatMessages.createdAt} > ${fallbackDate}`);
       }
     }
 
-    return this.db.query.teamChatMessages.findMany({
+    // Get total count for pagination metadata - only count messages after the cursor
+    const totalCountResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(teamChatMessages)
+      .where(and(...conditions));
+
+    const totalCount = totalCountResult[0]?.count || 0;
+
+    // Calculate offset based on page number and cursor
+    let offset = 0;
+    if (page > 1 && cursorMessage) {
+      // For subsequent pages, calculate offset from cursor
+      offset = (page - 1) * limit;
+    } else if (page > 1 && !cursorMessage) {
+      // If no cursor but page > 1, use regular offset
+      offset = (page - 1) * limit;
+    }
+
+    // Get messages ordered by oldest first (ascending) - starting from bottom
+    const messages = await this.db.query.teamChatMessages.findMany({
       where: and(...conditions),
-      orderBy: [teamChatMessages.createdAt], // Order by ascending (oldest first) for chronological order
+      orderBy: [teamChatMessages.createdAt], // Order by ascending (oldest first)
       limit,
       offset,
     });
+
+    // Calculate pagination metadata based on remaining messages after cursor
+    const totalPages = Math.ceil(totalCount / limit);
+    const hasMore = messages.length === limit && totalCount > (page * limit);
+    
+    console.log(`📊 Pagination info:`, {
+      teamChatId,
+      lastMessageId,
+      lastMessageCreatedAt,
+      totalCountAfterCursor: totalCount,
+      messagesReturned: messages.length,
+      page,
+      totalPages,
+      hasMore,
+      limit
+    });
+
+    // Special case: if lastMessageId was provided but not found, use createdAt fallback or return first 20 messages
+    if (lastMessageId && !cursorMessage && page === 1) {
+      if (lastMessageCreatedAt) {
+        console.log(`⚠️ LastMessageId ${lastMessageId} not found, using createdAt fallback: ${lastMessageCreatedAt}`);
+        // The createdAt condition was already added above, so we can proceed with normal flow
+      } else {
+        console.log(`⚠️ LastMessageId ${lastMessageId} not found and no createdAt provided, returning first 20 messages from bottom`);
+        
+        const fallbackMessages = await this.db.query.teamChatMessages.findMany({
+          where: eq(teamChatMessages.teamChatId, teamChatId),
+          orderBy: [teamChatMessages.createdAt], // Order by ascending (oldest first)
+          limit: 20,
+        });
+
+        // For fallback case, get the total count of all messages in the chat
+        const fallbackTotalCountResult = await this.db
+          .select({ count: sql<number>`count(*)` })
+          .from(teamChatMessages)
+          .where(eq(teamChatMessages.teamChatId, teamChatId));
+        const fallbackTotalCount = fallbackTotalCountResult[0]?.count || 0;
+
+        return {
+          messages: fallbackMessages,
+          hasMore: fallbackTotalCount > 20,
+          totalCount: fallbackTotalCount,
+          currentPage: 1,
+          totalPages: Math.ceil(fallbackTotalCount / 20),
+        };
+      }
+    }
+
+    return {
+      messages,
+      hasMore,
+      totalCount,
+      currentPage: page,
+      totalPages,
+    };
   };
 
   // Check if there are new messages without fetching all messages
