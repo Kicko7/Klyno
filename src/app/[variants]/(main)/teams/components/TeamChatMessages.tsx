@@ -309,7 +309,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
     // FUNCTION TO LOAD OLDER MESSAGES
     const loadOlderMessages = useCallback(async () => {
       
-      if (loadingOlderMessages === true || teamId === undefined) {
+      if (loadingOlderMessages === true || hasMoreOlderMessages === false || teamId === undefined) {
         return;
       }
 
