@@ -308,8 +308,14 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
 
     // FUNCTION TO LOAD OLDER MESSAGES
     const loadOlderMessages = useCallback(async () => {
-      console.log('Loading older messages...', loadingOlderMessages, hasMoreOlderMessages, teamId);
-      if (loadingOlderMessages === true || hasMoreOlderMessages === false || teamId === undefined) {
+      
+      if (loadingOlderMessages === true || teamId === undefined) {
+        return;
+      }
+
+      // Check if we have messages to work with
+      if (!messages || messages.length === 0) {
+        setHasMoreOlderMessages(false);
         return;
       }
 
@@ -317,24 +323,31 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
       setLoadingOlderMessages(true);
 
       try {
-        const lastMessage = messages[messages.length - 1];
+        // Get the last (newest) message to load messages before it
+        const lastMessage = messages[0];
+      
         const res = await loadMessages(
           teamId as string,
           20,
-          page,
-          lastMessage.id,
-          lastMessage.createdAt instanceof Date
-            ? lastMessage.createdAt.toISOString()
-            : lastMessage.createdAt,
+          lastMessage?.id,
+          lastMessage?.createdAt instanceof Date
+            ? lastMessage?.createdAt.toISOString()
+            : lastMessage?.createdAt,
         );
-        setPage(page + 1);
+        
+        console.log('Loaded older messages result:', {
+          messagesCount: res.messages.length,
+          hasMore: res.hasMore,
+          totalCount: res.totalCount
+        });
+        
         setHasMoreOlderMessages(res.hasMore);
       } catch (error) {
         console.error('Error loading older messages:', error);
       } finally {
         setLoadingOlderMessages(false);
       }
-    }, [hasMoreOlderMessages, teamId, page, messages, loadMessages]);
+    }, [loadingOlderMessages, teamId, messages, loadMessages]);
 
     // Keep your existing processedMessages logic
     const processedMessages = useMemo(() => {
@@ -344,6 +357,9 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
         (msg) => msg && msg.id && (msg.content || msg.content === 'Thinking...'),
       );
     }, [messages]);
+
+    console.log(messages.length)
+
 
     // Keep your existing useEffect for tracking message generation
     useEffect(() => {

@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, lt, sql } from 'drizzle-orm';
 
 import {
   NewTeamChat,
@@ -37,7 +37,7 @@ export class TeamChatService {
             addedBy: this.userId,
           },
         ],
-        isPublic:data.isPublic
+        isPublic: data.isPublic
       };
 
       // Base insert values
@@ -77,14 +77,14 @@ export class TeamChatService {
       ...(data.metadata || {}),
       userInfo: user
         ? {
-            id: user.id,
-            username: user.username ?? undefined,
-            email: user.email ?? undefined,
-            fullName: user.fullName ?? undefined,
-            firstName: user.firstName ?? undefined,
-            lastName: user.lastName ?? undefined,
-            avatar: user.avatar ?? undefined,
-          }
+          id: user.id,
+          username: user.username ?? undefined,
+          email: user.email ?? undefined,
+          fullName: user.fullName ?? undefined,
+          firstName: user.firstName ?? undefined,
+          lastName: user.lastName ?? undefined,
+          avatar: user.avatar ?? undefined,
+        }
         : undefined,
       // Add multi-user chat context for AI
       isMultiUserChat: true,
@@ -142,7 +142,6 @@ export class TeamChatService {
    * 
    * @param teamChatId - The team chat ID
    * @param limit - Number of messages per page (default: 20)
-   * @param page - Page number (default: 1)
    * @param lastMessageId - Optional cursor message ID for pagination
    * @param lastMessageCreatedAt - Optional createdAt timestamp for fallback when message ID not found
    * @returns Object with messages, pagination metadata
@@ -150,120 +149,58 @@ export class TeamChatService {
   getMessages = async (
     teamChatId: string,
     limit = 20,
-    page = 1,
     lastMessageId?: string,
     lastMessageCreatedAt?: string | Date,
   ): Promise<{
     messages: TeamChatMessageItem[];
     hasMore: boolean;
     totalCount: number;
-    currentPage: number;
-    totalPages: number;
   }> => {
     const conditions = [eq(teamChatMessages.teamChatId, teamChatId)];
-
-    let cursorMessage: TeamChatMessageItem | undefined = undefined;
-
-    // If lastMessageId is provided, find the cursor message
+  
     if (lastMessageId) {
-      cursorMessage = await this.db.query.teamChatMessages.findFirst({
+      const message = await this.db.query.teamChatMessages.findFirst({
         where: eq(teamChatMessages.id, lastMessageId),
       });
-
-      if (cursorMessage) {
-        // For cursor-based pagination starting from bottom, we get messages after the cursor
-        conditions.push(sql`${teamChatMessages.createdAt} > ${cursorMessage.createdAt}`);
+      console.log(message);
+      if (message) {
+        conditions.push(lt(teamChatMessages.createdAt, message.createdAt));
       } else if (lastMessageCreatedAt) {
-        // Fallback: If message ID not found but createdAt is provided, use createdAt for pagination
-        console.log(`⚠️ Message ID ${lastMessageId} not found, using createdAt fallback: ${lastMessageCreatedAt}`);
-        const fallbackDate = typeof lastMessageCreatedAt === 'string' 
-          ? new Date(lastMessageCreatedAt) 
-          : lastMessageCreatedAt;
-        conditions.push(sql`${teamChatMessages.createdAt} > ${fallbackDate}`);
+        conditions.push(lt(teamChatMessages.createdAt, new Date(lastMessageCreatedAt)));
+        console.log(new Date(lastMessageCreatedAt));
       }
     }
-
-    // Get total count for pagination metadata - only count messages after the cursor
-    const totalCountResult = await this.db
-      .select({ count: sql<number>`count(*)` })
+  
+    console.log(conditions.length);
+    // Get total count (before applying pagination)
+    const totalCount = await this.db
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
       .from(teamChatMessages)
-      .where(and(...conditions));
-
-    const totalCount = totalCountResult[0]?.count || 0;
-
-    // Calculate offset based on page number and cursor
-    let offset = 0;
-    if (page > 1 && cursorMessage) {
-      // For subsequent pages, calculate offset from cursor
-      offset = (page - 1) * limit;
-    } else if (page > 1 && !cursorMessage) {
-      // If no cursor but page > 1, use regular offset
-      offset = (page - 1) * limit;
-    }
-
-    // Get messages ordered by oldest first (ascending) - starting from bottom
+      .where(and(...conditions))
+      .then((r) => r[0].count);
+  
+    // Fetch paginated results
     const messages = await this.db.query.teamChatMessages.findMany({
       where: and(...conditions),
-      orderBy: [teamChatMessages.createdAt], // Order by ascending (oldest first)
+      orderBy: desc(teamChatMessages.createdAt), // newest → oldest
       limit,
-      offset,
     });
+  
+    // If you want chronological order (oldest → newest), reverse:
+    messages.reverse();
+  
+    const hasMore = totalCount > messages.length;
 
-    // Calculate pagination metadata based on remaining messages after cursor
-    const totalPages = Math.ceil(totalCount / limit);
-    const hasMore = messages.length === limit && totalCount > (page * limit);
-    
-    console.log(`📊 Pagination info:`, {
-      teamChatId,
-      lastMessageId,
-      lastMessageCreatedAt,
-      totalCountAfterCursor: totalCount,
-      messagesReturned: messages.length,
-      page,
-      totalPages,
-      hasMore,
-      limit
-    });
 
-    // Special case: if lastMessageId was provided but not found, use createdAt fallback or return first 20 messages
-    if (lastMessageId && !cursorMessage && page === 1) {
-      if (lastMessageCreatedAt) {
-        console.log(`⚠️ LastMessageId ${lastMessageId} not found, using createdAt fallback: ${lastMessageCreatedAt}`);
-        // The createdAt condition was already added above, so we can proceed with normal flow
-      } else {
-        console.log(`⚠️ LastMessageId ${lastMessageId} not found and no createdAt provided, returning first 20 messages from bottom`);
-        
-        const fallbackMessages = await this.db.query.teamChatMessages.findMany({
-          where: eq(teamChatMessages.teamChatId, teamChatId),
-          orderBy: [teamChatMessages.createdAt], // Order by ascending (oldest first)
-          limit: 20,
-        });
-
-        // For fallback case, get the total count of all messages in the chat
-        const fallbackTotalCountResult = await this.db
-          .select({ count: sql<number>`count(*)` })
-          .from(teamChatMessages)
-          .where(eq(teamChatMessages.teamChatId, teamChatId));
-        const fallbackTotalCount = fallbackTotalCountResult[0]?.count || 0;
-
-        return {
-          messages: fallbackMessages,
-          hasMore: fallbackTotalCount > 20,
-          totalCount: fallbackTotalCount,
-          currentPage: 1,
-          totalPages: Math.ceil(fallbackTotalCount / 20),
-        };
-      }
-    }
-
+    console.log(messages.length,lastMessageId,lastMessageCreatedAt)
+  
     return {
       messages,
       hasMore,
       totalCount,
-      currentPage: page,
-      totalPages,
     };
   };
+  
 
   // Check if there are new messages without fetching all messages
   hasNewMessages = async (
@@ -377,11 +314,11 @@ export class TeamChatService {
         ...(typeof data.isPublic === 'boolean' ? { isPublic: data.isPublic } : {}),
         ...(data.memberAccess
           ? {
-              metadata: {
-                ...chat.metadata,
-                memberAccess: data.memberAccess,
-              },
-            }
+            metadata: {
+              ...chat.metadata,
+              memberAccess: data.memberAccess,
+            },
+          }
           : {}),
         updatedAt: new Date(),
       })
@@ -537,10 +474,10 @@ export class TeamChatService {
             COALESCE(metadata->'presence', '{}'::jsonb),
             ${sql.raw(`'{${this.userId}}'`)},
             ${JSON.stringify({
-              isActive: true,
-              lastActiveAt: timestamp,
-              lastSeenMessageId: lastSeenMessageId || null,
-            })}::jsonb
+          isActive: true,
+          lastActiveAt: timestamp,
+          lastSeenMessageId: lastSeenMessageId || null,
+        })}::jsonb
           )
         )`,
         updatedAt: now,
@@ -565,9 +502,9 @@ export class TeamChatService {
             COALESCE(metadata->'presence', '{}'::jsonb),
             ${sql.raw(`'{${this.userId}}'`)},
             ${JSON.stringify({
-              isActive: false,
-              lastActiveAt: timestamp,
-            })}::jsonb
+          isActive: false,
+          lastActiveAt: timestamp,
+        })}::jsonb
           )
         )`,
         updatedAt: now,

@@ -122,7 +122,7 @@ interface TeamChatState {
     data: { title?: string; description?: string; metadata?: any },
   ) => Promise<void>;
   deleteTeamChat: (id: string) => Promise<void>;
-  loadMessages: (teamChatId: string, limit?: number, page?: number, lastMessageId?: string, lastMessageCreatedAt?: string) => Promise<{ messages: TeamChatMessageItem[], hasMore: boolean, totalCount: number, currentPage: number, totalPages: number }>;
+  loadMessages: (teamChatId: string, limit?: number, lastMessageId?: string, lastMessageCreatedAt?: string) => Promise<{ messages: TeamChatMessageItem[], hasMore: boolean, totalCount: number }>;
   sendMessage: (
     teamChatId: string,
     content: string,
@@ -1341,15 +1341,13 @@ export const useTeamChatStore = create<TeamChatStore>()(
       },
 
       // Method to load messages with proper ordering and deduplication
-      loadMessages: async (teamChatId: string, limit: number = 20, page: number = 1, lastMessageId?: string, lastMessageCreatedAt?: string) => {
+      loadMessages: async (teamChatId: string, limit: number = 20, lastMessageId?: string, lastMessageCreatedAt?: string) => {
         try {
 
           let result: {
             messages: TeamChatMessageItem[];
             hasMore: boolean;
             totalCount: number;
-            currentPage: number;
-            totalPages: number;
           };
 
           if (isServerMode) {
@@ -1357,16 +1355,15 @@ export const useTeamChatStore = create<TeamChatStore>()(
             result = await lambdaClient.teamChat.getMessages.query({
               teamChatId,
               limit,
-              page,
               lastMessageId,
               lastMessageCreatedAt,
             });
           } else {
             const service = await getTeamChatService();
-            result = await service.getMessages(teamChatId, limit, page, lastMessageId, lastMessageCreatedAt);
+            result = await service.getMessages(teamChatId, limit, lastMessageId, lastMessageCreatedAt);
           }
 
-          const { messages, hasMore, totalCount, currentPage, totalPages } = result;
+          const { messages, hasMore, totalCount } = result;
 
           const sortedMessages = messages;
           // Update store with loaded messages
@@ -1384,8 +1381,8 @@ export const useTeamChatStore = create<TeamChatStore>()(
             };
           });
 
-          console.log(`✅ Loaded ${sortedMessages.length} messages for team chat: ${teamChatId} (Page ${currentPage}/${totalPages}, Total: ${totalCount})`);
-          return { messages, hasMore, totalCount, currentPage, totalPages }
+          console.log(`✅ Loaded ${sortedMessages.length} messages for team chat: ${teamChatId} (Total: ${totalCount})`);
+          return { messages, hasMore, totalCount }
         } catch (error) {
           console.error('Failed to load messages:', error);
           set((state) => ({
@@ -1400,7 +1397,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
                   hasMoreMessages: false,
                   lastMessageId: undefined,
                   pageSize: 20,
-                  currentPage: page,
+                  currentPage: 1,
                   presence: {},
                   typingUsers: {},
                   readReceipts: {},

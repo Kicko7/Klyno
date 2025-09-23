@@ -196,18 +196,16 @@ export const teamChatRouter = router({
       z.object({
         teamChatId: z.string(),
         limit: z.number().optional().default(20),
-        page: z.number().optional().default(1),
         lastMessageId: z.string().optional(),
         lastMessageCreatedAt: z.string().optional(),
       }),
     )
     .query(async ({ input, ctx }) => {
       // Update presence when fetching messages
-      await ctx.teamChatService.updatePresence(input.teamChatId);
+      // await ctx.teamChatService.updatePresence(input.teamChatId);
       const result = await ctx.teamChatService.getMessages(
         input.teamChatId,
         input.limit,
-        input.page,
         input.lastMessageId,
         input.lastMessageCreatedAt,
       );
