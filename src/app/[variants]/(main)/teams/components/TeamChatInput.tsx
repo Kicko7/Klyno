@@ -193,6 +193,16 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       removeMessage(teamChatId, id);
     });
 
+    socketRef.current.on('session:loaded', (session: any) => {
+      console.log("session",session)
+      // Defer state update to avoid setState during render
+      setTimeout(() => {
+        if(session?.messages && session.messages.length > 0) {
+          batchUpdateMessages(teamChatId, session.messages);
+        }
+      }, 0);
+    });
+
     return () => {
       socketRef.current?.emit('room:leave', teamChatId);
       socketRef.current?.disconnect();

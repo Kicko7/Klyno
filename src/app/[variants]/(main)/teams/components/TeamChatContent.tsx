@@ -106,147 +106,60 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
       }
     };
 
-    // Function to load messages with pagination - wrapped in useCallback to prevent infinite loops
-    const loadMessages = useCallback(
-      async (page: number = 1) => {
-        if (!teamChatId) return;
+    // WebSocket-only message loading - no database calls
+    const initializeChatState = useCallback(() => {
+      if (!teamChatId) return;
 
-        const chatState = useTeamChatStore.getState().activeChatStates[teamChatId];
-        if (!chatState?.isActive) return;
+      // Initialize chat state for WebSocket-only mode
+      useTeamChatStore.setState((state) => ({
+        activeChatStates: {
+          ...(state.activeChatStates || {}),
+          [teamChatId]: {
+            ...(state.activeChatStates?.[teamChatId] || defaultState),
+            isActive: true,
+            isLoading: false, // No loading since we're using WebSocket
+            hasMoreMessages: false, // WebSocket handles all messages
+            currentPage: 1,
+          },
+        },
+        // Initialize empty messages array if not exists
+        messages: {
+          ...state.messages,
+          [teamChatId]: state.messages[teamChatId] || [],
+        },
+      }));
+    }, [teamChatId]);
 
-        try {
-          useTeamChatStore.setState((state) => ({
-            activeChatStates: {
-              ...(state.activeChatStates || {}),
-              [teamChatId]: {
-                ...(state.activeChatStates?.[teamChatId] || defaultState),
-                isLoading: true,
-              },
-            },
-          }));
+    // // Function to load more messages
+    // const handleLoadMore = useCallback(async () => {
+    //   const chatState = useTeamChatStore.getState().activeChatStates[teamChatId];
+    //   if (chatState?.isLoading || !chatState?.hasMoreMessages) return;
+    //   await loadMessages(chatState.currentPage + 1);
+    // }, [teamChatId, loadMessages]);
 
-          const messages = await lambdaClient.teamChat.getMessages.query({
-            teamChatId: teamChatId!,
-            limit: PAGE_SIZE,
-            offset: (page - 1) * PAGE_SIZE,
-            lastMessageId: chatState.lastMessageId,
-          });
-
-          const hasMore = messages.length === PAGE_SIZE;
-
-          // Apply consistent sorting logic for messages
-          const sortMessages = (messagesToSort: any[]) => {
-            return messagesToSort.sort((a, b) => {
-              // Parse timestamps to numbers for comparison
-              const getTimestamp = (msg: any): number => {
-                if (msg.createdAt instanceof Date) {
-                  return msg.createdAt.getTime();
-                }
-                if (typeof msg.createdAt === "string") {
-                  return new Date(msg.createdAt).getTime();
-                }
-                return 0;
-              };
-        
-              const tsA = getTimestamp(a);
-              const tsB = getTimestamp(b);
-        
-              // First priority: sort by timestamp
-              if (tsA !== tsB) {
-                return tsA - tsB;
-              }
-        
-              // Second priority: when timestamps are equal, user messages come first
-              if (a.userId !== b.userId) {
-                // User messages (userId !== "assistant") come before assistant messages
-                if (a.userId === "assistant") return 1;
-                if (b.userId === "assistant") return -1;
-              }
-        
-              // Third priority: if still equal, sort by ID for consistency
-              return a.id.localeCompare(b.id);
-            });
-          };
-
-          const sortedMessages = page === 1 
-            ? sortMessages(messages) 
-            : sortMessages([...(useTeamChatStore.getState().messages[teamChatId] || []), ...messages]);
-
-          useTeamChatStore.setState((state) => ({
-            messages: {
-              ...state.messages,
-              [teamChatId]: sortedMessages,
-            },
-            activeChatStates: {
-              ...(state.activeChatStates || {}),
-              [teamChatId]: {
-                ...(state.activeChatStates?.[teamChatId] || defaultState),
-                isLoading: false,
-                currentPage: page,
-                hasMoreMessages: hasMore,
-                lastMessageId: messages[messages.length - 1]?.id,
-              },
-            },
-          }));
-
-          // Cache the messages
-          if (page === 1) {
-            useTeamChatStore.setState((state) => ({
-              messageCache: {
-                ...state.messageCache,
-                [teamChatId]: {
-                  messages,
-                  timestamp: Date.now().toString(),
-                  expiresAt: (Date.now() + CACHE_DURATION).toString(),
-                },
-              },
-            }));
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-          console.error('Failed to load messages:', error);
-          useTeamChatStore.setState((state) => ({
-            error: errorMessage,
-            activeChatStates: {
-              ...(state.activeChatStates || {}),
-              [teamChatId]: {
-                ...(state.activeChatStates?.[teamChatId] || defaultState),
-                isLoading: false,
-              },
-            },
-          }));
-        }
-      },
-      [teamChatId],
-    );
-
-    // Function to load more messages
-    const handleLoadMore = useCallback(async () => {
-      const chatState = useTeamChatStore.getState().activeChatStates[teamChatId];
-      if (chatState?.isLoading || !chatState?.hasMoreMessages) return;
-      await loadMessages(chatState.currentPage + 1);
-    }, [teamChatId, loadMessages]);
-
-    // Initial load of messages - only load once per chat ID
+    // Initialize chat state for WebSocket-only mode
     useEffect(() => {
-      if (!teamChatId || isCacheValid(teamChatId)) return;
+      if (!teamChatId) return;
       
-      // Check if we've already loaded messages for this chat
+      // Check if we've already initialized this chat
       if (initialLoadRef.current.has(teamChatId)) return;
       
-      // Mark this chat as having been loaded
+      // Mark this chat as having been initialized
       initialLoadRef.current.add(teamChatId);
       
-      // Load messages
-      loadMessages(1);
-    }, [teamChatId, loadMessages]);
+      // Initialize chat state (WebSocket will handle message loading)
+      initializeChatState();
+    }, [teamChatId, initializeChatState]);
 
 
     // Get messages from store (updated via WebSocket) - Fixed to return stable reference
-    const messages = useTeamChatStore((state) => state.messages[teamChatId] || null);
+    const messages = useTeamChatStore((state) => state.messages[teamChatId] || []);
 
     // Memoize messages to prevent infinite re-renders
-    const memoizedMessages = useMemo(() => messages || [], [messages]);
+    const memoizedMessages = useMemo(() => {
+      if (!Array.isArray(messages)) return [];
+      return messages;
+    }, [messages]);
 
     // Set up chat activity tracking
     useEffect(() => {
@@ -346,7 +259,7 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
             <button
               onClick={() => {
                 useTeamChatStore.setState({ error: null });
-                loadMessages(1);
+                // loadMessages(1);
               }}
               className="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded"
             >
@@ -393,7 +306,7 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
       {/* Load more button */}
       {chatState.hasMoreMessages && !isLoading && !switchState.isPending && (
         <button
-          onClick={handleLoadMore}
+          // onClick={handleLoadMore}
           className="mb-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded self-center"
         >
           Load More Messages

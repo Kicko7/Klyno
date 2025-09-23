@@ -245,8 +245,6 @@ const getMessageTimestamp = (createdAt: any): number => {
 };
 
 const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLoading }) => {
-  const teamChatId = useTeamChatStore(useCallback((state) => state.activeTeamChatId, []));
-  // ALL HOOKS AT THE TOP
   const userAvatar = useUserStore(userProfileSelectors.userAvatar);
   const currentUser = useUserStore(userProfileSelectors.userProfile);
   const theme = useTheme();
@@ -337,7 +335,15 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
       currentContent[messageId] = currentMessageContent;
     });
 
-    setGeneratingMessages(newGeneratingMessages);
+    // Only update if there's actually a change to prevent infinite loops
+    setGeneratingMessages((prev) => {
+      const prevArray = Array.from(prev).sort();
+      const newArray = Array.from(newGeneratingMessages).sort();
+      if (prevArray.length !== newArray.length || !prevArray.every((id, index) => id === newArray[index])) {
+        return newGeneratingMessages;
+      }
+      return prev;
+    });
   }, [processedMessages]);
 
   // Cleanup timeouts on unmount
@@ -389,7 +395,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
     }
 
     lastMessageCountRef.current = currentCount;
-  }, [processedMessages.length, isAtBottom, scrollToBottom]);
+  }, [processedMessages.length, isAtBottom]); // Removed scrollToBottom from deps
 
   // Auto-scroll when the last message content changes (for streaming)
   useEffect(() => {
@@ -403,13 +409,15 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
         lastMessageContentRef.current = currentLastContent;
       }
     }
-  }, [processedMessages, isAtBottom, scrollToBottomForStreaming]);
+  }, [processedMessages, isAtBottom]); // Removed scrollToBottomForStreaming from deps
 
   // Memoized avatar generator
   const getAvatar = useCallback(
     (message: TeamChatMessageItem) => {
-      const isAssistant = message.messageType === 'assistant';
-      if (isAssistant) {
+      const isAssistant =
+      (message.messageType === 'assistant') ||
+      ('type' in message && message.type === 'assistant');
+          if (isAssistant) {
         return { avatar: '🤖', title: 'AI Assistant' };
       }
 
@@ -428,7 +436,9 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(({ messages, isLo
       const message = processedMessages[index];
       if (!message) return null;
 
-      const isAssistant = message.messageType === 'assistant';
+      const isAssistant =
+      (message.messageType === 'assistant') ||
+      ('type' in message && message.type === 'assistant');
       const userInfo = message.metadata?.userInfo;
       const isCurrentUser = currentUser?.id === userInfo?.id;
 

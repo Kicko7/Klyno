@@ -132,11 +132,7 @@ const TeamChat = memo(() => {
     }
   }, [currentOrganization?.id, createTeamChat, organizations]);
 
-  // Get active users from store (updated via WebSocket) - Fixed to return stable reference
-  const activeUsers = useTeamChatStore((state) => {
-    const chatState = state.activeChatStates[activeTeamChatId || ''];
-    return chatState?.presence || null;
-  });
+
 
   const theme = useTheme();
   return (

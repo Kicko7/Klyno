@@ -76,7 +76,8 @@ function detectSubscriptionUpdateType(
 
   const details: Record<string, any> = {};
 
-  // Check for new billing period (most common for monthly renewals)
+  // Check for new billing period FIRST (most common for monthly renewals)
+  // This should take priority over plan changes for renewals
   const currentPeriodStart = subscription.current_period_start;
   const previousPeriodStart = previousAttributes.current_period_start;
 
@@ -92,28 +93,17 @@ function detectSubscriptionUpdateType(
     };
   }
 
-  // Check for cancellation changes FIRST (highest priority)
-  const currentCancelAtPeriodEnd = subscription.cancel_at_period_end;
-  const previousCancelAtPeriodEnd = previousAttributes.cancel_at_period_end;
+  // Check for plan changes (only if no billing period change)
+  const currentPriceId = subscription.items.data[0]?.price?.id;
+  const previousPriceId = (previousAttributes as any)?.items?.data?.[0]?.price?.id;
   
-  if (currentCancelAtPeriodEnd !== previousCancelAtPeriodEnd) {
-    details.cancellation_change = {
-      previous_cancel_at_period_end: previousCancelAtPeriodEnd,
-      current_cancel_at_period_end: currentCancelAtPeriodEnd,
-      was_cancelled_now: previousCancelAtPeriodEnd === false && currentCancelAtPeriodEnd === true,
-      was_reactivated: previousCancelAtPeriodEnd === true && currentCancelAtPeriodEnd === false
+  if (currentPriceId !== previousPriceId) {
+    details.plan_change = {
+      previous_price_id: previousPriceId,
+      current_price_id: currentPriceId
     };
-    
-    // If user reactivated (cancelled the cancellation), treat as reactivation
-    if (previousCancelAtPeriodEnd === true && currentCancelAtPeriodEnd === false) {
-      return {
-        type: 'reactivation',
-        details
-      };
-    }
-    
     return {
-      type: 'cancellation',
+      type: 'plan_change',
       details
     };
   }
@@ -141,17 +131,30 @@ function detectSubscriptionUpdateType(
     };
   }
 
-  // Check for plan changes (only if no cancellation/status changes)
-  const currentPriceId = subscription.items.data[0]?.price?.id;
-  const previousPriceId = (previousAttributes as any)?.items?.data?.[0]?.price?.id;
+  // Check for cancellation changes (only if no plan/status changes)
+  const currentCancelAtPeriodEnd = subscription.cancel_at_period_end;
+  const previousCancelAtPeriodEnd = previousAttributes.cancel_at_period_end;
   
-  if (currentPriceId !== previousPriceId) {
-    details.plan_change = {
-      previous_price_id: previousPriceId,
-      current_price_id: currentPriceId
+  // Only treat as cancellation if it's a meaningful change (not undefined to false)
+  if (currentCancelAtPeriodEnd !== previousCancelAtPeriodEnd && 
+      previousCancelAtPeriodEnd !== undefined) {
+    details.cancellation_change = {
+      previous_cancel_at_period_end: previousCancelAtPeriodEnd,
+      current_cancel_at_period_end: currentCancelAtPeriodEnd,
+      was_cancelled_now: previousCancelAtPeriodEnd === false && currentCancelAtPeriodEnd === true,
+      was_reactivated: previousCancelAtPeriodEnd === true && currentCancelAtPeriodEnd === false
     };
+    
+    // If user reactivated (cancelled the cancellation), treat as reactivation
+    if (previousCancelAtPeriodEnd === true && currentCancelAtPeriodEnd === false) {
+      return {
+        type: 'reactivation',
+        details
+      };
+    }
+    
     return {
-      type: 'plan_change',
+      type: 'cancellation',
       details
     };
   }
@@ -232,7 +235,7 @@ export async function POST(request: NextRequest) {
         // Detect the type of subscription update
         const updateType = detectSubscriptionUpdateType(subscription, previousAttributes);
         console.log(`🔍 Detected update type: ${updateType.type}`, updateType.details);
-        console.log(`🔍 Previous cancel_at_period_end: ${previousAttributes?.cancel_at_period_end}, Current: ${subscription.cancel_at_period_end}`);
+        // console.log(`🔍 Previous cancel_at_period_end: ${previousAttributes?.cancel_at_period_end}, Current: ${subscription.cancel_at_period_end}`);
 
         // Always pass the current cancel_at_period_end value
         console.log(`🔄 Subscription ${subscription.id} cancel_at_period_end: ${subscription.cancel_at_period_end}`);

@@ -120,12 +120,24 @@ export class SubscriptionManager {
 
 
       if (existingSubscription.length > 0) {
+        const existingSub = existingSubscription[0];
+
+        // Check if this is actually a plan change by comparing plan details
+        const isActualPlanChange = updateType?.type === 'plan_change' && (
+          existingSub.planId !== plan.id ||
+          existingSub.planName !== plan.name ||
+          existingSub.monthlyCredits !== plan.monthlyCredits ||
+          existingSub.fileStorageLimit !== plan.fileStorageLimitGB ||
+          existingSub.vectorStorageLimit !== plan.vectorStorageLimitMB
+        );
+
         // Determine if we should reset balance and limits
         const shouldResetBalanceAndLimits = updateType &&
-          (updateType.type === 'new_billing_period' || updateType.type === 'plan_change');
+          (updateType.type === 'new_billing_period' || isActualPlanChange);
 
-        console.log(`🔄 Update type: ${updateType?.type || 'unknown'}, Should reset balance/limits: ${shouldResetBalanceAndLimits}`);
+        console.log(`🔄 Update type: ${updateType?.type || 'unknown'}, Is actual plan change: ${isActualPlanChange}, Should reset balance/limits: ${shouldResetBalanceAndLimits}`);
         console.log(`🔄 Cancel at period end: ${cancelAtPeriodEnd}`);
+        console.log(`🔄 Plan comparison - Existing: ${existingSub.planId}(${existingSub.planName}) vs New: ${plan.id}(${plan.name})`);
 
         if (updateType?.type === 'reactivation') {
           console.log(`🔄 Reactivation detected - preserving existing balance and file storage`);
@@ -149,7 +161,7 @@ export class SubscriptionManager {
         };
 
         console.log(`🔄 Database update data - cancelAtPeriodEnd: ${cancelAtPeriodEnd}, canceledAt: ${canceledAt}`);
-        console.log(`🔄 Full updateData object:`, JSON.stringify(updateData, null, 2));
+        console.log(`🔄 canceledPeriodDate value being set:`, updateData.canceledPeriodDate);
 
         // Handle canceledPeriodDate based on cancellation status
         if (cancelAtPeriodEnd) {
@@ -170,17 +182,39 @@ export class SubscriptionManager {
           console.log(`🔄 Subscription cancelled - set canceledPeriodDate to ${updateData.canceledPeriodDate} (${billingInterval}ly billing)`);
         } else {
           // Subscription is active/renewed - clear canceledPeriodDate
-          updateData.canceledPeriodDate = null;
-          console.log(`🔄 Subscription renewed - cleared canceledPeriodDate`);
+          updateData.canceledPeriodDate = sql`NULL`;
+          console.log(`🔄 Subscription renewed - clearing canceledPeriodDate`);
         }
 
-        // Only reset balance and storage for plan changes and new billing periods
+        // Reset balance and storage for plan changes and new billing periods
+        // Only reset if subscription is NOT being cancelled
+        console.log(`🔄 Balance reset check - shouldResetBalanceAndLimits: ${shouldResetBalanceAndLimits}, cancelAtPeriodEnd: ${cancelAtPeriodEnd}, updateType: ${updateType?.type}`);
+
         if (shouldResetBalanceAndLimits) {
-          updateData.balance = plan.monthlyCredits;
-          updateData.fileStorageRemaining = plan.fileStorageLimitGB * 1024; // Convert GB to MB
-          updateData.fileStorageUsed = 0;
-          console.log(`🔄 Resetting balance to ${plan.monthlyCredits} credits and file storage to 0 for ${updateType.type}`);
+          // Only reset balance if subscription is NOT being cancelled
+          if (!cancelAtPeriodEnd) {
+            if (isActualPlanChange) {
+              console.log(`🔄 Actual plan change detected - resetting balance (subscription not cancelled)`);
+              updateData.balance = plan.monthlyCredits;
+              updateData.fileStorageRemaining = plan.fileStorageLimitGB * 1024; // Convert GB to MB
+              updateData.fileStorageUsed = 0;
+              console.log(`🔄 Resetting balance to ${plan.monthlyCredits} credits and file storage to 0 for actual plan change`);
+            }
+            else if (updateType?.type === 'new_billing_period') {
+              console.log(`🔄 New billing period detected - resetting balance (not cancelled)`);
+              updateData.balance = plan.monthlyCredits;
+              updateData.fileStorageRemaining = plan.fileStorageLimitGB * 1024; // Convert GB to MB
+              updateData.fileStorageUsed = 0;
+              console.log(`🔄 Resetting balance to ${plan.monthlyCredits} credits and file storage to 0 for new_billing_period`);
+            }
+          } else {
+            console.log(`🔄 NOT resetting balance - subscription is being cancelled (cancelAtPeriodEnd: ${cancelAtPeriodEnd}), updateType: ${updateType?.type}, isActualPlanChange: ${isActualPlanChange}`);
+          }
+        } else {
+          console.log(`🔄 NOT resetting balance - shouldResetBalanceAndLimits: ${shouldResetBalanceAndLimits}, isActualPlanChange: ${isActualPlanChange}`);
         }
+
+        console.log(`🔄 Full updateData object:`, JSON.stringify(updateData, null, 2));
 
         const subscription = await tx
           .update(userSubscriptions)
@@ -188,7 +222,10 @@ export class SubscriptionManager {
           .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId))
           .returning();
 
+          console.log(`🔄 Subscription after update:`, JSON.stringify(subscription[0], null, 2));
+
         console.log(`🔄 Database update completed - Updated cancelAtPeriodEnd: ${subscription[0]?.cancelAtPeriodEnd}, canceledPeriodDate: ${subscription[0]?.canceledPeriodDate}`);
+        console.log(`🔄 canceledPeriodDate after update:`, subscription[0]?.canceledPeriodDate);
 
         const user = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
 

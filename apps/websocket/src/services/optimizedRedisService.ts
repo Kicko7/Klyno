@@ -660,6 +660,7 @@ export class OptimizedRedisService extends EventEmitter {
       // Get messages with error handling
       try {
         const messages = await this.redis.lrange(messagesKey, 0, -1);
+        
         session.messages = messages
           .map((msg: unknown) => {
             try {

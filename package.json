@@ -50,7 +50,7 @@
     "desktop:build-electron": "tsx scripts/electronWorkflow/buildElectron.ts",
     "desktop:build-next": "npm run build:electron",
     "desktop:prepare-dist": "tsx scripts/electronWorkflow/moveNextStandalone.ts",
-    "dev": "concurrently \"next dev --turbopack -p 3000\" \"cd apps/websocket && npm run dev\"",
+    "dev": "next dev --turbopack -p 3000",
     "dev:server": "tsx src/server/index.ts",
     "dev:full": "concurrently \"next dev --turbopack -p 3000\"  \"cd apps/websocket && npm run dev\"",
     "dev:desktop": "next dev --turbopack -p 3015",
