@@ -1,8 +1,6 @@
 {
   "build": {
-    "builder": "NIXPACKS",
-    "installCommand": "npm install -g pnpm@9.15.0 && pnpm install --no-frozen-lockfile",
-    "buildCommand": "pnpm run build"
+    "builder": "NIXPACKS"
   },
   "deploy": {
     "startCommand": "pnpm run start"
