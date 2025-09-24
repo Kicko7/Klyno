@@ -6,8 +6,19 @@ import { teamChatMessages, users } from '@/database/schemas';
 import { idGenerator } from '@/database/utils/idGenerator';
 
 export async function POST(req: NextRequest) {
-  const data = await req.json();
   try {
+    // Read the request body only once
+    let data;
+    try {
+      data = await req.json();
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 },
+      );
+    }
+    
     const { teamChatId, userId, ...messageData } = data;
 
     if (!data.teamChatId || !data.content || !data.messageType) {

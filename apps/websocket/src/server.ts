@@ -335,10 +335,7 @@ export class WebSocketServer {
                 updatedAt: new Date(),
                 updatedBy: socket.data.userId,
               });
-              
-              // If message is not in Redis, we need to find which room it belongs to
-              // For now, we'll broadcast to all active rooms as fallback
-              // TODO: Implement a way to find the room for database messages
+
               for (const roomId of socket.data.activeRooms) {
                 socket.broadcast.to(roomId).emit('message:update', {   
                   id: messageId,

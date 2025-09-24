@@ -164,9 +164,14 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
 
     socketRef.current.on('message:new', (message: MessageStreamData) => {
       if (!message.id || message.teamId !== activeTeamChatId) return;
+      
       const existingMessages = useTeamChatStore.getState().messages[message.teamId] || [];
       if (isDuplicateMessage(message, existingMessages)) return;
 
+      console.log('message:new', message);
+      if(message.userId === 'assistant') {
+        setLoading(true);
+      }
       const msg = {
         id: message.id,
         content: message.content,
@@ -183,15 +188,11 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         updatedAt: new Date(),
         accessedAt: new Date(),
       };
-      teamChatStore.batchUpdateMessages(message.teamId, [msg as any]);
-      console.log('message:new', message);
-      if(message.userId === 'assistant') {
-        setLoading(true);
-      }
+      teamChatStore.addMessage(message.teamId, msg);
     });
 
     socketRef.current.on('message:update', (data: { id: string; content: string,metadata?:any }) => {
-      console.log('message:update', data);
+      // console.log('message:update', data);
       const state = useTeamChatStore.getState();
       const existing = state.messages[teamChatId] || [];
       const idx = existing.findIndex((m) => m.id === data.id);

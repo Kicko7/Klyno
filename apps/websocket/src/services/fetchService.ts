@@ -51,12 +51,14 @@ export class ApiService {
         ...options,
       });
 
+      const responseData = await response.json();
+      
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.log('errorData', errorData);
+        console.log('errorData', responseData);
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
       }
 
-      return await response.json();
+      return responseData;
     } catch (error) {
       console.error(`API request failed for ${endpoint}:`, error);
       throw error;

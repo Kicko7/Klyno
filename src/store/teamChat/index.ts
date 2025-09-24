@@ -340,12 +340,6 @@ export const useTeamChatStore = create<TeamChatStore>()(
         messageId: string,
         updates: Partial<TeamChatMessageItem>,
       ) => {
-        // console.log(`📝 updateMessage called for ${teamChatId}:`, {
-        //   messageId,
-        //   updates,
-        //   isLocalChange: (updates as any).isLocal !== undefined,
-        //   newIsLocalValue: (updates as any).isLocal,
-        // });
 
         set((state) => {
           const existingMessages = state.messages[teamChatId] || [];
@@ -357,61 +351,20 @@ export const useTeamChatStore = create<TeamChatStore>()(
           }
 
           const existingMessage = existingMessages[messageIndex] as any;
-          // console.log(`   📋 Existing message:`, {
-          //   id: existingMessage.id,
-          //   messageType: existingMessage.messageType,
-          //   currentIsLocal: existingMessage.isLocal,
-          //   newIsLocal: (updates as any).isLocal,
-          // });
-
           // Create updated message
           const updatedMessage = {
             ...existingMessage,
             ...updates,
           } as any;
 
-          // Use the same deduplication and sorting logic as batchUpdateMessages
-          const messageMap = new Map(existingMessages.map((m) => [m.id, m]));
-
-          // Update the specific message
-          messageMap.set(messageId, updatedMessage);
-
-          // Apply the same sorting logic for consistency
-          const sortedMessages = Array.from(messageMap.values()).sort((a, b) => {
-            // Parse timestamps to numbers for comparison
-            const getTimestamp = (msg: TeamChatMessageItem): number => {
-              if (msg.createdAt instanceof Date) {
-                return msg.createdAt.getTime();
-              }
-              if (typeof msg.createdAt === 'string') {
-                return new Date(msg.createdAt).getTime();
-              }
-              return 0;
-            };
-
-            const tsA = getTimestamp(a);
-            const tsB = getTimestamp(b);
-
-            // First priority: sort by timestamp
-            if (tsA !== tsB) {
-              return tsA - tsB;
-            }
-
-            // Second priority: when timestamps are equal, user messages come first
-            if (a.userId !== b.userId) {
-              // User messages (userId !== "assistant") come before assistant messages
-              if (a.userId === 'assistant') return 1;
-              if (b.userId === 'assistant') return -1;
-            }
-
-            // Third priority: if still equal, sort by ID for consistency
-            return a.id.localeCompare(b.id);
-          });
+          // Update the specific message in place without sorting
+          const updatedMessages = [...existingMessages];
+          updatedMessages[messageIndex] = updatedMessage;
 
           return {
             messages: {
               ...state.messages,
-              [teamChatId]: sortedMessages,
+              [teamChatId]: updatedMessages,
             },
           };
         });
@@ -420,39 +373,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
         const messageIndex = existingMessages.findIndex((m) => m.id === messageId);
         return messageIndex !== -1 ? existingMessages[messageIndex] : undefined;
 
-        // If the message is no longer local, check if it's an AI message and persist it to database
-        // if ((updates as any).metadata.isLocal === false) {
-        //   console.log(`   🔄 Message is no longer local, checking if it's an AI message...`);
-        //   const state = get();
-        //   const existingMessages = state.messages[teamChatId] || [];
-        //   const message = existingMessages.find((m) => m.id === messageId);
-
-        //   if (message && message.messageType === 'assistant') {
-        //     console.log(`   💾 Persisting updated AI message to database: ${messageId}`);
-        //     console.log(`   📊 Message data:`, {
-        //       id: message.id,
-        //       content: message.content.substring(0, 100),
-        //       messageType: message.messageType,
-        //       metadata: message.metadata,
-        //     });
-        //     // Use the persistMessageToDatabase method to save the updated message
-        //     // Exclude isLocal from database persistence since it's not in the schema yet
-        //     const { isLocal, ...dbMessageData } = message as any;
-        //     await get().persistMessageToDatabase(teamChatId, dbMessageData);
-        //     console.log(`   ✅ AI message persisted successfully: ${messageId}`);
-        //   } else {
-        //     console.log(`   ℹ️ Message is not an AI message or not found:`, {
-        //       messageId,
-        //       messageType: message?.messageType,
-        //       isLocal: (message as any)?.isLocal,
-        //     });
-        //   }
-        // } else {
-        //   console.log(`   ℹ️ Message is still local or isLocal not changed:`, {
-        //     messageId,
-        //     newIsLocal: (updates as any).isLocal,
-        //   });
-        // }
+      
       },
 
       updateMessageContent: async (
@@ -1342,6 +1263,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
 
       // Method to load messages with proper ordering and deduplication
       loadMessages: async (teamChatId: string, limit: number = 20, lastMessageId?: string, lastMessageCreatedAt?: string) => {
+        console.log('Load Message is called')
         try {
 
           let result: {
@@ -1806,11 +1728,16 @@ export const useTeamChatStore = create<TeamChatStore>()(
         set((state) => {
           const existingMessages = state.messages[teamChatId] || [];
 
+          // Create a map for quick lookup but preserve order
           const messageMap = new Map<string, any>();
+          const messageOrder: string[] = [];
 
-          // Add existing messages
+          // Add existing messages in their current order
           existingMessages.forEach((msg) => {
-            if (msg.id) messageMap.set(msg.id, msg);
+            if (msg.id) {
+              messageMap.set(msg.id, msg);
+              messageOrder.push(msg.id);
+            }
           });
 
           // Add/merge new messages (this will overwrite duplicates)
@@ -1834,10 +1761,16 @@ export const useTeamChatStore = create<TeamChatStore>()(
               }
 
               messageMap.set(msg.id, mergedMsg);
+              
+              // If it's a new message, add to order array
+              if (!messageOrder.includes(msg.id)) {
+                messageOrder.push(msg.id);
+              }
             }
           });
 
-          const mergedMessages = Array.from(messageMap.values());
+          // Preserve the original order by using the order array
+          const mergedMessages = messageOrder.map(id => messageMap.get(id)).filter(Boolean);
           return {
             messages: {
               ...state.messages,
