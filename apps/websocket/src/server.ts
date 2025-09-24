@@ -317,10 +317,12 @@ export class WebSocketServer {
             });
 
             // Broadcast only to the specific room where the message belongs
-            socket.broadcast.to(session.sessionId).emit('message:update', {   
-              id: messageId,
-              content,
-            });
+            for (const roomId of socket.data.activeRooms) {
+              socket.broadcast.to(roomId).emit('message:update', {   
+                id: messageId,
+                content,
+              });
+            }
 
             // await this.apiService.updateMessage(messageId, {
             //   content,

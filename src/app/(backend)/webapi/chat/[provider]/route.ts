@@ -57,6 +57,9 @@ export const POST = checkAuth(async (req: Request, { params, jwtPayload, createR
     // console.log(subscriptionInfo, '[SUBSCRIPTION INFO]')
     // console.log(model, '[MODEL]')
 
+    console.log(model, '[MODEL]')
+    console.log(subscriptionInfo, '[SUBSCRIPTION INFO]')
+
     if (subscriptionInfo && model == "openrouter/auto") {
       cleanData.model = "anthropic/claude-3.5-haiku"
       return await agentRuntime.chat(cleanData, {

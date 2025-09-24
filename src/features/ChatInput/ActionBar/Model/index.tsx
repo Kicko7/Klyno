@@ -1,5 +1,5 @@
 import { ModelIcon } from '@lobehub/icons';
-import { Spin } from 'antd';
+import {  Spin } from 'antd';
 import { createStyles } from 'antd-style';
 import { Settings2Icon } from 'lucide-react';
 import { memo } from 'react';
@@ -17,6 +17,7 @@ import { authSelectors } from '@/store/user/selectors';
 
 import Action from '../components/Action';
 import ControlsForm from './ControlsForm';
+import { Avatar } from '@lobehub/ui';
 
 const useStyles = createStyles(({ css, token, cx }) => ({
   container: css`
@@ -94,6 +95,8 @@ const ModelSwitch = memo(() => {
           <div className={styles.icon}>
             {isModelListLoading ? (
               <Spin size="small" />
+            ) : model === 'openrouter/auto' ? (
+              <Avatar avatar={'/logo.png'} size={22} />
             ) : (
               <ModelIcon model={model} size={22} />
             )}
