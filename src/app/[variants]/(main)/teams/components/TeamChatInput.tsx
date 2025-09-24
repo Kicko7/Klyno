@@ -114,7 +114,9 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   const setActiveChatState = useTeamChatStore(useCallback((state) => state.setActiveChatState, []));
 
   const activeTeamChatId = useTeamChatStore((state) => state.activeTeamChatId);
-  const editWebSocketMessage = useTeamChatStore(useCallback((state) => state.editWebSocketMessage, []));
+  const editWebSocketMessage = useTeamChatStore(
+    useCallback((state) => state.editWebSocketMessage, []),
+  );
   const socketRef = useRef<Socket | null>(null);
 
   const isDuplicateMessage = useCallback((message: MessageStreamData, existingMessages: any[]) => {
@@ -151,7 +153,6 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       console.log('Connected to socket:', socketRef.current?.id);
       setSocketRef(socketRef);
       socketRef.current?.emit('room:join', activeTeamChatId);
-   
     });
 
     socketRef.current.on('connect_error', (err) => {
@@ -164,12 +165,12 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
 
     socketRef.current.on('message:new', (message: MessageStreamData) => {
       if (!message.id || message.teamId !== activeTeamChatId) return;
-      
+
       const existingMessages = useTeamChatStore.getState().messages[message.teamId] || [];
       if (isDuplicateMessage(message, existingMessages)) return;
 
       console.log('message:new', message);
-      if(message.userId === 'assistant') {
+      if (message.userId === 'assistant') {
         setLoading(true);
       }
       const msg = {
@@ -191,19 +192,27 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       teamChatStore.addMessage(message.teamId, msg);
     });
 
-    socketRef.current.on('message:update', (data: { id: string; content: string,metadata?:any }) => {
-      // console.log('message:update', data);
-      const state = useTeamChatStore.getState();
-      const existing = state.messages[teamChatId] || [];
-      const idx = existing.findIndex((m) => m.id === data.id);
-      if (idx !== -1) {
-        const updated = { ...existing[idx], content: data.content, updatedAt: new Date(), metadata: data.metadata };
-        batchUpdateMessages(teamChatId, [updated as any]);
-        if(data.metadata) {
-          setLoading(false);
-        } 
-      }
-    });
+    socketRef.current.on(
+      'message:update',
+      (data: { id: string; content: string; metadata?: any }) => {
+        // console.log('message:update', data);
+        const state = useTeamChatStore.getState();
+        const existing = state.messages[teamChatId] || [];
+        const idx = existing.findIndex((m) => m.id === data.id);
+        if (idx !== -1) {
+          const updated = {
+            ...existing[idx],
+            content: data.content,
+            updatedAt: new Date(),
+            metadata: data.metadata,
+          };
+          batchUpdateMessages(teamChatId, [updated as any]);
+          if (data.metadata) {
+            setLoading(false);
+          }
+        }
+      },
+    );
 
     socketRef.current.on('message:delete', (id: string) => {
       removeMessage(teamChatId, id);
@@ -211,8 +220,8 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
 
     socketRef.current.on('session:loaded', (session: any) => {
       setTimeout(() => {
-        if(session?.messages && session.messages.length > 0) {
-          batchUpdateMessages(teamChatId, session.messages,false);
+        if (session?.messages && session.messages.length > 0) {
+          batchUpdateMessages(teamChatId, session.messages, false);
         }
         setActiveChatState(false);
       }, 0);
@@ -275,13 +284,11 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   const activeTeamChat = teamChats.find((chat) => chat.id === activeTeamChatId);
   const sessionId = activeTeamChat?.metadata?.sessionId;
   const agentConfigSession = useAgentStore(agentSelectors.getAgentConfigBySessionId(sessionId));
-  
 
   // Get current model and check if it supports vision (images)
   const currentModel = agentConfigSession?.model || 'gpt-4';
   const currentProvider = agentConfigSession?.provider || 'openai';
   const modelSupportsVision = useModelSupportVision(currentModel, currentProvider);
-
 
   // If model supports vision (images), allow all file uploads
   const canUpload = modelSupportsVision;
@@ -406,7 +413,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
           isLocal: true,
           sendTime: new Date(),
         });
-        
+
         sendWebSocketMessage(
           'Thinking...',
           'assistant',
@@ -414,7 +421,6 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
           assistantMessageId,
           new Date(),
         );
-      
       }, 1000);
 
       // Generate AI response
@@ -628,7 +634,18 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       agentConfig.model,
       agentConfig.provider,
     )(aiInfraStoreState) as any;
-    const agentPricing = modelInfo?.pricing as any;
+    
+    // If current agent is openrouter/auto, use claude-3.5-haiku pricing
+    let agentPricing = modelInfo?.pricing as any;
+    if (agentConfig.model === 'openrouter/auto' && agentConfig.provider === 'openrouter') {
+      // Get claude-3.5-haiku pricing from OpenRouter
+      const claudeModelInfo = aiModelSelectors.getEnabledModelById(
+        'anthropic/claude-3.5-haiku',
+        'openrouter',
+      )(aiInfraStoreState) as any;
+      agentPricing = claudeModelInfo?.pricing as any;
+      console.log('Using claude-3.5-haiku pricing for openrouter/auto:', agentPricing);
+    }
 
     if (
       context?.usage?.totalTokens &&
@@ -640,6 +657,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         agentPricing as any,
         organizationSubscriptionInfo?.subscription?.planName || '',
       );
+      
       console.log('credits', credits);
       await updateOrganizationSubscriptionInfo(credits);
     }
