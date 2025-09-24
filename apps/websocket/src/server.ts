@@ -188,7 +188,6 @@ export class WebSocketServer {
       socket.on(
         'message:send',
         async (message: { teamId: string; content: string; type?: string; metadata?: any, timestamp?: any }) => {
-          console.log("message timestamp", message.timestamp)
           try {
             console.log(message.metadata);
             const timestamp = new Date().toISOString();
@@ -198,6 +197,26 @@ export class WebSocketServer {
             }
             const messageId =
               message.metadata?.clientMessageId || `msg_${Date.now()}_${nanoid(10)}`;
+
+              if(messageId.includes('assistant')) {
+               const assistantMessage = await this.sessionManager.getMessageById(messageId);
+               if(assistantMessage) {
+                // Update existing message instead of creating new one
+                await this.sessionManager.updateMessage(message.teamId, messageId, {
+                ...message
+                });
+                
+                socket.broadcast.to(message.teamId).emit('message:update', {
+                  id: messageId,
+                  content: message.content,
+                  metadata: {
+                    ...message.metadata,
+                  },
+                });
+                
+                return; // Exit early since we updated the existing message
+               }
+              }
 
             // Create message data for session
             const messageData: MessageData = {
@@ -251,17 +270,8 @@ export class WebSocketServer {
               console.error('Failed to add to message stream:', streamErr);
             }
 
-            // Get room information for debugging
-            const room = this.io.sockets.adapter.rooms.get(message.teamId);
-            const roomSize = room ? room.size : 0;
-
-            // Broadcast to all users in the room EXCEPT the sender (to prevent duplication)
             socket.broadcast.to(message.teamId).emit('message:new', streamMessage);
 
-            // Get session stats for monitoring
-            const stats = await this.sessionManager.getSessionStats(message.teamId);
-
-            // Refresh presence TTL for sender to keep them active
             try {
               await this.redisService.updatePresence(message.teamId, {
                 userId: socket.data.userId,
@@ -296,12 +306,6 @@ export class WebSocketServer {
         try {
           console.log(`✏️ Message edit request: ${messageId} by user ${socket.data.userId}`);
 
-          for (const roomId of socket.data.activeRooms) {
-            this.io.to(roomId).emit('message:update', {
-              id: messageId,
-              content,
-            });
-          }
           // First, check if message exists in Redis session
           const session = await this.sessionManager.getSessionByMessageId(messageId);
 
@@ -312,11 +316,17 @@ export class WebSocketServer {
               updatedAt: new Date(),
             });
 
-            await this.apiService.updateMessage(messageId, {
+            // Broadcast only to the specific room where the message belongs
+            socket.broadcast.to(session.sessionId).emit('message:update', {   
+              id: messageId,
               content,
-              updatedAt: new Date(),
-              updatedBy: socket.data.userId,
-            });        
+            });
+
+            // await this.apiService.updateMessage(messageId, {
+            //   content,
+            //   updatedAt: new Date(),
+            //   updatedBy: socket.data.userId,
+            // });        
 
           } else {
             try {
@@ -325,6 +335,16 @@ export class WebSocketServer {
                 updatedAt: new Date(),
                 updatedBy: socket.data.userId,
               });
+              
+              // If message is not in Redis, we need to find which room it belongs to
+              // For now, we'll broadcast to all active rooms as fallback
+              // TODO: Implement a way to find the room for database messages
+              for (const roomId of socket.data.activeRooms) {
+                socket.broadcast.to(roomId).emit('message:update', {   
+                  id: messageId,
+                  content,
+                });
+              }
             } catch (dbError) {
               console.error('❌ Failed to update message in database:', dbError);
             }
@@ -346,10 +366,8 @@ export class WebSocketServer {
             // Message is in Redis session - delete it there
             await this.sessionManager.deleteMessage(session.sessionId, messageId);
 
-            // Broadcast deletion to all rooms the user is in
-            for (const roomId of socket.data.activeRooms) {
-              this.io.to(roomId).emit('message:delete', messageId);
-            }
+            // Broadcast deletion only to the specific room where the message belongs
+            this.io.to(session.sessionId).emit('message:delete', messageId);
 
             await this.apiService.deleteMessage(messageId);
 
@@ -357,6 +375,14 @@ export class WebSocketServer {
           } else {
             try {
               await this.apiService.deleteMessage(messageId);
+              
+              // If message is not in Redis, we need to find which room it belongs to
+              // For now, we'll broadcast to all active rooms as fallback
+              // TODO: Implement a way to find the room for database messages
+              for (const roomId of socket.data.activeRooms) {
+                this.io.to(roomId).emit('message:delete', messageId);
+              }
+              
               console.log(`✅ Message ${messageId} deleted from database`);
             } catch (error) {
               console.error('❌ Error deleting message:', error);
@@ -431,6 +457,7 @@ export class WebSocketServer {
           console.error('Error handling presence heartbeat:', error);
         }
       });
+
 
       // Custom ping/pong handler to prevent timeout issues
 

@@ -7,7 +7,6 @@ import { idGenerator } from '@/database/utils/idGenerator';
 
 export async function POST(req: NextRequest) {
   const data = await req.json();
-  console.log('data', data)
   try {
     const { teamChatId, userId, ...messageData } = data;
 

@@ -62,7 +62,7 @@ export const gatherChatHistory = async (
       const userName = userInfo.fullName || userInfo.username || userInfo.email || 'Unknown User';
 
       return {
-        role: messageType as MessageRoleType,
+        role: 'user',
         content: `[${userName}]: ${content}`,
         sessionId: teamChatId,
         // Include file information if available
@@ -80,7 +80,7 @@ export const gatherChatHistory = async (
 
     // Return standard message format for non-user or non-multi-user messages
     return {
-      role: messageType as MessageRoleType,
+      role: 'assistant',
       content,
       sessionId: teamChatId,
       // Include file information if available
@@ -114,6 +114,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   const setActiveChatState = useTeamChatStore(useCallback((state) => state.setActiveChatState, []));
 
   const activeTeamChatId = useTeamChatStore((state) => state.activeTeamChatId);
+  const editWebSocketMessage = useTeamChatStore(useCallback((state) => state.editWebSocketMessage, []));
   const socketRef = useRef<Socket | null>(null);
 
   const isDuplicateMessage = useCallback((message: MessageStreamData, existingMessages: any[]) => {
@@ -183,16 +184,23 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         accessedAt: new Date(),
       };
       teamChatStore.batchUpdateMessages(message.teamId, [msg as any]);
+      console.log('message:new', message);
+      if(message.userId === 'assistant') {
+        setLoading(true);
+      }
     });
 
-    socketRef.current.on('message:update', (data: { id: string; content: string }) => {
+    socketRef.current.on('message:update', (data: { id: string; content: string,metadata?:any }) => {
       console.log('message:update', data);
       const state = useTeamChatStore.getState();
       const existing = state.messages[teamChatId] || [];
       const idx = existing.findIndex((m) => m.id === data.id);
       if (idx !== -1) {
-        const updated = { ...existing[idx], content: data.content, updatedAt: new Date() };
+        const updated = { ...existing[idx], content: data.content, updatedAt: new Date(), metadata: data.metadata };
         batchUpdateMessages(teamChatId, [updated as any]);
+        if(data.metadata) {
+          setLoading(false);
+        } 
       }
     });
 
@@ -384,7 +392,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         message.sendTime,
       );
       // Send message via WebSocket
-      console.log('Sending message to WebSocket');
+      // console.log('Sending message to WebSocket');
 
       // Create temporary assistant message
       setTimeout(async () => {
@@ -397,6 +405,14 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
           isLocal: true,
           sendTime: new Date(),
         });
+        
+        sendWebSocketMessage(
+          'Thinking...',
+          'assistant',
+          { isThinking: true, clientMessageId: assistantMessageId, isLocal: true },
+          assistantMessageId,
+          new Date(),
+        );
       
       }, 1000);
 
@@ -527,6 +543,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
           await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
             content: newResponse,
           });
+          editWebSocketMessage(assistantMessageId, newResponse);
           return newResponse;
         }
         break;
@@ -546,13 +563,11 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
 
       case 'tool_calls': {
         // Handle tool calls if needed
-        console.log('Tool calls received:', chunk.tool_calls);
         break;
       }
 
       case 'reasoning': {
         // Handle reasoning if needed
-        console.log('Reasoning chunk:', chunk.text);
         break;
       }
 
@@ -624,6 +639,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         agentPricing as any,
         organizationSubscriptionInfo?.subscription?.planName || '',
       );
+      console.log('credits', credits);
       await updateOrganizationSubscriptionInfo(credits);
     }
   };
@@ -636,6 +652,13 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       content: `Sorry, I encountered an error: ${errorMessage}`,
       metadata: { isError: true, isThinking: false, clientMessageId: assistantMessageId },
     });
+    sendWebSocketMessage(
+      `Sorry, I encountered an error: ${errorMessage}`,
+      'assistant',
+      { isError: true, isThinking: false, clientMessageId: assistantMessageId },
+      assistantMessageId,
+      new Date(),
+    );
   };
 
   const showErrorMessage = async (error: any) => {

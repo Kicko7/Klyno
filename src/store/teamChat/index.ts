@@ -1789,21 +1789,11 @@ export const useTeamChatStore = create<TeamChatStore>()(
 
           const updatedMessages = [...existingMessages, messageData];
 
-          const sortedMessages = updatedMessages.sort((a, b) => {
-            const tsA = new Date(a.createdAt).getTime();
-            const tsB = new Date(b.createdAt).getTime();
-
-            if (tsA !== tsB) return tsA - tsB;
-            if (a.userId !== b.userId) {
-              return a.metadata?.userInfo?.id === 'assistant' ? 1 : -1;
-            }
-            return a.id.localeCompare(b.id);
-          });
 
           return {
             messages: {
               ...state.messages,
-              [teamChatId]: sortedMessages,
+              [teamChatId]: updatedMessages,
             },
           };
         });
@@ -1813,7 +1803,6 @@ export const useTeamChatStore = create<TeamChatStore>()(
 
       // Batch update messages (for WebSocket reconciliation)
       batchUpdateMessages: (teamChatId: string, newMessages: any[], checkSorting: boolean = true) => {
-        console.log(newMessages)
         set((state) => {
           const existingMessages = state.messages[teamChatId] || [];
 
@@ -1827,66 +1816,28 @@ export const useTeamChatStore = create<TeamChatStore>()(
           // Add/merge new messages (this will overwrite duplicates)
           newMessages.forEach((msg) => {
             if (msg.id) {
-              messageMap.set(msg.id, {
-                ...messageMap.get(msg.id),
+              const existingMsg = messageMap.get(msg.id);
+              const mergedMsg = {
+                ...existingMsg,
                 ...msg,
-              });
+              };
+
+              // Only update metadata if new message has metadata
+              if (msg.metadata && Object.keys(msg.metadata).length > 0) {
+                mergedMsg.metadata = {
+                  // ...existingMsg?.metadata,
+                  ...msg.metadata,
+                };
+              } else if (existingMsg?.metadata) {
+                // Keep existing metadata if new message has no metadata
+                mergedMsg.metadata = existingMsg.metadata;
+              }
+
+              messageMap.set(msg.id, mergedMsg);
             }
           });
 
-          // Convert back to array without sorting - keep original order
           const mergedMessages = Array.from(messageMap.values());
-          let messages:any[] = mergedMessages;
-          if (checkSorting) {
-            const sortedMessages = mergedMessages.sort((a, b) => {
-              const getTimestamp = (msg: any): number => {
-                if (msg.createdAt instanceof Date) return msg.createdAt.getTime();
-                if (typeof msg.createdAt === "string") {
-                  // Handle PostgreSQL timestamp formats
-                  // Examples: "2025-09-01 09:25:12.564+00", "2025-09-01T09:25:12.564Z", etc.
-                  let timestampString = msg.createdAt.trim();
-
-                  // Convert PostgreSQL format to ISO format if needed
-                  if (timestampString.includes(' ') && !timestampString.includes('T')) {
-                    // Replace space with 'T' for ISO format
-                    timestampString = timestampString.replace(' ', 'T');
-                  }
-
-                  // Handle timezone offset format (+00 instead of +00:00)
-                  if (/[+-]\d{2}$/.test(timestampString)) {
-                    timestampString += ':00';
-                  }
-
-                  // If no timezone info, assume UTC
-                  if (!timestampString.includes('+') && !timestampString.includes('-') && !timestampString.endsWith('Z')) {
-                    timestampString += 'Z';
-                  }
-
-                  const parsed = new Date(timestampString).getTime();
-                  return isNaN(parsed) ? 0 : parsed;
-                }
-                return 0;
-              };
-
-              const tsA = getTimestamp(a);
-              const tsB = getTimestamp(b);
-
-              // 1. chronological order
-
-              if (tsA !== tsB) return tsA - tsB;
-
-              console.log("User Message before assistant");
-
-              // 2. user messages before assistant
-              const isAssistantA = a.metadata?.userInfo?.id === "assistant";
-              const isAssistantB = b.metadata?.userInfo?.id === "assistant";
-              if (isAssistantA !== isAssistantB) return isAssistantA ? 1 : -1;
-
-              // 3. fallback by ID
-              return String(a.id).localeCompare(String(b.id));
-            });
-            messages = sortedMessages;
-          }
           return {
             messages: {
               ...state.messages,

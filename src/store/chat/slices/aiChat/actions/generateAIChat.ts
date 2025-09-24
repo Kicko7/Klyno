@@ -623,7 +623,6 @@ export const generateAIChat: StateCreator<
         const modelInfo = aiModelSelectors.getEnabledModelById(model, provider)(aiInfraStoreState) as any;
 
         // Get model details
-        const modelName = modelInfo?.displayName || model;
         const modelPricing = modelInfo?.pricing;
 
         if (!model.includes('free') && provider == 'openrouter') {

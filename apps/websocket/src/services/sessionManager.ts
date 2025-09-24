@@ -413,6 +413,28 @@ export class SessionManager {
   }
 
   /**
+   * Get a message by ID from any active session
+   */
+  async getMessageById(messageId: string): Promise<MessageData | null> {
+    try {
+      // Get all active sessions from Redis
+      const sessions = await this.redisService.getAllActiveSessions();
+
+      for (const session of sessions) {
+        const message:any = session.messages?.find((msg: any) => msg.id === messageId);
+        if (message) {
+          return message;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error finding message by ID:', error);
+      return null;
+    }
+  }
+
+  /**
    * Update message in session
    */
   async updateMessage(sessionId: string, messageId: string, updates: any): Promise<boolean> {

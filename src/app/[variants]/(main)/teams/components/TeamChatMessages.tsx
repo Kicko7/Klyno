@@ -358,10 +358,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
       );
     }, [messages]);
 
-    console.log(messages.length)
 
-
-    // Keep your existing useEffect for tracking message generation
     useEffect(() => {
       const newGeneratingMessages = new Set<string>();
       const currentContent = previousMessageContentRef.current;

@@ -17,7 +17,7 @@ export interface ServerToClientEvents {
     participants: string[];
     status: string;
   }) => void;
-  'message:update': (data: { id: string; content: string }) => void;
+  'message:update': (data: { id: string; content: string ,metadata?:any}) => void;
   'message:delete': (messageId: string) => void;
   'message:error': (data: {
     teamId: string;
