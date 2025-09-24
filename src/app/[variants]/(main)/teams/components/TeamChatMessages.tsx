@@ -278,6 +278,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
     const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
     const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(true);
     const [page, setPage] = useState(1);
+    const [shouldPreventAutoScroll, setShouldPreventAutoScroll] = useState(false);
 
     // Keep your existing state
     const [generatingMessages, setGeneratingMessages] = useState<Set<string>>(new Set());
@@ -308,7 +309,6 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
 
     // FUNCTION TO LOAD OLDER MESSAGES
     const loadOlderMessages = useCallback(async () => {
-      
       if (loadingOlderMessages === true || hasMoreOlderMessages === false || teamId === undefined) {
         return;
       }
@@ -321,11 +321,12 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
 
       console.log('Loading older messages...');
       setLoadingOlderMessages(true);
+      setShouldPreventAutoScroll(true); // Prevent auto-scroll while loading
 
       try {
         // Get the last (newest) message to load messages before it
         const lastMessage = messages[0];
-      
+
         const res = await loadMessages(
           teamId as string,
           20,
@@ -334,18 +335,20 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
             ? lastMessage?.createdAt.toISOString()
             : lastMessage?.createdAt,
         );
-        
+
         console.log('Loaded older messages result:', {
           messagesCount: res.messages.length,
           hasMore: res.hasMore,
-          totalCount: res.totalCount
+          totalCount: res.totalCount,
         });
-        
+
         setHasMoreOlderMessages(res.hasMore);
       } catch (error) {
         console.error('Error loading older messages:', error);
       } finally {
         setLoadingOlderMessages(false);
+        // Reset scroll prevention after a short delay
+        setTimeout(() => setShouldPreventAutoScroll(false), 500);
       }
     }, [loadingOlderMessages, teamId, messages, loadMessages]);
 
@@ -357,7 +360,6 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
         (msg) => msg && msg.id && (msg.content || msg.content === 'Thinking...'),
       );
     }, [messages]);
-
 
     useEffect(() => {
       const newGeneratingMessages = new Set<string>();
@@ -425,22 +427,10 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
       };
     }, []);
 
-    // Keep your existing scroll functions
-    const scrollToBottom = useCallback(() => {
-      if (processedMessages.length > 0 && isAtBottom) {
-        requestAnimationFrame(() => {
-          virtuosoRef.current?.scrollToIndex({
-            index: processedMessages.length - 1,
-            behavior: 'smooth',
-            align: 'end',
-          });
-        });
-      }
-    }, [processedMessages.length, isAtBottom]);
-
-    const scrollToBottomForStreaming = useCallback(() => {
-      if (processedMessages.length > 0 && isAtBottom) {
-        requestAnimationFrame(() => {
+    // Improved scroll functions
+    const scrollToBottom = useCallback(
+      (force = false) => {
+        if (processedMessages.length > 0 && (isAtBottom || force)) {
           requestAnimationFrame(() => {
             virtuosoRef.current?.scrollToIndex({
               index: processedMessages.length - 1,
@@ -448,33 +438,76 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
               align: 'end',
             });
           });
-        });
-      }
-    }, [processedMessages.length, isAtBottom]);
+        }
+      },
+      [processedMessages.length, isAtBottom],
+    );
 
-    // Keep your existing scroll effects
+    const scrollToBottomForStreaming = useCallback(
+      (force = false) => {
+        if (processedMessages.length > 0 && (isAtBottom || force)) {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              virtuosoRef.current?.scrollToIndex({
+                index: processedMessages.length - 1,
+                behavior: 'smooth',
+                align: 'end',
+              });
+            });
+          });
+        }
+      },
+      [processedMessages.length, isAtBottom],
+    );
+
+    // Improved scroll effects
     useEffect(() => {
       const currentCount = processedMessages.length;
       const previousCount = lastMessageCountRef.current;
 
-      if (currentCount > previousCount && isAtBottom) {
+      // Only auto-scroll if we're at bottom and not preventing auto-scroll
+      if (currentCount > previousCount && isAtBottom && !shouldPreventAutoScroll) {
         scrollToBottom();
       }
 
       lastMessageCountRef.current = currentCount;
-    }, [processedMessages.length, isAtBottom]);
+    }, [processedMessages.length, isAtBottom, shouldPreventAutoScroll, scrollToBottom]);
 
     useEffect(() => {
-      if (processedMessages.length > 0 && isAtBottom) {
+      if (processedMessages.length > 0 && isAtBottom && !shouldPreventAutoScroll) {
         const lastMessage = processedMessages[processedMessages.length - 1];
         const currentLastContent = lastMessage?.content || '';
 
+        // Force scroll for streaming content changes
         if (currentLastContent !== lastMessageContentRef.current && currentLastContent) {
-          scrollToBottomForStreaming();
+          scrollToBottomForStreaming(true);
           lastMessageContentRef.current = currentLastContent;
         }
       }
-    }, [processedMessages, isAtBottom]);
+    }, [processedMessages, isAtBottom, shouldPreventAutoScroll, scrollToBottomForStreaming]);
+
+    // Special effect for streaming messages - more aggressive scrolling
+    useEffect(() => {
+      if (processedMessages.length > 0 && !shouldPreventAutoScroll) {
+        const lastMessage = processedMessages[processedMessages.length - 1];
+        const isStreaming =
+          lastMessage?.messageType === 'assistant' &&
+          lastMessage?.content &&
+          lastMessage?.content !== 'Thinking...' &&
+          !lastMessage?.metadata?.isLocal;
+
+        if (isStreaming && isAtBottom) {
+          // More aggressive scroll for streaming
+          requestAnimationFrame(() => {
+            virtuosoRef.current?.scrollToIndex({
+              index: processedMessages.length - 1,
+              behavior: 'smooth',
+              align: 'end',
+            });
+          });
+        }
+      }
+    }, [processedMessages, isAtBottom, shouldPreventAutoScroll]);
 
     // Keep your existing getAvatar function
     const getAvatar = useCallback(
