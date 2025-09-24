@@ -2,12 +2,10 @@ import React from 'react';
 import KlynoWelcome from '@/components/KlynoWelcome';
 import { useOrganizationStore } from '@/store/organization/store';
 import { useTeamChatStore } from '@/store/teamChat';
-import TeamChatInput from './TeamChatInput';
 import { useTheme } from 'antd-style';
 
 const TeamWelcome = () => {
   const { organizations } = useOrganizationStore();
-  const { activeTeamChatId } = useTeamChatStore();
   const currentOrganization = organizations[0];
   const theme = useTheme();
 

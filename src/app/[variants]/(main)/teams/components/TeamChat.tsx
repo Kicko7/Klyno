@@ -1,14 +1,14 @@
 'use client';
 
 import { ModelTag } from '@lobehub/icons';
-import { ActionIcon, Avatar, Tag, Tooltip } from '@lobehub/ui';
+import { ActionIcon } from '@lobehub/ui';
 import { ChatHeader } from '@lobehub/ui/chat';
 import { Alert, Button } from 'antd';
 import { useResponsive, useTheme } from 'antd-style';
 import { UserPlus } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useRef, useState } from 'react';
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { Suspense, useState } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
 import HeaderAction from '@/app/[variants]/(main)/chat/(workspace)/_layout/Desktop/ChatHeader/HeaderAction';
@@ -23,9 +23,6 @@ import AddMemberModal from './AddMemberModal';
 import DefaultModelsForTeamChatModal from './DefaultModelsForTeamChatModal';
 import TeamChatContent from './TeamChatContent';
 import TeamMain from './TeamMain';
-import { io, Socket } from 'socket.io-client';
-import { useUserStore } from '@/store/user';
-import { userProfileSelectors } from '@/store/user/selectors';
 
 const TeamChat = memo(() => {
   const { mobile } = useResponsive();
@@ -37,7 +34,6 @@ const TeamChat = memo(() => {
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [showDefaultModelsModal, setShowDefaultModelsModal] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
-  const currentUser = useUserStore(userProfileSelectors.userProfile);
 
   // Use dedicated team chat store
   const {
@@ -49,7 +45,6 @@ const TeamChat = memo(() => {
     currentOrganizationId,
     error,
     refreshTeamChats,
-    refreshSidebar,
   } = useTeamChatStore();
 
   // Get chats for current organization
@@ -116,9 +111,6 @@ const TeamChat = memo(() => {
     chatId,
     organizations,
   ]);
-
-
-  
 
   const handleNewChat = useCallback(async () => {
     if (currentOrganization?.id) {
