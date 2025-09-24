@@ -33,7 +33,7 @@ export function renderOrganizationInvitationEmail(data: OrganizationInvitationDa
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>You have been invited to join ${organization.name} on Klynno AI</title>
+  <title>You have been invited to join ${organization.name} on Klyno AI</title>
   <style>
     body {
       margin: 0;
@@ -82,10 +82,10 @@ export function renderOrganizationInvitationEmail(data: OrganizationInvitationDa
 <body>
   <div class="container">
     <div class="logo-container">
-      <img src="https://app.klynno.ai/logo-email.png" alt="Klynno AI" width="190" height="36" style="margin: 0 auto; padding-top: 20px;" />
+      <img src="https://app.klynno.ai/logo-email.png" alt="Klyno AI" width="190" height="36" style="margin: 0 auto; padding-top: 20px;" />
     </div>
     <div class="content">
-      <h1 class="heading">You have been invited to join ${organization.name} on Klynno AI</h1>
+      <h1 class="heading">You have been invited to join ${organization.name} on Klyno AI</h1>
       <p>You have been invited to join an organization.</p>
       <p>Click the link below to accept the invitation:</p>
       <a href="${link}" class="button">Accept Invitation</a>
@@ -95,7 +95,7 @@ export function renderOrganizationInvitationEmail(data: OrganizationInvitationDa
     </div>
     <hr style="border-color: #e6ebf1; margin: 20px 0;" />
     <div class="footer">
-      <p>© 2025 Klynno AI. All rights reserved.</p>
+      <p>© 2025 Klyno AI. All rights reserved.</p>
     </div>
   </div>
 </body>
@@ -113,7 +113,7 @@ export function renderWithdrawalRequestEmail(data: WithdrawalRequestData): strin
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>New Affiliate Withdrawal Request - Klynno AI</title>
+  <title>New Affiliate Withdrawal Request - Klyno AI</title>
   <style>
     body {
       margin: 0;
@@ -231,7 +231,7 @@ export function renderWithdrawalRequestEmail(data: WithdrawalRequestData): strin
 <body>
   <div class="container">
     <div class="logo-container">
-      <img src="https://app.klynno.ai/logo-email.png" alt="Klynno AI" width="190" height="36" style="margin: 0 auto; padding-top: 20px;" />
+      <img src="https://app.klynno.ai/logo-email.png" alt="Klyno AI" width="190" height="36" style="margin: 0 auto; padding-top: 20px;" />
     </div>
     <div class="content">
       <h1 class="heading">💰 New Affiliate Withdrawal Request</h1>
@@ -308,7 +308,7 @@ export function renderWithdrawalRequestEmail(data: WithdrawalRequestData): strin
     </div>
     <hr style="border-color: #e6ebf1; margin: 20px 0;" />
     <div class="footer">
-      <p>© 2025 Klynno AI. All rights reserved.</p>
+      <p>© 2025 Klyno AI. All rights reserved.</p>
     </div>
   </div>
 </body>
