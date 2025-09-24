@@ -819,6 +819,41 @@ const openrouterChatModels: AIChatModelCard[] = [
     id: 'openai/gpt-oss-20b:free',
     type: 'chat',
   },
+  {
+    contextWindowTokens: 128_000,
+    description: 'Grok-4 Fast 是 xAI 开发的最新快速推理模型，提供高速响应和强大的推理能力。',
+    displayName: 'Grok-4 Fast (Free)',
+    enabled: true,
+    id: 'x-ai/grok-4-fast:free',
+    type: 'chat',
+  },
+  {
+    abilities: {
+      functionCall: true,
+    },
+    contextWindowTokens: 256_000,
+    description: 'Grok Code Fast 1 是一个快速且经济的推理模型，擅长代理编程。具有可见的推理轨迹，开发者可以引导 Grok Code 进行高质量的工作流程。',
+    displayName: 'Grok Code Fast 1',
+    enabled: true,
+    id: 'x-ai/grok-code-fast-1',
+    maxOutput: 10_000,
+    pricing: {
+      cachedInput: 0.02,
+      input: 0.2,
+      output: 1.5,
+    },
+    releasedAt: '2025-08-26',
+    type: 'chat',
+  },
+  {
+    contextWindowTokens: 32_768,
+    description: 'GPT-OSS-120B 是 OpenAI 的开源大型语言模型，提供强大的文本生成和推理能力。',
+    displayName: 'GPT-OSS-120B (Free)',
+    enabled: true,
+    id: 'openai/gpt-oss-120b:free',
+    releasedAt: '2025-08-05',
+    type: 'chat',
+  },
 ];
 
 export const allModels = [...openrouterChatModels];
