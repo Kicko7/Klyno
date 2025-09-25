@@ -17,6 +17,9 @@ import {
   teams,
 } from '../schemas/organization';
 import { users } from '../schemas/user';
+import { lambdaClient } from '@/libs/trpc/client';
+import { SubscriptionManager } from '@/server/services/subscriptions/subscriptionManager';
+import { StripeCheckoutService } from '@/server/services/stripe/checkout';
 
 export class OrganizationModel {
   private userId: string;
@@ -62,14 +65,13 @@ export class OrganizationModel {
   }
   async getUserOrganizations() {
     const userOrgs = await this.db
-      .select({
+      .selectDistinctOn([organizations.id], {
         member: organizationMembers,
         organization: organizations,
       })
       .from(organizationMembers)
       .innerJoin(organizations, eq(organizationMembers.organizationId, organizations.id))
       .where(eq(organizationMembers.userId, this.userId));
-
     return userOrgs.map((org) => ({
       ...org.organization,
       memberRole: org.member.role,
@@ -147,7 +149,7 @@ export class OrganizationModel {
     }
   }
 
-  async removeOrganizationMember(organizationId: string, memberId: string) {
+  async removeOrganizationMember(organizationId: string, memberId: string, stripeSubscriptionId?: string, stripeCustomerId?: string, interval?: 'month' | 'year') {
     const member = await this.db.query.organizationMembers.findFirst({
       where: (m, { and, eq }) => and(eq(m.organizationId, organizationId), eq(m.userId, memberId)),
     });
@@ -172,6 +174,23 @@ export class OrganizationModel {
       throw new Error('Current user does not have permission to remove this member.');
     }
 
+    const existingMembers = await this.db.query.organizationMembers.findMany({
+      where: (members, { eq }) => eq(members.organizationId, organizationId),
+    });
+
+    if(stripeSubscriptionId && stripeCustomerId && interval) {
+    const checkPlanName = await this.db.query.userSubscriptions.findFirst({
+      where: (userSubscriptions, { eq }) => eq(userSubscriptions.stripeCustomerId, stripeCustomerId),
+    });
+    
+    
+    // If we currently have more than 3 members (paid tier) and after removing this member we'll have 3 or fewer (free tier), remove metered billing
+    if (existingMembers.length > 3  && stripeSubscriptionId && stripeCustomerId && interval && checkPlanName?.planName === 'Team Workspace') {
+      const checkoutService = new StripeCheckoutService();
+      await checkoutService.removeMeteredBilling(stripeSubscriptionId, stripeCustomerId, memberId, interval);
+    }
+  }
+    
     return this.db
       .delete(organizationMembers)
       .where(
@@ -214,6 +233,62 @@ export class OrganizationModel {
 
       if (!invitation) {
         return null;
+      }
+
+      // Check existing members
+      const existingMembers = await this.db.query.organizationMembers.findMany({
+        where: (organizationMembers, { eq }) =>
+          eq(organizationMembers.organizationId, invitation.organizationId)
+      });
+
+
+      const adminMember = existingMembers.find(member =>
+        member.role === 'owner'
+      );
+
+      if (!adminMember) {
+        throw new Error('No admin member found');
+      }
+
+      const userSubscription = await this.db.query.userSubscriptions.findFirst({
+        where: (userSubscriptions, { eq }) => eq(userSubscriptions.userId, adminMember.userId),
+      });
+
+      if (!userSubscription || !userSubscription?.stripeSubscriptionId) {
+        throw new Error('No Owner subscription found');
+      }
+
+      if (existingMembers.length >= 3 && userSubscription?.planName === 'Team Workspace') {
+        const subscriptionService = new StripeCheckoutService()
+        if (!process.env.STRIPE_ADDITIONAL_USER_YEARLY_PRICE_ID || !process.env.STRIPE_ADDITIONAL_USER_MONTHLY_PRICE_ID) {
+          throw new Error('STRIPE_ADDITIONAL_USER_PRICE_ID is not set');
+        }
+
+        if (userSubscription.interval === 'month') {
+          const res = await subscriptionService.handleMeteredBilling(userId, process.env.STRIPE_ADDITIONAL_USER_MONTHLY_PRICE_ID, userSubscription.stripeSubscriptionId);
+          if (!res.success) {
+            throw new Error('Failed to handle metered billing');
+          }
+        }
+        else {
+          const res = await subscriptionService.handleMeteredBilling(userId, process.env.STRIPE_ADDITIONAL_USER_YEARLY_PRICE_ID, userSubscription.stripeSubscriptionId);
+          if (!res.success) {
+            throw new Error('Failed to handle metered billing');
+          }
+        }
+
+      }
+
+      // Check if user is already a member
+      const existingMember = existingMembers.find(member => member.userId === userId);
+      if (existingMember) {
+        // User is already a member, just update invitation status
+        await tx
+          .update(organizationInvitations)
+          .set({ status: 'accepted' })
+          .where(eq(organizationInvitations.id, invitation.id));
+
+        return existingMember;
       }
 
       // Update invitation status to accepted
@@ -365,5 +440,22 @@ export class OrganizationModel {
         and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)),
     });
     return !!member;
+  }
+  async getOrganizationById(organizationId: string) {
+    const organization = await this.db.query.organizations.findFirst({
+      where: (organizations, { eq }) => eq(organizations.id, organizationId),
+    });
+    return organization;
+  }
+
+  async updateOrganizationDefaultModels(organizationId: string, defaultModels: string[]) {
+    await this.db.update(organizations).set({ defaultModels }).where(eq(organizations.id, organizationId));
+  }
+
+  async getDefaultModels(organizationId: string) {
+    const organization = await this.db.query.organizations.findFirst({
+      where: (organizations, { eq }) => eq(organizations.id, organizationId),
+    });
+    return organization?.defaultModels || [];
   }
 }

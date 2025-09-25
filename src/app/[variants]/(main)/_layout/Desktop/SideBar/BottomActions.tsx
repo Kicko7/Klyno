@@ -20,7 +20,7 @@ const BottomActions = memo(() => {
 
   return (
     <Flexbox gap={8}>
-      {!hideGitHub && (
+      {/* {!hideGitHub && (
         <Link aria-label={'GitHub'} href={GITHUB} target={'_blank'}>
           <ActionIcon
             icon={Github}
@@ -39,7 +39,7 @@ const BottomActions = memo(() => {
             tooltipProps={{ placement: 'right' }}
           />
         </Link>
-      )}
+      )} */}
     </Flexbox>
   );
 });

@@ -117,15 +117,15 @@ export const useCategory = () => {
         {
           type: 'divider',
         },
-        {
-          icon: <Icon icon={Database} />,
-          key: SettingsTabs.Storage,
-          label: (
-            <Link href={'/settings/storage'} onClick={(e) => e.preventDefault()}>
-              {t('tab.storage')}
-            </Link>
-          ),
-        },
+        // {
+        //   icon: <Icon icon={Database} />,
+        //   key: SettingsTabs.Storage,
+        //   label: (
+        //     <Link href={'/settings/storage'} onClick={(e) => e.preventDefault()}>
+        //       {t('tab.storage')}
+        //     </Link>
+        //   ),
+        // },
         !hideDocs && {
           icon: <Icon icon={Info} />,
           key: SettingsTabs.About,

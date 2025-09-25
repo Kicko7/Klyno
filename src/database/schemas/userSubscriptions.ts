@@ -19,7 +19,7 @@ export const userSubscriptions = pgTable('user_subscriptions', {
   stripePriceId: text('stripe_price_id'),
 
   // Subscription details
-  planId: text('plan_id').notNull(), // References the plan from Stripe product metadata
+  planId: text('plan_id').notNull(),
   planName: text('plan_name').notNull(),
   status: text('status', {
     enum: [
@@ -40,11 +40,15 @@ export const userSubscriptions = pgTable('user_subscriptions', {
   currentPeriodEnd: timestamp('current_period_end'),
   cancelAtPeriodEnd: boolean('cancel_at_period_end').default(false),
   canceledAt: timestamp('canceled_at'),
+  canceledPeriodDate: timestamp('canceled_period_date'),
 
   // Usage limits (from plan)
   monthlyCredits: integer('monthly_credits').notNull().default(0),
   fileStorageLimit: integer('file_storage_limit_gb').notNull().default(1), // in GB
+  fileStorageUsed: integer('file_storage_used_mb').notNull().default(0), // in MB
+  fileStorageRemaining: integer('file_storage_remaining_mb').notNull().default(0), // in MB
   vectorStorageLimit: integer('vector_storage_limit_mb').notNull().default(50), // in MB
+  balance: integer('balance').notNull().default(0),
 
   // Billing information
   currency: text('currency').notNull().default('usd'),
@@ -53,7 +57,6 @@ export const userSubscriptions = pgTable('user_subscriptions', {
 
   // Metadata
   metadata: jsonb('metadata'),
-
   ...timestamps,
 });
 

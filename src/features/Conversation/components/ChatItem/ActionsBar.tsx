@@ -16,13 +16,13 @@ import ShareMessageModal from './ShareMessageModal';
 export type ActionsBarProps = ActionIconGroupProps;
 
 const ActionsBar = memo<ActionsBarProps>((props) => {
-  const { regenerate, edit, copy, divider, del } = useChatListActionsBar();
+  const { regenerate, edit, copy, divider, del, feedback } = useChatListActionsBar();
 
   return (
     <ActionIconGroup
       items={[regenerate, edit]}
       menu={{
-        items: [edit, copy, regenerate, divider, del],
+        items: [edit, copy, regenerate, divider, del, feedback],
       }}
       {...props}
     />
@@ -124,6 +124,11 @@ const Actions = memo<ActionsProps>(({ id, inPortalThread, index }) => {
 
         case 'share': {
           setShareModal(true);
+          break;
+        }
+
+        case 'feedback': {
+          window.open('https://agent.jotform.com/0199041db2217e5e8697c6247e9763169b25', '_blank');
           break;
         }
       }

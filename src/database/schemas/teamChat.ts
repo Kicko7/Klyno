@@ -22,13 +22,12 @@ export const teamChats = pgTable('team_chats', {
   teamId: text('team_id'),
 
   // Owner of the chat
-  userId: text('user_id')
-    .references(() => users.id, { onDelete: 'cascade' })
-    .notNull(),
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
 
   // Chat configuration
   isActive: boolean('is_active').default(true),
 
+  isInFolder:boolean("is_in_folder").default(false),
   // Additional metadata
   metadata: jsonb('metadata')
     .$type<{
@@ -56,10 +55,14 @@ export const teamChats = pgTable('team_chats', {
       memberAccess: [],
     }),
 
+    defaultModels: jsonb('default_models').$type<string[]>().default([]),
+
   ...timestamps,
 });
 
-// Team Chat Messages table
+const timestamptzMs = (name: string) =>
+  timestamp(name, { withTimezone: true, precision: 3 });
+
 export const teamChatMessages = pgTable('team_chat_messages', {
   id: text('id')
     .primaryKey()
@@ -75,34 +78,32 @@ export const teamChatMessages = pgTable('team_chat_messages', {
     .notNull(),
 
   content: text('content').notNull(),
-  messageType: varchar('message_type', { length: 50 }).default('user'), // 'user', 'assistant', 'system'
+  messageType: varchar('message_type', { length: 50 }).default('user'),
 
-  // Message metadata - store complete usage information like regular chat
-  metadata: jsonb('metadata')
-    .$type<{
-      // User identification data
-      userInfo?: {
-        id: string;
-        username?: string;
-        email?: string;
-        fullName?: string;
-        firstName?: string;
-        lastName?: string;
-        avatar?: string;
-      };
-      // AI context information
-      isMultiUserChat?: boolean;
-      totalUsersInChat?: number;
-      // Existing fields
-      totalTokens?: number;
-      tokens?: number;
-      model?: string;
-      provider?: string;
-      [key: string]: any;
-    }>()
-    .default({}),
+  metadata: jsonb('metadata').$type<{
+    userInfo?: {
+      id: string;
+      username?: string;
+      email?: string;
+      fullName?: string;
+      firstName?: string;
+      lastName?: string;
+      avatar?: string;
+    };
+    isMultiUserChat?: boolean;
+    totalUsersInChat?: number;
+    totalTokens?: number;
+    tokens?: number;
+    model?: string;
+    provider?: string;
+    [key: string]: any;
+  }>().default({}),
 
-  ...timestamps,
+  // 👇 Use custom precision timestamps only here
+  createdAt: timestamptzMs('created_at').notNull().defaultNow(),
+  updatedAt: timestamptzMs('updated_at').notNull().defaultNow().$onUpdate(() => new Date()),
+  accessedAt: timestamptzMs('accessed_at').notNull().defaultNow(),
+  sendTime: timestamptzMs('send_time').notNull().defaultNow(),
 });
 
 export const insertTeamChatSchema = createInsertSchema(teamChats);

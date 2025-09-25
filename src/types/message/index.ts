@@ -18,6 +18,7 @@ export interface SendMessageParams {
   isWelcomeQuestion?: boolean;
   message: string;
   onlyAddUserMessage?: boolean;
+  subscription?: any;
 }
 
 export interface SendThreadMessageParams {

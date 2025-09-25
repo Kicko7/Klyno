@@ -1,17 +1,17 @@
 'use client';
 
-import { ActionIcon, Avatar, Block, Grid, Text } from '@lobehub/ui';
+import { ActionIcon, Avatar, Block, Grid, Tag, Text } from '@lobehub/ui';
 import { Skeleton } from 'antd';
 import { createStyles } from 'antd-style';
-import { RefreshCw } from 'lucide-react';
+import { BookOpen, Briefcase, Palette, RefreshCw, Search, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
-import { memo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Flexbox } from 'react-layout-kit';
 import urlJoin from 'url-join';
 
 import { useDiscoverStore } from '@/store/discover';
-import { DiscoverAssistantItem } from '@/types/discover';
+import { AssistantCategory, DiscoverAssistantItem } from '@/types/discover';
 
 const useStyles = createStyles(({ css, token, responsive }) => ({
   card: css`
@@ -49,13 +49,54 @@ const useStyles = createStyles(({ css, token, responsive }) => ({
 
 const AgentsSuggest = memo<{ mobile?: boolean }>(({ mobile }) => {
   const { t } = useTranslation('welcome');
-  const [page, setPage] = useState(1);
   const useAssistantList = useDiscoverStore((s) => s.useAssistantList);
+  const [page, setPage] = useState(1);
 
-  const { data: assistantList, isLoading } = useAssistantList({
-    page,
-    pageSize: mobile ? 2 : 4,
-  });
+  // Define recommended categories with their icons and display names
+  const recommendedCategories = useMemo(
+    () => [
+      {
+        category: AssistantCategory.Marketing,
+        icon: TrendingUp,
+        label: 'Marketing',
+        color: '#ff6b6b',
+      },
+      {
+        category: AssistantCategory.CopyWriting,
+        icon: Search,
+        label: 'SEO & Content',
+        color: '#45b7d1',
+      },
+      {
+        category: AssistantCategory.Career,
+        icon: Briefcase,
+        label: 'Career & Business',
+        color: '#96ceb4',
+      },
+      {
+        category: AssistantCategory.Design,
+        icon: Palette,
+        label: 'Design & Creative',
+        color: '#feca57',
+      },
+    ],
+    [],
+  );
+
+  // Fetch assistants from each category
+  const categoryQueries = recommendedCategories.map(({ category }) =>
+    useAssistantList({
+      category,
+      page,
+      pageSize: mobile ? 2 : 4,
+    }),
+  );
+
+  const isLoading = categoryQueries.some((query) => query.isLoading);
+  const hasError = categoryQueries.some((query) => query.error);
+  const allData = categoryQueries
+    .map((query) => query.data?.items?.[0])
+    .filter((item): item is DiscoverAssistantItem => Boolean(item));
 
   const { styles } = useStyles();
 
@@ -66,12 +107,11 @@ const AgentsSuggest = memo<{ mobile?: boolean }>(({ mobile }) => {
   ));
 
   const handleRefresh = () => {
-    if (!assistantList) return;
-    setPage(page + 1);
+    setPage((prev) => prev + 1);
   };
 
   // if no assistant data, just hide the component
-  if (!isLoading && !assistantList?.items?.length) return null;
+  if (!isLoading && !allData.length) return null;
 
   return (
     <Flexbox gap={8} width={'100%'}>
@@ -85,27 +125,43 @@ const AgentsSuggest = memo<{ mobile?: boolean }>(({ mobile }) => {
         />
       </Flexbox>
       <Grid gap={8} rows={2}>
-        {isLoading || !assistantList
+        {isLoading
           ? loadingCards
-          : assistantList.items.map((item: DiscoverAssistantItem) => (
-              <Link
-                href={urlJoin('/discover/assistant', item.identifier)}
-                key={item.identifier}
-                prefetch={false}
-              >
-                <Block className={styles.card} clickable gap={12} horizontal variant={'outlined'}>
-                  <Avatar avatar={item.avatar} style={{ flex: 'none' }} />
-                  <Flexbox gap={2} style={{ overflow: 'hidden', width: '100%' }}>
-                    <Text className={styles.cardTitle} ellipsis={{ rows: 1 }}>
-                      {item.title}
-                    </Text>
-                    <Text className={styles.cardDesc} ellipsis={{ rows: mobile ? 1 : 2 }}>
-                      {item.description}
-                    </Text>
-                  </Flexbox>
-                </Block>
-              </Link>
-            ))}
+          : allData.map((item, index) => {
+              const categoryInfo = recommendedCategories[index];
+              const IconComponent = categoryInfo?.icon || TrendingUp;
+
+              return (
+                <Link
+                  href={urlJoin('/discover/assistant', item.identifier)}
+                  key={item.identifier}
+                  prefetch={false}
+                >
+                  <Block className={styles.card} clickable gap={12} horizontal variant={'outlined'}>
+                    <Avatar avatar={item.avatar} style={{ flex: 'none' }} />
+                    <Flexbox gap={4} style={{ overflow: 'hidden', width: '100%' }}>
+                      <Flexbox align={'center'} gap={8} horizontal>
+                        <Text className={styles.cardTitle} ellipsis={{ rows: 1 }}>
+                          {item.title}
+                        </Text>
+                        {categoryInfo && (
+                          <Tag
+                            color={categoryInfo.color}
+                            icon={<IconComponent size={12} />}
+                            style={{ fontSize: '11px', padding: '2px 6px' }}
+                          >
+                            {categoryInfo.label}
+                          </Tag>
+                        )}
+                      </Flexbox>
+                      <Text className={styles.cardDesc} ellipsis={{ rows: mobile ? 1 : 2 }}>
+                        {item.description}
+                      </Text>
+                    </Flexbox>
+                  </Block>
+                </Link>
+              );
+            })}
       </Grid>
     </Flexbox>
   );

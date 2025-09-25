@@ -1,8 +1,10 @@
 import { sql } from 'drizzle-orm';
-import { boolean, pgTable, text, varchar } from 'drizzle-orm/pg-core';
+import { boolean, jsonb, pgTable, primaryKey, text, varchar } from 'drizzle-orm/pg-core';
 
 import { timestamps, timestamptz } from '../schemas/_helpers';
 import { users } from '../schemas/user';
+import { idGenerator } from '../utils/idGenerator';
+import { teamChats } from './teamChat';
 
 // Organizations table
 export const organizations = pgTable('organizations', {
@@ -12,6 +14,7 @@ export const organizations = pgTable('organizations', {
   ownerId: text('owner_id')
     .references(() => users.id, { onDelete: 'restrict' })
     .notNull(),
+  defaultModels: jsonb('default_models').$type<string[]>().default([]),
   ...timestamps,
 });
 

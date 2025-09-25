@@ -75,7 +75,7 @@ const InvitePageContent = () => {
       <Flex justify="center" align="center" style={{ height: '100vh', width: '100vw' }}>
         <div style={{ textAlign: 'center' }}>
           <Spin spinning tip="Processing invitation...">
-            <div style={{ padding: 50 }}>Processing your invitation...</div>
+            <div style={{ padding: 50 }}></div>
           </Spin>
         </div>
       </Flex>

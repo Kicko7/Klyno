@@ -12,7 +12,7 @@ export const generateMetadata = async (props: DynamicLayoutProps) => {
     alternate: true,
     description: t('discover.home.description'),
     locale,
-    title: t('discover.home.title'),
+    title: 'Discover',
     url: '/discover',
   });
 };
@@ -23,7 +23,7 @@ const Page = async (props: DynamicLayoutProps) => {
   const ld = ldModule.generate({
     description: t('discover.home.description'),
     locale,
-    title: t('discover.home.title'),
+    title: 'Discover',
     url: '/discover',
     webpage: {
       enable: true,

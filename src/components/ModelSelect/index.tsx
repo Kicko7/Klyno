@@ -1,5 +1,7 @@
 import { IconAvatarProps, ModelIcon, ProviderIcon } from '@lobehub/icons';
 import { Avatar, Icon, Tag, Text, Tooltip } from '@lobehub/ui';
+
+import CustomProviderIcon from '@/components/ProviderIcons/CustomProviderIcon';
 import { createStyles, useResponsive } from 'antd-style';
 import {
   Infinity,
@@ -186,7 +188,11 @@ export const ModelItemRender = memo<ModelItemRenderProps>(({ showInfoTag = true,
         horizontal
         style={{ flexShrink: 1, minWidth: 0, overflow: 'hidden' }}
       >
-        <ModelIcon model={model.id} size={20} />
+        {model.id === 'openrouter/auto' ? (
+          <Avatar avatar={'/logo.png'} size={20} />
+        ) : (
+          <ModelIcon model={model.id}  size={20} />
+        )}
         <Text style={mobile ? { maxWidth: '60vw', overflowX: 'auto', whiteSpace: 'nowrap' } : {}}>
           {model.displayName || model.id}
         </Text>
@@ -210,7 +216,7 @@ export const ProviderItemRender = memo<ProviderItemRenderProps>(
         {source === 'custom' && !!logo ? (
           <Avatar avatar={logo} size={20} style={{ filter: 'grayscale(1)' }} title={name} />
         ) : (
-          <ProviderIcon provider={provider} size={20} type={'mono'} />
+          <CustomProviderIcon provider={provider} size={20} type={'mono'} />
         )}
         {name}
       </Flexbox>

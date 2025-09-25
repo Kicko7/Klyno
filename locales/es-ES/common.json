@@ -328,7 +328,9 @@
     "discover": "Descubrir",
     "files": "Archivos",
     "me": "Yo",
-    "setting": "Configuración"
+    "pricing": "Precios",
+    "setting": "Configuración",
+    "teams": "Equipos"
   },
   "telemetry": {
     "allow": "Permitir",

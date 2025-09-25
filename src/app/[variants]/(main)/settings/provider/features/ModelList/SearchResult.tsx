@@ -24,6 +24,11 @@ const SearchResult = memo(() => {
   const isEmpty = filteredModels.length === 0;
   return (
     <>
+      {/* Descriptive text for search results */}
+      <Text style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>
+        This is the list of AI models which you can choose from. Search and enable the models you want to use.
+      </Text>
+      
       <Flexbox horizontal justify={'space-between'}>
         <Text style={{ fontSize: 12, marginTop: 8 }} type={'secondary'}>
           {t('providerModels.list.searchResult', { count: filteredModels.length })}

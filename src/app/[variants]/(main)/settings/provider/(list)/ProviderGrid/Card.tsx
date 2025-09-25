@@ -6,6 +6,7 @@ import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Flexbox } from 'react-layout-kit';
 
+import CustomOpenRouterIcon from '@/components/ProviderIcons/CustomOpenRouterIcon';
 import { AiProviderListItem } from '@/types/aiProvider';
 
 import EnableSwitch from './EnableSwitch';
@@ -30,19 +31,34 @@ const ProviderCard = memo<ProviderCardProps>(
 
     /* ↑ cloud slot ↑ */
 
+    // Custom URL mapping for specific providers
+    const getProviderUrl = (providerId: string, providerName: string) => {
+      if (providerId === 'openrouter' && providerName === 'KlynoAI') {
+        return '/settings/provider/klyno';
+      }
+      return `/settings/provider/${providerId}`;
+    };
+
     return (
       <Flexbox className={cx(styles.container)} gap={24}>
         <Flexbox gap={12} padding={16} width={'100%'}>
-          <Link href={`/settings/provider/${id}`}>
+          <Link href={getProviderUrl(id, name)}>
             <Flexbox gap={12} width={'100%'}>
               <Flexbox align={'center'} horizontal justify={'space-between'}>
                 {source === 'builtin' ? (
-                  <ProviderCombine
-                    provider={id}
-                    size={24}
-                    style={{ color: theme.colorText }}
-                    title={name}
-                  />
+                  id === 'openrouter' ? (
+                    <Flexbox align={'center'} gap={12} horizontal>
+                      <CustomOpenRouterIcon size={24} type={'avatar'} />
+                      <Text style={{ fontSize: 16, fontWeight: 'bold' }}>{name}</Text>
+                    </Flexbox>
+                  ) : (
+                    <ProviderCombine
+                      provider={id}
+                      size={24}
+                      style={{ color: theme.colorText }}
+                      title={name}
+                    />
+                  )
                 ) : (
                   <Flexbox align={'center'} gap={12} horizontal>
                     {logo ? (

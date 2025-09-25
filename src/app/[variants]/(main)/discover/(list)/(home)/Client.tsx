@@ -2,43 +2,48 @@
 
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { useDiscoverStore } from '@/store/discover';
+import { Flexbox } from 'react-layout-kit';
 
 import Title from '../../components/Title';
-import AssistantList from '../assistant/features/List';
-import McpList from '../mcp/features/List';
-import Loading from './loading';
+import NewsList from '../../components/NewsList';
+import NewsSidebar from '../../components/NewsSidebar';
+import { featuredNews, regularNews } from '../../data/newsData';
 
-const Client = memo<{ mobile?: boolean }>(() => {
+const Client = memo<{ mobile?: boolean }>(({ mobile = false }) => {
   const { t } = useTranslation('discover');
-  const useAssistantList = useDiscoverStore((s) => s.useAssistantList);
-  const useMcpList = useDiscoverStore((s) => s.useFetchMcpList);
 
-  const { data: assistantList, isLoading: assistantLoading } = useAssistantList({
-    page: 1,
-    pageSize: 12,
-  });
-
-  const { data: mcpList, isLoading: pluginLoading } = useMcpList({
-    page: 1,
-    pageSize: 12,
-  });
-
-  if (assistantLoading || pluginLoading || !assistantList || !mcpList) return <Loading />;
+  const handleNewsClick = (item: any) => {
+    // Handle news item click - could open in new tab or navigate to detail page
+    console.log('News clicked:', item);
+  };
 
   return (
-    <>
-      <Title more={t('home.more')} moreLink={'/discover/assistant'}>
-        {t('home.featuredAssistants')}
-      </Title>
-      <AssistantList data={assistantList.items} rows={4} />
-      <div />
-      <Title more={t('home.more')} moreLink={'/discover/plugin'}>
-        {t('home.featuredTools')}
-      </Title>
-      <McpList data={mcpList.items} rows={4} />
-    </>
+    <Flexbox horizontal={!mobile} gap={24} width="100%">
+      <Flexbox flex={1} gap={24}>
+        {/* Featured News Section */}
+        <div>
+          <Title more="View All" moreLink="/discover/news">
+            Featured Stories
+          </Title>
+          <NewsList data={featuredNews} featured={true} onItemClick={handleNewsClick} />
+        </div>
+
+        {/* Regular News Section */}
+        <div>
+          <Title more="View All" moreLink="/discover/news">
+            Latest News
+          </Title>
+          <NewsList data={regularNews} onItemClick={handleNewsClick} />
+        </div>
+      </Flexbox>
+
+      {/* Sidebar - only show on desktop */}
+      {!mobile && (
+        <div style={{ width: '320px', flexShrink: 0 }}>
+          <NewsSidebar />
+        </div>
+      )}
+    </Flexbox>
   );
 });
 

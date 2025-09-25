@@ -1,28 +1,26 @@
 'use client';
 
 import { ModelTag } from '@lobehub/icons';
-import { ActionIcon, Avatar, Tag, Tooltip } from '@lobehub/ui';
+import { ActionIcon } from '@lobehub/ui';
 import { ChatHeader } from '@lobehub/ui/chat';
 import { Alert, Button } from 'antd';
 import { useResponsive, useTheme } from 'antd-style';
 import { UserPlus } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
 import HeaderAction from '@/app/[variants]/(main)/chat/(workspace)/_layout/Desktop/ChatHeader/HeaderAction';
 import { DESKTOP_HEADER_ICON_SIZE } from '@/const/layoutTokens';
 import { SkeletonList } from '@/features/Conversation';
-import ModelSwitchPanel from '@/features/ModelSwitchPanel';
-import { useAgentStore } from '@/store/agent';
-import { agentSelectors } from '@/store/agent/selectors';
 import { useOrganizationStore } from '@/store/organization/store';
 import { useTeamChatStore } from '@/store/teamChat';
 
 import TeamChatSessionHydration from '../features/TeamChatSessionHydration';
 import TeamChatWorkspace from '../features/TeamChatWorkspace';
 import AddMemberModal from './AddMemberModal';
+import DefaultModelsForTeamChatModal from './DefaultModelsForTeamChatModal';
 import TeamChatContent from './TeamChatContent';
 import TeamMain from './TeamMain';
 
@@ -34,6 +32,7 @@ const TeamChat = memo(() => {
   const { organizations, selectedOrganizationId } = useOrganizationStore();
   const currentOrganization = organizations?.find((org) => org.id === selectedOrganizationId);
   const [showMemberModal, setShowMemberModal] = useState(false);
+  const [showDefaultModelsModal, setShowDefaultModelsModal] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
 
   // Use dedicated team chat store
@@ -46,48 +45,46 @@ const TeamChat = memo(() => {
     currentOrganizationId,
     error,
     refreshTeamChats,
-    refreshSidebar,
   } = useTeamChatStore();
 
   // Get chats for current organization
   const teamChats = currentOrganization?.id ? teamChatsByOrg[currentOrganization.id] || [] : [];
 
-  // Get current model for the model switcher
-  const [model, provider] = useAgentStore((s) => [
-    agentSelectors.currentAgentModel(s),
-    agentSelectors.currentAgentModelProvider(s),
-  ]);
-
-  // Load team chats when organization changes
   useEffect(() => {
     if (currentOrganization?.id && currentOrganization.id !== currentOrganizationId) {
-      console.log('🔄 Organization changed, loading team chats:', currentOrganization.id);
       refreshTeamChats();
     }
-  }, [currentOrganization?.id, currentOrganizationId, refreshTeamChats]);
+  }, [currentOrganization?.id, currentOrganizationId]); // Remove refreshTeamChats
 
   // Validate chat access and sync with URL
   useEffect(() => {
-    if (!chatId || !currentOrganization?.id || isLoading) return;
+    // Wait for everything to be loaded before validating
+    if (!chatId || !currentOrganization?.id || isLoading || teamChats.length === 0) return;
 
     // Find the chat in current organization's chats
     const chat = teamChats.find((c) => c.id === chatId);
 
     // If we have chats loaded and can't find this chat, it might be invalid
-    if (teamChats.length > 0 && !chat) {
-      console.warn('⚠️ Chat not found in current organization:', chatId);
+    if (!chat) {
       setActiveTeamChat(null);
       router.push('/teams');
       return;
     }
 
     // If we found the chat and it's not already active, set it
-    if (chat && activeTeamChatId !== chatId) {
-      console.log('🔍 Setting active chat from URL:', chatId);
+    if (activeTeamChatId !== chatId) {
       setActiveTeamChat(chatId);
     }
-  }, [chatId, currentOrganization?.id, isLoading, activeTeamChatId, teamChats, router]);
-
+  }, [
+    chatId,
+    currentOrganization?.id,
+    isLoading,
+    activeTeamChatId,
+    teamChats.length, // Only depend on length, not the full array
+    router,
+    selectedOrganizationId,
+    setActiveTeamChat,
+  ]);
   // Only create first team chat if welcome page is shown and no chats exist
   useEffect(() => {
     if (
@@ -98,10 +95,7 @@ const TeamChat = memo(() => {
       !isLoading
     ) {
       setHasInitialized(true);
-      console.log('🚀 No team chats found, creating first one...');
-      // Validate organization
       if (!organizations.some((org) => org.id === currentOrganization.id)) {
-        console.error('❌ Invalid organization selected for chat creation');
         return;
       }
       createTeamChat(currentOrganization.id, 'Team Chat', {
@@ -122,42 +116,21 @@ const TeamChat = memo(() => {
     if (currentOrganization?.id) {
       // Validate organization
       if (!organizations.some((org) => org.id === currentOrganization.id)) {
-        console.error('❌ Invalid organization selected for chat creation');
         return;
       }
-      console.log('🚀 Creating new team chat...');
       await createTeamChat(currentOrganization.id, 'Team Chat', {
         organizationId: currentOrganization.id,
       });
     }
   }, [currentOrganization?.id, createTeamChat, organizations]);
 
-  // Get active users from store (updated via WebSocket) - Fixed to return stable reference
-  const activeUsers = useTeamChatStore((state) => {
-    const chatState = state.activeChatStates[activeTeamChatId || ''];
-    return chatState?.presence || null;
-  });
 
-  // Memoize active users to prevent infinite re-renders
-  const memoizedActiveUsers = useMemo(() => {
-    return activeUsers || {};
-  }, [activeUsers]);
 
-  // Presence is now handled by WebSocket in useTeamChatWebSocket hook
-
-  // Debug logging
-  useEffect(() => {
-    console.log('🔍 TeamChat Debug:', {
-      currentOrganization: currentOrganization?.id,
-      teamChats: (teamChats || []).length,
-      activeTeamChatId,
-      isLoading,
-    });
-  }, [currentOrganization, teamChats, activeTeamChatId, isLoading]);
-
-  // const theme = useTheme()
+  const theme = useTheme();
   return (
-    <div className="flex flex-col h-full w-full bg-black relative">
+    <div
+      className={`flex flex-col h-full w-full ${theme.appearance === 'dark' ? 'bg-black' : 'bg-white'} relative`}
+    >
       {/* Team Chat Header */}
       <ChatHeader
         left={
@@ -175,38 +148,8 @@ const TeamChat = memo(() => {
                     gap: '8px',
                   }}
                 >
-                  {teamChats.find((chat) => chat.id === activeTeamChatId)?.title ||
-                    'Loading chat...'}
                   {isLoading && <span className="animate-pulse">•••</span>}
                 </div>
-              </Flexbox>
-            )}
-            <ModelSwitchPanel>
-              <ModelTag model={model} />
-            </ModelSwitchPanel>
-            {Object.keys(memoizedActiveUsers).length > 0 && !isLoading && (
-              <Flexbox gap={8} horizontal style={{ marginLeft: 12 }}>
-                {Object.entries(memoizedActiveUsers)
-                  .slice(0, 3)
-                  .map(([userId, userData]) => (
-                    <Tooltip
-                      key={userId}
-                      title={`${userData.username || 'User'} (Active)`}
-                      placement="bottom"
-                    >
-                      <Avatar
-                        avatar={userData.avatar}
-                        size={24}
-                        style={{
-                          border: '2px solid #4CAF50',
-                          boxShadow: '0 0 0 2px rgba(76, 175, 80, 0.2)',
-                        }}
-                      />
-                    </Tooltip>
-                  ))}
-                {Object.keys(memoizedActiveUsers).length > 3 && (
-                  <Tag>+{Object.keys(memoizedActiveUsers).length - 3} active</Tag>
-                )}
               </Flexbox>
             )}
           </Flexbox>
@@ -219,6 +162,14 @@ const TeamChat = memo(() => {
               size={DESKTOP_HEADER_ICON_SIZE}
               title="Add Team Members"
             />
+            {currentOrganization?.memberRole === 'owner' && (
+              <ActionIcon
+                icon={ModelTag}
+                onClick={() => setShowDefaultModelsModal(true)}
+                size={DESKTOP_HEADER_ICON_SIZE}
+                title="Assign Default Models"
+              />
+            )}
             <HeaderAction />
           </Flexbox>
         }
@@ -296,6 +247,14 @@ const TeamChat = memo(() => {
         open={showMemberModal}
         onClose={() => setShowMemberModal(false)}
         teamId={activeTeamChatId || undefined}
+      />
+
+      {/* Default Models Modal */}
+      <DefaultModelsForTeamChatModal
+        teamChatId={activeTeamChatId || undefined}
+        organizationId={currentOrganization?.id}
+        open={showDefaultModelsModal}
+        onClose={() => setShowDefaultModelsModal(false)}
       />
 
       {/* Team Chat Session Hydration for URL params */}

@@ -57,23 +57,29 @@ import { default as zhipu } from './zhipu';
 
 type ModelsMap = Record<string, AiFullModelCard[]>;
 
-const buildDefaultModelList = (map: ModelsMap): LobeDefaultAiModelListItem[] => {
+const buildDefaultModelList = (map: ModelsMap, subscription?: any): LobeDefaultAiModelListItem[] => {
   let models: LobeDefaultAiModelListItem[] = [];
 
   Object.entries(map).forEach(([provider, providerModels]) => {
-    const newModels = providerModels.map((model) => ({
-      ...model,
-      abilities: model.abilities ?? {},
-      enabled: model.enabled || false,
-      providerId: provider,
-      source: 'builtin',
-    }));
+    let filteredModels = providerModels;
+    filteredModels = providerModels.filter(model => model.enabled);
+
+    const newModels = filteredModels.map((model) => {      
+      return {
+        ...model,
+        abilities: model.abilities ?? {},
+        enabled: true,
+        providerId: provider,
+        source: 'builtin',
+      };
+    });
     models = models.concat(newModels);
   });
 
   return models;
 };
 
+// Static model list (default export)
 export const LOBE_DEFAULT_MODEL_LIST = buildDefaultModelList({
   ai21,
   ai360,
@@ -130,6 +136,67 @@ export const LOBE_DEFAULT_MODEL_LIST = buildDefaultModelList({
   zeroone,
   zhipu,
 });
+
+// Dynamic model list function that accepts subscription
+// this function is used to get the model list with subscription
+export const getModelListWithSubscription = (subscription?: any): LobeDefaultAiModelListItem[] => {
+  return buildDefaultModelList({
+    ai21,
+    ai360,
+    anthropic,
+    azure,
+    azureai,
+    baichuan,
+    bedrock,
+    cloudflare,
+    cohere,
+    deepseek,
+    fireworksai,
+    giteeai,
+    github,
+    google,
+    groq,
+    higress,
+    huggingface,
+    hunyuan,
+    infiniai,
+    internlm,
+    jina,
+    lmstudio,
+    minimax,
+    mistral,
+    modelscope,
+    moonshot,
+    novita,
+    nvidia,
+    ollama,
+    openai,
+    openrouter,
+    perplexity,
+    ppio,
+    qiniu,
+    qwen,
+    sambanova,
+    search1api,
+    sensenova,
+    siliconcloud,
+    spark,
+    stepfun,
+    taichu,
+    tencentcloud,
+    togetherai,
+    upstage,
+    v0,
+    vertexai,
+    vllm,
+    volcengine,
+    wenxin,
+    xai,
+    xinference,
+    zeroone,
+    zhipu,
+  }, subscription);
+};
 
 export { default as ai21 } from './ai21';
 export { default as ai360 } from './ai360';

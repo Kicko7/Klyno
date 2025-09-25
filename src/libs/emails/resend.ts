@@ -1,8 +1,8 @@
 import { Resend } from 'resend';
-
 import { appEnv } from '@/envs/app';
 
-const resend = new Resend(appEnv.RESEND_API_KEY);
+// ✅ Don't create Resend instance immediately
+// const resend = new Resend(appEnv.RESEND_API_KEY);
 
 const sendEmail = async (payload: { html: string; subject: string; to: string | string[] }) => {
   if (!appEnv.RESEND_API_KEY) {
@@ -11,6 +11,9 @@ const sendEmail = async (payload: { html: string; subject: string; to: string | 
       'Email service is not configured. Please set RESEND_API_KEY environment variable.',
     );
   }
+
+  // ✅ Create Resend instance only when needed
+  const resend = new Resend(appEnv.RESEND_API_KEY);
 
   const from = 'jamarri@klyno.ai';
   console.log('Attempting to send email with Resend from:', from, 'to:', payload.to);

@@ -7,6 +7,7 @@ import { metadataModule } from '@/server/metadata';
 import { translation } from '@/server/translation';
 import { DynamicLayoutProps } from '@/types/next';
 import { RouteVariants } from '@/utils/server/routeVariants';
+import SignUpWrapper from '../SignUp';
 
 export const generateMetadata = async (props: DynamicLayoutProps) => {
   const locale = await RouteVariants.getLocale(props);
@@ -18,7 +19,10 @@ export const generateMetadata = async (props: DynamicLayoutProps) => {
   });
 };
 
-const Page = () => {
+const Page = async ({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) => {
+  const params = await searchParams;
+  const affiliateRef = params.ref as string;
+
   // Check if Clerk is configured by checking for publishable key
   if (!authEnv.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
     return (
@@ -40,20 +44,7 @@ const Page = () => {
   }
 
   return (
-    <div className="flex h-screen items-center justify-center">
-      <SignUp
-        appearance={{
-          elements: {
-            card: 'shadow-lg',
-            rootBox: 'mx-auto',
-          },
-        }}
-        fallbackRedirectUrl="/"
-        path="/signup"
-        routing="path"
-        signInUrl="/login"
-      />
-    </div>
+   <SignUpWrapper affiliateRef={affiliateRef} />
   );
 };
 

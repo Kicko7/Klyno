@@ -8,6 +8,7 @@ import { useClientDataSWR } from '@/libs/swr';
 import { aiProviderService } from '@/services/aiProvider';
 import { AiInfraStore } from '@/store/aiInfra/store';
 import { ModelAbilities } from '@/types/aiModel';
+import { getModelListWithSubscription } from '@/config/aiModels';
 import {
   AiProviderDetailItem,
   AiProviderListItem,
@@ -34,6 +35,7 @@ export interface AiProviderAction {
   refreshAiProviderList: () => Promise<void>;
   refreshAiProviderRuntimeState: () => Promise<void>;
   removeAiProvider: (id: string) => Promise<void>;
+  setActiveAiProvider: (id: string) => void;
   toggleProviderEnabled: (id: string, enabled: boolean) => Promise<void>;
   updateAiProvider: (id: string, value: UpdateAiProviderParams) => Promise<void>;
   updateAiProviderConfig: (id: string, value: UpdateAiProviderConfigParams) => Promise<void>;
@@ -44,9 +46,11 @@ export interface AiProviderAction {
   /**
    * fetch provider keyVaults and user enabled model list
    * @param isLoginOnInit
+   * @param subscription
    */
   useFetchAiProviderRuntimeState: (
     isLoginOnInit: boolean | undefined,
+    subscription?: any,
   ) => SWRResponse<AiProviderRuntimeState | undefined>;
 }
 
@@ -104,6 +108,10 @@ export const createAiProviderSlice: StateCreator<
   removeAiProvider: async (id) => {
     await aiProviderService.deleteAiProvider(id);
     await get().refreshAiProviderList();
+  },
+
+  setActiveAiProvider: (id) => {
+    set({ activeAiProvider: id }, false, 'setActiveAiProvider');
   },
 
   toggleProviderEnabled: async (id: string, enabled: boolean) => {
@@ -168,15 +176,14 @@ export const createAiProviderSlice: StateCreator<
       },
     ),
 
-  useFetchAiProviderRuntimeState: (isLogin) =>
+  useFetchAiProviderRuntimeState: (isLogin, subscription) =>
     useClientDataSWR<AiProviderRuntimeState | undefined>(
-      !isDeprecatedEdition ? [AiProviderSwrKey.fetchAiProviderRuntimeState, isLogin] : null,
-      async ([, isLogin]) => {
+      !isDeprecatedEdition ? [AiProviderSwrKey.fetchAiProviderRuntimeState, isLogin, subscription] : null,
+      async ([, isLogin, subscription]) => {
         if (isLogin) return aiProviderService.getAiProviderRuntimeState();
-
-        const { LOBE_DEFAULT_MODEL_LIST } = await import('@/config/aiModels');
+        const modelListWithSubscription = getModelListWithSubscription(subscription);
         return {
-          enabledAiModels: LOBE_DEFAULT_MODEL_LIST.filter((m) => m.enabled),
+          enabledAiModels: modelListWithSubscription.filter((m) => m.enabled),
           enabledAiProviders: DEFAULT_MODEL_PROVIDER_LIST.filter(
             (provider) => provider.enabled,
           ).map((item) => ({ id: item.id, name: item.name, source: 'builtin' })),
@@ -201,18 +208,65 @@ export const createAiProviderSlice: StateCreator<
             return uniqBy(models, 'id');
           };
 
-          // 3. 组装最终数据结构
-          const enabledChatModelList = data.enabledAiProviders.map((provider) => ({
-            ...provider,
-            children: getModelListByType(provider.id, 'chat'),
-            name: provider.name || provider.id,
-          }));
-          const { LOBE_DEFAULT_MODEL_LIST } = await import('@/config/aiModels');
+          // Use subscription-based model list for builtin models as well
+          const modelListWithSubscription = getModelListWithSubscription(subscription);
+
+          const enabledChatModelList = data.enabledAiProviders.map((provider) => {
+            // For builtin providers, use both subscription-filtered models AND enabled models from database
+            if (provider.source === 'builtin') {
+              const subscriptionFilteredModels = modelListWithSubscription
+                .filter((model) => model.providerId === provider.id && model.type === 'chat')
+                .map((model) => ({
+                  abilities: (model.abilities || {}) as ModelAbilities,
+                  contextWindowTokens: model.contextWindowTokens,
+                  displayName: model.displayName ?? '',
+                  id: model.id,
+                }));
+
+              // Get enabled models from database for this provider
+              const databaseEnabledModels = getModelListByType(provider.id, 'chat');
+
+              // Create a map of database models for quick lookup
+              const databaseModelsMap = new Map(databaseEnabledModels.map(model => [model.id, model]));
+
+              // Filter subscription models based on database enabled status
+              // Only include subscription models that are also enabled in database
+              const filteredModels = subscriptionFilteredModels.filter(model => {
+                const dbModel = databaseModelsMap.get(model.id);
+                // If model exists in database, it's already enabled (getModelListByType filters enabled models)
+                // If not in database, exclude it (we only want models that are explicitly enabled)
+                return !!dbModel;
+              });
+
+              // Add any database models that aren't in subscription list but are enabled
+              const additionalModels = databaseEnabledModels
+                .filter(model => !subscriptionFilteredModels.some(sm => sm.id === model.id))
+                .map(model => ({
+                  abilities: (model.abilities || {}) as ModelAbilities,
+                  contextWindowTokens: model.contextWindowTokens,
+                  displayName: model.displayName ?? '',
+                  id: model.id,
+                }));
+
+              return {
+                ...provider,
+                children: [...filteredModels, ...additionalModels],
+                name: provider.name || provider.id,
+              };
+            }
+
+            // For other providers, use the original logic
+            return {
+              ...provider,
+              children: getModelListByType(provider.id, 'chat'),
+              name: provider.name || provider.id,
+            };
+          });
 
           set(
             {
               aiProviderRuntimeConfig: data.runtimeConfig,
-              builtinAiModelList: LOBE_DEFAULT_MODEL_LIST,
+              builtinAiModelList: modelListWithSubscription,
               enabledAiModels: data.enabledAiModels,
               enabledAiProviders: data.enabledAiProviders,
               enabledChatModelList,

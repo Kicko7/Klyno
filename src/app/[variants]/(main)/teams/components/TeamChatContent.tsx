@@ -1,16 +1,16 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { memo } from 'react';
-import { Flexbox } from 'react-layout-kit';
 
-import { useTeamChatWebSocket } from '@/hooks/useTeamChatWebSocket';
 import { lambdaClient } from '@/libs/trpc/client';
 import { useTeamChatStore } from '@/store/teamChat';
 import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
 
 import TeamChatLayout from './layout/TeamChatLayout';
+import { useTheme } from 'antd-style';
+import Loading from '../../chat/loading';
 
 interface TeamChatContentProps {
   teamChatId: string;
@@ -61,6 +61,9 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
     const { teamChatsByOrg, setActiveTeamChat, currentOrganizationId, activeChatStates } =
       useTeamChatStore();
     const currentUser = useUserStore(userProfileSelectors.userProfile);
+    
+    // Track if initial load has been performed for this chat
+    const initialLoadRef = useRef<Set<string>>(new Set());
 
     // Get chats for current organization
     const teamChats = currentOrganizationId ? teamChatsByOrg[currentOrganizationId] || [] : [];
@@ -103,107 +106,60 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
       }
     };
 
-    // Function to load messages with pagination - wrapped in useCallback to prevent infinite loops
-    const loadMessages = useCallback(
-      async (page: number = 1) => {
-        if (!teamChatId) return;
+    // WebSocket-only message loading - no database calls
+    const initializeChatState = useCallback(() => {
+      if (!teamChatId) return;
 
-        const chatState = useTeamChatStore.getState().activeChatStates[teamChatId];
-        if (!chatState?.isActive) return;
+      // Initialize chat state for WebSocket-only mode
+      useTeamChatStore.setState((state) => ({
+        activeChatStates: {
+          ...(state.activeChatStates || {}),
+          [teamChatId]: {
+            ...(state.activeChatStates?.[teamChatId] || defaultState),
+            isActive: true,
+            isLoading: false, // No loading since we're using WebSocket
+            hasMoreMessages: false, // WebSocket handles all messages
+            currentPage: 1,
+          },
+        },
+        // Initialize empty messages array if not exists
+        messages: {
+          ...state.messages,
+          [teamChatId]: state.messages[teamChatId] || [],
+        },
+      }));
+    }, [teamChatId]);
 
-        try {
-          useTeamChatStore.setState((state) => ({
-            activeChatStates: {
-              ...(state.activeChatStates || {}),
-              [teamChatId]: {
-                ...(state.activeChatStates?.[teamChatId] || defaultState),
-                isLoading: true,
-              },
-            },
-          }));
+    // // Function to load more messages
+    // const handleLoadMore = useCallback(async () => {
+    //   const chatState = useTeamChatStore.getState().activeChatStates[teamChatId];
+    //   if (chatState?.isLoading || !chatState?.hasMoreMessages) return;
+    //   await loadMessages(chatState.currentPage + 1);
+    // }, [teamChatId, loadMessages]);
 
-          const messages = await lambdaClient.teamChat.getMessages.query({
-            teamChatId: teamChatId!,
-            limit: PAGE_SIZE,
-            offset: (page - 1) * PAGE_SIZE,
-            lastMessageId: chatState.lastMessageId,
-          });
-
-          const hasMore = messages.length === PAGE_SIZE;
-
-          useTeamChatStore.setState((state) => ({
-            messages: {
-              ...state.messages,
-              [teamChatId]:
-                page === 1 ? messages : [...(state.messages[teamChatId] || []), ...messages],
-            },
-            activeChatStates: {
-              ...(state.activeChatStates || {}),
-              [teamChatId]: {
-                ...(state.activeChatStates?.[teamChatId] || defaultState),
-                isLoading: false,
-                currentPage: page,
-                hasMoreMessages: hasMore,
-                lastMessageId: messages[messages.length - 1]?.id,
-              },
-            },
-          }));
-
-          // Cache the messages
-          if (page === 1) {
-            useTeamChatStore.setState((state) => ({
-              messageCache: {
-                ...state.messageCache,
-                [teamChatId]: {
-                  messages,
-                  timestamp: Date.now().toString(),
-                  expiresAt: (Date.now() + CACHE_DURATION).toString(),
-                },
-              },
-            }));
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-          console.error('Failed to load messages:', error);
-          useTeamChatStore.setState((state) => ({
-            error: errorMessage,
-            activeChatStates: {
-              ...(state.activeChatStates || {}),
-              [teamChatId]: {
-                ...(state.activeChatStates?.[teamChatId] || defaultState),
-                isLoading: false,
-              },
-            },
-          }));
-        }
-      },
-      [teamChatId],
-    );
-
-    // Function to load more messages
-    const handleLoadMore = useCallback(async () => {
-      const chatState = useTeamChatStore.getState().activeChatStates[teamChatId];
-      if (chatState?.isLoading || !chatState?.hasMoreMessages) return;
-      await loadMessages(chatState.currentPage + 1);
-    }, [teamChatId, loadMessages]);
-
-    // Initial load of messages
+    // Initialize chat state for WebSocket-only mode
     useEffect(() => {
-      if (!teamChatId || isCacheValid(teamChatId)) return;
-      loadMessages(1);
-    }, [teamChatId, loadMessages]);
+      if (!teamChatId) return;
+      
+      // Check if we've already initialized this chat
+      if (initialLoadRef.current.has(teamChatId)) return;
+      
+      // Mark this chat as having been initialized
+      initialLoadRef.current.add(teamChatId);
+      
+      // Initialize chat state (WebSocket will handle message loading)
+      initializeChatState();
+    }, [teamChatId, initializeChatState]);
 
-    // Use WebSocket for real-time updates instead of polling
-    const { sendMessage, startTyping, stopTyping, updateReadReceipt } = useTeamChatWebSocket({
-      teamChatId,
-      enabled: isActive,
-    });
 
     // Get messages from store (updated via WebSocket) - Fixed to return stable reference
-    const messages = useTeamChatStore((state) => state.messages[teamChatId] || null);
+    const messages = useTeamChatStore((state) => state.messages[teamChatId] || []);
 
     // Memoize messages to prevent infinite re-renders
-    const memoizedMessages = useMemo(() => messages || [], [messages]);
+    const memoizedMessages = useMemo(() => {
+      if (!Array.isArray(messages)) return [];
+      return messages;
+    }, [messages]);
 
     // Set up chat activity tracking
     useEffect(() => {
@@ -227,8 +183,6 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
 
         const state = useTeamChatStore.getState();
         const messages = state.messages[teamChatId];
-
-        // Real-time updates are now handled by WebSocket in useTeamChatWebSocket hook
 
         if (messages?.length > 0) {
           // Cache messages before unmounting
@@ -283,12 +237,14 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
       );
     }
 
+    const theme = useTheme();
+
     // Render loading state
     if (!currentChat || !chatState) {
       return (
-        <div className="flex-1 flex items-center justify-center text-slate-400">
+        <div className={`flex-1 flex items-center justify-center text-slate-400  ${theme.appearance === "dark" ? "bg-black" : "bg-white"}`}>
           <div className="text-center">
-            <p>Loading chat...</p>
+            <Loading />
           </div>
         </div>
       );
@@ -303,7 +259,7 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
             <button
               onClick={() => {
                 useTeamChatStore.setState({ error: null });
-                loadMessages(1);
+                // loadMessages(1);
               }}
               className="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded"
             >
@@ -316,109 +272,57 @@ const TeamChatContent: React.FC<TeamChatContentProps> = memo(
 
     return (
       <div
-        style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}
-      >
-        {/* Previous chat (for transition) */}
-        {switchState.isPending && switchState.previousChatId && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              opacity: switchState.isPending ? 1 : 0,
-              transform: `translateX(${switchState.isPending ? '0' : '-100%'})`,
-              transition: 'opacity 0.3s ease-out, transform 0.3s ease-out',
-              zIndex: 1,
-            }}
-          >
-            <TeamChatLayout
-              teamChatId={switchState.previousChatId}
-              mobile={mobile}
-              onLoadMore={handleLoadMore}
-              hasMore={false}
-              isLoading={false}
-              isTransitioning={true}
-            />
-          </div>
-        )}
-
-        {/* Current chat */}
+      style={{
+        position: 'relative',
+        height: '100%',
+        opacity: switchState.isPending ? 0 : 1,
+        transform: `translateX(${switchState.isPending ? '100%' : '0'})`,
+        transition: 'opacity 0.3s ease-out, transform 0.3s ease-out',
+      }}
+    >
+      {/* Loading overlay */}
+      {isLoading && !switchState.isPending && (
         <div
           style={{
-            position: 'relative',
-            height: '100%',
-            opacity: switchState.isPending ? 0 : 1,
-            transform: `translateX(${switchState.isPending ? '100%' : '0'})`,
-            transition: 'opacity 0.3s ease-out, transform 0.3s ease-out',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(255, 255, 255, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
           }}
         >
-          {/* Loading overlay */}
-          {isLoading && !switchState.isPending && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'rgba(255, 255, 255, 0.7)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 1000,
-              }}
-            >
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                <p className="mt-2">Loading messages...</p>
-              </div>
-            </div>
-          )}
-
-          {/* Load more button */}
-          {chatState.hasMoreMessages && !isLoading && !switchState.isPending && (
-            <button
-              onClick={handleLoadMore}
-              className="mb-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded self-center"
-            >
-              Load More Messages
-            </button>
-          )}
-
-          <TeamChatLayout
-            teamChatId={teamChatId}
-            mobile={mobile}
-            onLoadMore={handleLoadMore}
-            hasMore={chatState.hasMoreMessages}
-            isLoading={isLoading}
-            isTransitioning={switchState.isPending}
-          />
-        </div>
-
-        {/* Chat switch loading indicator */}
-        {switchState.isPending && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              zIndex: 1001,
-              background: 'rgba(255, 255, 255, 0.9)',
-              padding: '20px',
-              borderRadius: '8px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-            }}
-          >
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-              <p className="mt-3 text-gray-600">Switching chat...</p>
-            </div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            <p className="mt-2">Loading messages...</p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Load more button */}
+      {chatState.hasMoreMessages && !isLoading && !switchState.isPending && (
+        <button
+          // onClick={handleLoadMore}
+          className="mb-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded self-center"
+        >
+          Load More Messages
+        </button>
+      )}
+
+      {/* Only show TeamChatLayout when not loading */}
+      {!isLoading && !switchState.isPending && (
+        <TeamChatLayout
+          teamChatId={teamChatId}
+          mobile={mobile}
+          isLoading={isLoading}
+          isTransitioning={switchState.isPending}
+        />
+      )}
+    </div>
     );
   },
 );

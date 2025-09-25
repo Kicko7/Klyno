@@ -1,4 +1,5 @@
 import { ModelIcon } from '@lobehub/icons';
+import {  Spin } from 'antd';
 import { createStyles } from 'antd-style';
 import { Settings2Icon } from 'lucide-react';
 import { memo } from 'react';
@@ -9,9 +10,14 @@ import ModelSwitchPanel from '@/features/ModelSwitchPanel';
 import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
 import { aiModelSelectors, useAiInfraStore } from '@/store/aiInfra';
+import { useOrganizationStore } from '@/store/organization/store';
+import { useTeamChatStore } from '@/store/teamChat';
+import { useUserStore } from '@/store/user';
+import { authSelectors } from '@/store/user/selectors';
 
 import Action from '../components/Action';
 import ControlsForm from './ControlsForm';
+import { Avatar } from '@lobehub/ui';
 
 const useStyles = createStyles(({ css, token, cx }) => ({
   container: css`
@@ -56,25 +62,44 @@ const ModelSwitch = memo(() => {
   const { t } = useTranslation('chat');
   const { styles, cx } = useStyles();
 
+  const currentOrganization = useOrganizationStore((state) => state.selectedOrganizationId);
+  const activeTeamChatId = useTeamChatStore((state) => state.activeTeamChatId);
+  const teamChatsByOrg = useTeamChatStore((state) => state.teamChatsByOrg);
+
+  const teamChats = currentOrganization ? teamChatsByOrg[currentOrganization] || [] : [];
+  const activeTeamChat = teamChats.find((chat) => chat.id === activeTeamChatId);
+  const sessionId = activeTeamChat?.metadata?.sessionId;
+
   const [model, provider] = useAgentStore((s) => [
-    agentSelectors.currentAgentModel(s),
-    agentSelectors.currentAgentModelProvider(s),
+    agentSelectors.getAgentConfigBySessionId(sessionId)(s)?.model || 'gpt-4',
+    agentSelectors.getAgentConfigBySessionId(sessionId)(s)?.provider || 'openai',
   ]);
 
+  const isLogin = useUserStore(authSelectors.isLogin);
+
+  // Get loading state for model list
+  const { isLoading: isModelListLoading } = useAiInfraStore((s) => s.useFetchAiProviderRuntimeState(isLogin, undefined));
+
   const isModelHasExtendParams = useAiInfraStore(
-    aiModelSelectors.isModelHasExtendParams(model, provider),
+    aiModelSelectors.isModelHasExtendParams(model || 'gpt-4', provider || 'openai'),
   );
 
   return (
     <Flexbox align={'center'} className={isModelHasExtendParams ? styles.container : ''} horizontal>
-      <ModelSwitchPanel>
+      <ModelSwitchPanel sessionId={sessionId}>
         <Center
           className={cx(styles.model, isModelHasExtendParams && styles.modelWithControl)}
           height={36}
           width={36}
         >
           <div className={styles.icon}>
-            <ModelIcon model={model} size={22} />
+            {isModelListLoading ? (
+              <Spin size="small" />
+            ) : model === 'openrouter/auto' ? (
+              <Avatar avatar={'/logo.png'} size={22} />
+            ) : (
+              <ModelIcon model={model} size={22} />
+            )}
           </div>
         </Center>
       </ModelSwitchPanel>

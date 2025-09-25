@@ -143,6 +143,14 @@ const openingQuestions = (s: AgentStoreState) =>
   currentAgentConfig(s).openingQuestions || DEFAULT_OPENING_QUESTIONS;
 const openingMessage = (s: AgentStoreState) => currentAgentConfig(s).openingMessage || '';
 
+
+const getAgentConfigBySessionId = (sessionId: string) => (s: AgentStoreState): LobeAgentConfig => {
+  if (!sessionId) {
+    return currentAgentConfig(s); // Fallback to current active agent
+  }
+  return merge(s.defaultAgentConfig, s.agentMap[sessionId]);
+};
+
 export const agentSelectors = {
   currentAgentConfig,
   currentAgentFiles,
@@ -165,4 +173,5 @@ export const agentSelectors = {
   isInboxSession,
   openingMessage,
   openingQuestions,
+  getAgentConfigBySessionId
 };

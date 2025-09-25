@@ -13,11 +13,11 @@ export const OrganizationInvitation = ({
 }: OrganizationInvitationProps) => {
   return (
     <BaseTemplate
-      previewText={`You have been invited to join ${organizationName} on Klynno AI`}
-      title={`You have been invited to join ${organizationName} on Klynno AI`}
+      previewText={`You have been invited to join ${organizationName} on Klyno AI`}
+      title={`You have been invited to join ${organizationName} on Klyno AI`}
     >
       <p>
-        You have been invited to join <strong>{organizationName}</strong> on Klynno AI.
+        You have been invited to join <strong>{organizationName}</strong> on Klyno AI.
       </p>
       <p>
         If you already have an account, clicking the link below will add you to the organization. If

@@ -4,9 +4,13 @@ import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfi
 import ClientMode from './ClientMode';
 import ServerMode from './ServerMode';
 
-const Upload = () => {
+interface UploadProps {
+  sessionId?: string;
+}
+
+const Upload = ({ sessionId }: UploadProps) => {
   const { enableKnowledgeBase } = useServerConfigStore(featureFlagsSelectors);
-  return isServerMode && enableKnowledgeBase ? <ServerMode /> : <ClientMode />;
+  return isServerMode && enableKnowledgeBase ? <ServerMode sessionId={sessionId} /> : <ClientMode sessionId={sessionId} />;
 };
 
 export default Upload;

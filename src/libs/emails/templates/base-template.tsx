@@ -79,8 +79,8 @@ export const BaseTemplate: React.FC<BaseEmailProps> = ({
   previewText,
   title,
   children,
-  footerText = "© 2025 Klynno AI. All rights reserved.",
-  logoUrl = "https://app.klynno.ai/logo-email.png",
+  footerText = "© 2025 Klyno AI. All rights reserved.",
+  logoUrl = "https://klyno.ai/logo.png",
 }) => {
   return (
     <Html>
@@ -90,7 +90,7 @@ export const BaseTemplate: React.FC<BaseEmailProps> = ({
         <Container style={container}>
           <Section style={logoContainer}>
             <Img
-              alt="Klynno AI"
+              alt="Klyno AI"
               height="36"
               src={logoUrl}
               style={logo}

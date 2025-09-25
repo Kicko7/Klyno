@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, lt, sql } from 'drizzle-orm';
 
 import {
   NewTeamChat,
@@ -21,14 +21,12 @@ export class TeamChatService {
   }
 
   // Create a new team chat
-  createTeamChat = async (data: Omit<NewTeamChat, 'userId' | 'id'>) => {
+  createTeamChat = async (data: Omit<NewTeamChat, 'userId' | 'id'> & { isPublic?: boolean }) => {
     return this.db.transaction(async (trx) => {
-      // Ensure required fields
       if (!data.organizationId) {
         throw new Error('organizationId is required');
       }
 
-      // Create metadata with additional tracking info
       const metadata = {
         ...(data.metadata || {}),
         memberAccess: [
@@ -39,19 +37,24 @@ export class TeamChatService {
             addedBy: this.userId,
           },
         ],
+        isPublic: data.isPublic
       };
 
-      const newChat = await trx
-        .insert(teamChats)
-        .values({
-          ...data,
-          userId: this.userId,
-          id: idGenerator('team_chats'),
-          metadata,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .returning();
+      // Base insert values
+      const insertData: any = {
+        ...data,
+        id: idGenerator('team_chats'),
+        metadata,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // Only set userId if not in folder
+      if (!data.isInFolder) {
+        insertData.userId = this.userId;
+      }
+
+      const newChat = await trx.insert(teamChats).values(insertData).returning();
 
       return newChat[0];
     });
@@ -74,14 +77,14 @@ export class TeamChatService {
       ...(data.metadata || {}),
       userInfo: user
         ? {
-            id: user.id,
-            username: user.username ?? undefined,
-            email: user.email ?? undefined,
-            fullName: user.fullName ?? undefined,
-            firstName: user.firstName ?? undefined,
-            lastName: user.lastName ?? undefined,
-            avatar: user.avatar ?? undefined,
-          }
+          id: user.id,
+          username: user.username ?? undefined,
+          email: user.email ?? undefined,
+          fullName: user.fullName ?? undefined,
+          firstName: user.firstName ?? undefined,
+          lastName: user.lastName ?? undefined,
+          avatar: user.avatar ?? undefined,
+        }
         : undefined,
       // Add multi-user chat context for AI
       isMultiUserChat: true,
@@ -114,11 +117,13 @@ export class TeamChatService {
     const result = await this.db
       .insert(teamChatMessages)
       .values({
-        ...data,
+        // Exclude isLocal from database insertion until migration is run
+        content: data.content,
+        messageType: data.messageType,
+        metadata: messageMetadata,
         teamChatId,
         userId: this.userId,
         id: messageId,
-        metadata: messageMetadata,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -127,33 +132,75 @@ export class TeamChatService {
     return result[0];
   };
 
-  // Get messages for a team chat with pagination
+  /**
+   * Get messages for a team chat with cursor-based pagination using lastMessageId and page numbers
+   * 
+   * Pagination Logic (starts from bottom/oldest messages):
+   * - If lastMessageId is provided and found: Page 1 gets messages after lastMessageId, Page 2 gets more after that, etc.
+   * - If lastMessageId is provided but not found: Check with createdAt and return data from before that creation time
+   * - If no lastMessageId: Regular pagination starting from oldest messages (bottom)
+   * 
+   * @param teamChatId - The team chat ID
+   * @param limit - Number of messages per page (default: 20)
+   * @param lastMessageId - Optional cursor message ID for pagination
+   * @param lastMessageCreatedAt - Optional createdAt timestamp for fallback when message ID not found
+   * @returns Object with messages, pagination metadata
+   */
   getMessages = async (
     teamChatId: string,
-    limit = 50,
-    offset?: number,
+    limit = 20,
     lastMessageId?: string,
-  ): Promise<TeamChatMessageItem[]> => {
+    lastMessageCreatedAt?: string | Date,
+  ): Promise<{
+    messages: TeamChatMessageItem[];
+    hasMore: boolean;
+    totalCount: number;
+  }> => {
     const conditions = [eq(teamChatMessages.teamChatId, teamChatId)];
-
-    // If lastMessageId is provided, get messages after that ID
+  
     if (lastMessageId) {
-      const lastMessage = await this.db.query.teamChatMessages.findFirst({
+      const message = await this.db.query.teamChatMessages.findFirst({
         where: eq(teamChatMessages.id, lastMessageId),
       });
-
-      if (lastMessage) {
-        conditions.push(sql`${teamChatMessages.createdAt} > ${lastMessage.createdAt}`);
+      console.log(message);
+      if (message) {
+        conditions.push(lt(teamChatMessages.createdAt, message.createdAt));
+      } else if (lastMessageCreatedAt) {
+        conditions.push(lt(teamChatMessages.createdAt, new Date(lastMessageCreatedAt)));
+        console.log(new Date(lastMessageCreatedAt));
       }
     }
-
-    return this.db.query.teamChatMessages.findMany({
+  
+    console.log(conditions.length);
+    // Get total count (before applying pagination)
+    const totalCount = await this.db
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
+      .from(teamChatMessages)
+      .where(and(...conditions))
+      .then((r) => r[0].count);
+  
+    // Fetch paginated results
+    const messages = await this.db.query.teamChatMessages.findMany({
       where: and(...conditions),
-      orderBy: [desc(teamChatMessages.createdAt)], // Order by descending (newest first)
+      orderBy: desc(teamChatMessages.createdAt), // newest → oldest
       limit,
-      offset,
     });
+  
+    // If you want chronological order (oldest → newest), reverse:
+    messages.reverse();
+  
+    const hasMore = totalCount > messages.length;
+
+
+    console.log(messages.length,lastMessageId,lastMessageCreatedAt)
+  
+    return {
+      messages,
+      hasMore,
+      totalCount,
+    };
   };
+  
 
   // Check if there are new messages without fetching all messages
   hasNewMessages = async (
@@ -267,11 +314,11 @@ export class TeamChatService {
         ...(typeof data.isPublic === 'boolean' ? { isPublic: data.isPublic } : {}),
         ...(data.memberAccess
           ? {
-              metadata: {
-                ...chat.metadata,
-                memberAccess: data.memberAccess,
-              },
-            }
+            metadata: {
+              ...chat.metadata,
+              memberAccess: data.memberAccess,
+            },
+          }
           : {}),
         updatedAt: new Date(),
       })
@@ -427,10 +474,10 @@ export class TeamChatService {
             COALESCE(metadata->'presence', '{}'::jsonb),
             ${sql.raw(`'{${this.userId}}'`)},
             ${JSON.stringify({
-              isActive: true,
-              lastActiveAt: timestamp,
-              lastSeenMessageId: lastSeenMessageId || null,
-            })}::jsonb
+          isActive: true,
+          lastActiveAt: timestamp,
+          lastSeenMessageId: lastSeenMessageId || null,
+        })}::jsonb
           )
         )`,
         updatedAt: now,
@@ -455,9 +502,9 @@ export class TeamChatService {
             COALESCE(metadata->'presence', '{}'::jsonb),
             ${sql.raw(`'{${this.userId}}'`)},
             ${JSON.stringify({
-              isActive: false,
-              lastActiveAt: timestamp,
-            })}::jsonb
+          isActive: false,
+          lastActiveAt: timestamp,
+        })}::jsonb
           )
         )`,
         updatedAt: now,
@@ -509,7 +556,6 @@ export class TeamChatService {
     });
   };
 
-
   // Update an existing message
   updateMessage = async (
     teamChatId: string,
@@ -527,12 +573,7 @@ export class TeamChatService {
         },
         updatedAt: new Date(),
       })
-      .where(
-        and(
-          eq(teamChatMessages.id, messageId),
-          eq(teamChatMessages.teamChatId, teamChatId),
-        ),
-      )
+      .where(and(eq(teamChatMessages.id, messageId), eq(teamChatMessages.teamChatId, teamChatId)))
       .returning();
 
     if (result.length === 0) {
@@ -545,15 +586,25 @@ export class TeamChatService {
   async deleteMessage(teamChatId: string, messageId: string): Promise<void> {
     const result = await this.db
       .delete(teamChatMessages)
-      .where(
-        and(
-          eq(teamChatMessages.id, messageId),
-          eq(teamChatMessages.teamChatId, teamChatId)
-        )
-      );
+      .where(and(eq(teamChatMessages.id, messageId), eq(teamChatMessages.teamChatId, teamChatId)));
 
     if (result.rowCount === 0) {
       throw new Error('Message not found or already deleted');
     }
   }
+  updateTeamChatDefaultModels = async (teamChatId: string, defaultModels: string[]) => {
+    const result = await this.db
+      .update(teamChats)
+      .set({ defaultModels })
+      .where(eq(teamChats.id, teamChatId))
+      .returning();
+    return result[0].defaultModels;
+  };
+  getTeamChatDefaultModels = async (teamChatId: string) => {
+    const result = await this.db
+      .select()
+      .from(teamChats)
+      .where(eq(teamChats.id, teamChatId));
+    return result[0].defaultModels;
+  };
 }

@@ -1,6 +1,9 @@
 # Gitignore for LobeHub
 ################################################################
 
+#test
+stripe.txt
+
 # general
 .DS_Store
 .idea

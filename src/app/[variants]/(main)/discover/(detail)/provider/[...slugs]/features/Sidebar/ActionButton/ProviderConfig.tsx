@@ -24,10 +24,20 @@ const useStyles = createStyles(({ css }) => ({
 const ProviderConfig = memo(() => {
   const { styles } = useStyles();
   const { t } = useTranslation('discover');
-  const { url, modelsUrl, identifier } = useDetailContext();
+  const { url, modelsUrl, identifier, name } = useDetailContext();
   const router = useRouter();
+  
+  // Custom URL mapping for specific providers
+  const getProviderUrl = (providerId: string, providerName: string) => {
+    if (providerId === 'openrouter' && providerName === 'KlynoAI') {
+      return '/settings/provider/klyno';
+    }
+    return `/settings/provider/${providerId}`;
+  };
+  
   const openSettings = () => {
-    router.push(isDeprecatedEdition ? '/settings/llm' : `/settings/provider/${identifier}`);
+    const providerUrl = getProviderUrl(identifier || '', name || '');
+    router.push(isDeprecatedEdition ? '/settings/llm' : providerUrl);
   };
 
   const icon = <Icon icon={SquareArrowOutUpRight} size={16} />;

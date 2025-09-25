@@ -4,6 +4,7 @@ import {
   DownloadIcon,
   Edit,
   ListRestart,
+  MessageSquare,
   RotateCcw,
   Share2,
   Split,
@@ -22,6 +23,7 @@ interface ChatListActionsBar {
   divider: { type: 'divider' };
   edit: ActionIconGroupItemType;
   export: ActionIconGroupItemType;
+  feedback: ActionIconGroupItemType;
   regenerate: ActionIconGroupItemType;
   share: ActionIconGroupItemType;
 }
@@ -74,6 +76,11 @@ export const useChatListActionsBar = ({
         icon: DownloadIcon,
         key: 'export',
         label: '导出为 PDF',
+      },
+      feedback: {
+        icon: MessageSquare,
+        key: 'feedback',
+        label: t('feedback', { defaultValue: 'Feedback' }),
       },
       regenerate: {
         icon: RotateCcw,

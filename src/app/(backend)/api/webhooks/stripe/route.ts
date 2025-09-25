@@ -58,6 +58,127 @@ function safeUnixToDate(timestamp: number | null | undefined): Date {
 }
 
 /**
+ * Detects the type of subscription update based on previous attributes
+ */
+function detectSubscriptionUpdateType(
+  subscription: Stripe.Subscription,
+  previousAttributes: any
+): {
+  type: 'new_billing_period' | 'plan_change' | 'status_change' | 'cancellation' | 'reactivation' | 'other';
+  details: Record<string, any>;
+} {
+  if (!previousAttributes) {
+    return {
+      type: 'other',
+      details: { reason: 'No previous attributes available' }
+    };
+  }
+
+  const details: Record<string, any> = {};
+
+  // Check for new billing period FIRST (most common for monthly renewals)
+  // This should take priority over plan changes for renewals
+  const currentPeriodStart = subscription.current_period_start;
+  const previousPeriodStart = previousAttributes.current_period_start;
+
+  if (currentPeriodStart !== previousPeriodStart) {
+    details.billing_period_change = {
+      previous_start: previousPeriodStart ? new Date(previousPeriodStart * 1000) : null,
+      current_start: new Date(currentPeriodStart * 1000),
+      is_new_month: true
+    };
+    return {
+      type: 'new_billing_period',
+      details
+    };
+  }
+
+  // Check for plan changes (only if no billing period change)
+  const currentPriceId = subscription.items.data[0]?.price?.id;
+  const previousPriceId = (previousAttributes as any)?.items?.data?.[0]?.price?.id;
+  
+  if (currentPriceId !== previousPriceId) {
+    details.plan_change = {
+      previous_price_id: previousPriceId,
+      current_price_id: currentPriceId
+    };
+    return {
+      type: 'plan_change',
+      details
+    };
+  }
+
+  // Check for status changes
+  const currentStatus = subscription.status;
+  const previousStatus = previousAttributes.status;
+  
+  if (currentStatus !== previousStatus) {
+    details.status_change = {
+      previous_status: previousStatus,
+      current_status: currentStatus
+    };
+    
+    if (previousStatus === 'canceled' && currentStatus === 'active') {
+      return {
+        type: 'reactivation',
+        details
+      };
+    }
+    
+    return {
+      type: 'status_change',
+      details
+    };
+  }
+
+  // Check for cancellation changes (only if no plan/status changes)
+  const currentCancelAtPeriodEnd = subscription.cancel_at_period_end;
+  const previousCancelAtPeriodEnd = previousAttributes.cancel_at_period_end;
+  
+  // Only treat as cancellation if it's a meaningful change (not undefined to false)
+  if (currentCancelAtPeriodEnd !== previousCancelAtPeriodEnd && 
+      previousCancelAtPeriodEnd !== undefined) {
+    details.cancellation_change = {
+      previous_cancel_at_period_end: previousCancelAtPeriodEnd,
+      current_cancel_at_period_end: currentCancelAtPeriodEnd,
+      was_cancelled_now: previousCancelAtPeriodEnd === false && currentCancelAtPeriodEnd === true,
+      was_reactivated: previousCancelAtPeriodEnd === true && currentCancelAtPeriodEnd === false
+    };
+    
+    // If user reactivated (cancelled the cancellation), treat as reactivation
+    if (previousCancelAtPeriodEnd === true && currentCancelAtPeriodEnd === false) {
+      return {
+        type: 'reactivation',
+        details
+      };
+    }
+    
+    return {
+      type: 'cancellation',
+      details
+    };
+  }
+
+  // Check for other changes
+  const changedFields = Object.keys(previousAttributes).filter(
+    key => subscription[key as keyof Stripe.Subscription] !== previousAttributes[key as keyof typeof previousAttributes]
+  );
+
+  if (changedFields.length > 0) {
+    details.other_changes = changedFields;
+    return {
+      type: 'other',
+      details
+    };
+  }
+
+  return {
+    type: 'other',
+    details: { reason: 'No significant changes detected' }
+  };
+}
+
+/**
  * Stripe webhook handler
  */
 export async function POST(request: NextRequest) {
@@ -98,6 +219,7 @@ export async function POST(request: NextRequest) {
     const subscriptionManager = new SubscriptionManager();
 
     // Handle different event types
+    // console.log(event.type,event)
     switch (event.type) {
       case 'checkout.session.completed': {
         console.log(`📋 Processing checkout.session.completed for event ${webhookId}`);
@@ -105,15 +227,21 @@ export async function POST(request: NextRequest) {
         break;
       }
 
-      case 'customer.subscription.created': {
-        console.log(`🆕 Processing customer.subscription.created for event ${webhookId}`);
-        await handleSubscriptionCreated(event, stripe, subscriptionManager);
-        break;
-      }
-
       case 'customer.subscription.updated': {
-        console.log(`📝 Processing customer.subscription.updated for event ${webhookId}`);
-        await handleSubscriptionUpdated(event, stripe, subscriptionManager);
+        console.log(`📝 Processing customer.subscription.updated for event ${webhookId}`, event);
+        const subscription = event.data.object as Stripe.Subscription;
+        const previousAttributes = event.data.previous_attributes;
+
+        // Detect the type of subscription update
+        const updateType = detectSubscriptionUpdateType(subscription, previousAttributes);
+        console.log(`🔍 Detected update type: ${updateType.type}`, updateType.details);
+        // console.log(`🔍 Previous cancel_at_period_end: ${previousAttributes?.cancel_at_period_end}, Current: ${subscription.cancel_at_period_end}`);
+
+        // Always pass the current cancel_at_period_end value
+        console.log(`🔄 Subscription ${subscription.id} cancel_at_period_end: ${subscription.cancel_at_period_end}`);
+        console.log(`🔄 Subscription billing interval: ${subscription.items.data[0]?.price?.recurring?.interval || 'unknown'}`);
+        await handleSubscriptionUpdated(event, stripe, subscriptionManager, subscription.cancel_at_period_end, updateType);
+
         break;
       }
 
@@ -199,6 +327,10 @@ async function handleCheckoutSessionCompleted(
 
       if (session.subscription) {
         const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+        const item = subscription.items.data[0];
+
+        // Full plan/price object
+        const stripePlan = item.price;
         const product = await stripe.products.retrieve(
           subscription.items.data[0].price.product as string,
         );
@@ -227,6 +359,7 @@ async function handleCheckoutSessionCompleted(
             currentPeriodEnd,
             subscription.cancel_at_period_end,
             canceledAt,
+            stripePlan
           );
 
           // For checkout.session.completed, we'll let customer.subscription.created handle credit allocation
@@ -357,9 +490,18 @@ async function handleSubscriptionUpdated(
   event: Stripe.Event,
   stripe: Stripe,
   subscriptionManager: SubscriptionManager,
+  cancelAtPeriodEnd?: boolean,
+  updateType?: {
+    type: 'new_billing_period' | 'plan_change' | 'status_change' | 'cancellation' | 'reactivation' | 'other';
+    details: Record<string, any>;
+  }
 ) {
   const subscription = event.data.object as Stripe.Subscription;
-  console.log(`Processing subscription update: ${subscription.id}`);
+  const previousAttributes = event.data.previous_attributes;
+
+  // Use provided update type or detect it
+  const detectedUpdateType = updateType || detectSubscriptionUpdateType(subscription, previousAttributes);
+  console.log(`📝 Processing subscription update: ${subscription.id} (${detectedUpdateType.type})`);
 
   try {
     // Get the user ID from subscription metadata or find it by customer ID
@@ -379,24 +521,44 @@ async function handleSubscriptionUpdated(
     }
 
     if (!userId) {
-      console.error(`Could not find user for updated subscription ${subscription.id}`);
+      console.error(`❌ Could not find user for updated subscription ${subscription.id}`);
       return;
     }
 
-    // Get the product details from the subscription
-    const product = await stripe.products.retrieve(
-      subscription.items.data[0].price.product as string,
-    );
+    // Get the product details from the subscription (defensive against empty items)
+    const firstItem = subscription.items.data[0];
+    if (!firstItem || !firstItem.price?.product) {
+      console.error(`❌ Subscription ${subscription.id} has no valid price/product item`);
+      return;
+    }
+    const product = await stripe.products.retrieve(firstItem.price.product as string);
 
-    console.log(`Retrieved product for subscription update: ${product.id} (${product.name})`);
-    console.log(`Product metadata:`, product.metadata);
+    console.log(`📦 Retrieved product for subscription update: ${product.id} (${product.name})`);
+    console.log(`📋 Product metadata:`, product.metadata);
 
     // Map product to plan configuration
     const plan = PlanMapper.getPlanFromStripeProduct(product);
 
+    if (subscription.latest_invoice) {
+      const invoice = await stripe.invoices.retrieve(subscription.latest_invoice as string);
+
+      // If the invoice is manual, skip the update because it's a manual update for user delete from organization in team workspace p
+      if (invoice.billing_reason === 'manual') {
+        return;
+      }
+    }
+
+    if ((event.data.previous_attributes as any)?.plan) {
+      if ((event.data.previous_attributes as any)?.plan?.billing_scheme === 'per_unit') {
+        return;
+      }
+    }
+
+    console.log("event.data.previous_attributes", event.data.previous_attributes);
+
     if (plan) {
       console.log(
-        `Mapped to plan: ${plan.name} (${plan.monthlyCredits} credits, ${plan.fileStorageLimitGB}GB storage)`,
+        `✅ Mapped to plan: ${plan.name} (${plan.monthlyCredits} credits, ${plan.fileStorageLimitGB}GB storage, ${plan.vectorStorageLimitMB}MB vector)`,
       );
 
       const currentPeriodStart = safeUnixToDate(subscription.current_period_start);
@@ -405,27 +567,82 @@ async function handleSubscriptionUpdated(
         ? safeUnixToDate(subscription.canceled_at)
         : undefined;
 
+      // Check if this is a plan change by comparing with existing subscription
+      const existingSubscription = await db
+        .select()
+        .from(userSubscriptions)
+        .where(eq(userSubscriptions.stripeSubscriptionId, subscription.id))
+        .limit(1);
+
+      const isPlanChange =
+        existingSubscription.length > 0 &&
+        (existingSubscription[0].monthlyCredits !== plan.monthlyCredits ||
+          existingSubscription[0].fileStorageLimit !== plan.fileStorageLimitGB ||
+          existingSubscription[0].vectorStorageLimit !== plan.vectorStorageLimitMB);
+
+      const stripePlan = firstItem.price;
+      // Update subscription in database
       await subscriptionManager.upsertSubscription(
         userId,
         subscription.id,
         subscription.customer as string,
-        subscription.items.data[0].price.id,
+        firstItem.price.id,
         plan,
         mapStripeStatus(subscription.status),
         currentPeriodStart,
         currentPeriodEnd,
-        subscription.cancel_at_period_end,
+        cancelAtPeriodEnd,
         canceledAt,
+        stripePlan,
+        detectedUpdateType
       );
 
+      // Handle different update types
+      switch (detectedUpdateType.type) {
+        case 'new_billing_period':
+          console.log(`📅 New billing period detected for user ${userId}`);
+          // For new billing periods, credits are typically allocated via invoice.payment_succeeded
+          // This webhook mainly updates the subscription record
+          break;
+
+        case 'plan_change':
+          console.log(`🔄 Plan change detected for user ${userId}`);
+          // Plan changes are handled by the existing isPlanChange logic
+          if (isPlanChange) {
+            console.log(
+              `🔄 Plan change confirmed for user ${userId}; skipped mid-cycle credit allocation to prevent balance inflation`,
+            );
+          }
+          break;
+
+        case 'status_change':
+          console.log(`📊 Status change detected for user ${userId}: ${detectedUpdateType.details.status_change?.previous_status} → ${detectedUpdateType.details.status_change?.current_status}`);
+          break;
+
+        case 'cancellation':
+          console.log(`❌ Cancellation change detected for user ${userId}`);
+          console.log(`❌ Will set cancel_at_period_end to true and calculate canceledPeriodDate based on billing interval`);
+          break;
+
+        case 'reactivation':
+          console.log(`🔄 Reactivation detected for user ${userId} - preserving existing balance and file storage`);
+          console.log(`🔄 Will set cancel_at_period_end to false and clear canceledPeriodDate`);
+          // Reactivation preserves existing balance and file storage - no special handling needed
+          break;
+
+        case 'other':
+          console.log(`🔧 Other changes detected for user ${userId}:`, detectedUpdateType.details);
+          break;
+      }
+
       console.log(
-        `✅ Subscription ${subscription.id} updated with plan ${plan.name} for user ${userId}`,
+        `✅ Subscription ${subscription.id} updated with plan ${plan.name} for user ${userId} (${detectedUpdateType.type})`,
       );
     } else {
-      console.error(`Could not map product ${product.id} to plan configuration`);
+      console.error(`❌ Could not map product ${product.id} to plan configuration`);
     }
   } catch (error) {
-    console.error('Error processing customer.subscription.updated:', error);
+    console.error('❌ Error processing customer.subscription.updated:', error);
     // Don't return error response to avoid webhook retries
   }
 }
@@ -458,9 +675,9 @@ async function handleSubscriptionDeleted(
     }
 
     if (userId) {
-      // Completely remove the deleted subscription and clean up related data
+      // Reset usage so stale usage doesn't linger, then remove subscription
       await subscriptionManager.removeDeletedSubscription(userId, subscription.id);
-      console.log(`✅ Subscription ${subscription.id} completely removed for user ${userId}`);
+      console.log(`✅ Subscription ${subscription.id} usage reset and removed for user ${userId}`);
     } else {
       console.error(`Could not find user for deleted subscription ${subscription.id}`);
     }

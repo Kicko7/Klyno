@@ -1,4 +1,4 @@
-import { Form, type FormItemProps, Tag } from '@lobehub/ui';
+import { Form, type FormItemProps } from '@lobehub/ui';
 import isEqual from 'fast-deep-equal';
 import { debounce } from 'lodash-es';
 import { memo } from 'react';
@@ -37,7 +37,6 @@ const Controls = memo<ControlsProps>(({ setUpdating }) => {
         </Flexbox>
       ),
       name: ['params', 'temperature'],
-      tag: 'temperature',
     },
     {
       children: <TopP />,
@@ -48,7 +47,6 @@ const Controls = memo<ControlsProps>(({ setUpdating }) => {
         </Flexbox>
       ),
       name: ['params', 'top_p'],
-      tag: 'top_p',
     },
     {
       children: <PresencePenalty />,
@@ -59,7 +57,6 @@ const Controls = memo<ControlsProps>(({ setUpdating }) => {
         </Flexbox>
       ),
       name: ['params', 'presence_penalty'],
-      tag: 'presence_penalty',
     },
     {
       children: <FrequencyPenalty />,
@@ -70,7 +67,6 @@ const Controls = memo<ControlsProps>(({ setUpdating }) => {
         </Flexbox>
       ),
       name: ['params', 'frequency_penalty'],
-      tag: 'frequency_penalty',
     },
   ];
 
@@ -78,11 +74,7 @@ const Controls = memo<ControlsProps>(({ setUpdating }) => {
     <Form
       initialValues={config}
       itemMinWidth={200}
-      items={
-        mobile
-          ? items
-          : items.map(({ tag, ...item }) => ({ ...item, desc: <Tag size={'small'}>{tag}</Tag> }))
-      }
+      items={items}
       itemsType={'flat'}
       onValuesChange={debounce(async (values) => {
         setUpdating(true);

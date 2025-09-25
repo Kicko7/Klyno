@@ -50,6 +50,15 @@ export const config = {
     '/oauth(.*)',
     '/oidc(.*)',
     '/pricing',
+    '/affiliate',
+    '/pay',
+    '/pay(.*)',
+    '/privacy',
+    '/privacy(.*)',
+    '/terms',
+    '/terms(.*)',
+    '/onboard',
+    '/onboard(.*)',
     // ↓ cloud ↓
   ],
 };
@@ -159,6 +168,8 @@ const isProtectedRoute = createRouteMatcher([
   '/onboard(.*)',
   '/oauth(.*)',
   '/teams(.*)',
+  '/affiliate(.*)',
+  '/pay(.*)',
   // ↓ cloud ↓
 ]);
 

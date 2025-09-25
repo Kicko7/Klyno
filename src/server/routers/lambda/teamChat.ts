@@ -7,7 +7,6 @@ import { authedProcedure, router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { CreditManager } from '@/server/services/credits/creditManager';
 import { UsageTracker } from '@/server/services/usage/usageTracker';
-import { creditServerService } from '@/services/creditService';
 import { TeamChatService } from '@/services/teamChatService';
 import type { ModelTokensUsage } from '@/types/message';
 import { calculateMessageCredits } from '@/utils/creditCalculation';
@@ -30,6 +29,8 @@ export const teamChatRouter = router({
         title: z.string().optional(),
         userId: z.string().optional(), // Optional since we get it from context
         metadata: z.record(z.any()).optional(),
+        isInFolder:z.boolean().default(false).optional(),
+        isPublic:z.boolean().default(false).optional()
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -48,8 +49,10 @@ export const teamChatRouter = router({
           ],
           ...(input.metadata || {}),
         },
+        isInFolder:input.isInFolder,
+        isPublic:input.isPublic
       });
-      return teamChat.id;
+      return teamChat;
     }),
 
   updateTeamChat: teamChatProcedure
@@ -112,6 +115,7 @@ export const teamChatRouter = router({
             creditsConsumed,
             metadata,
           });
+
           // Resolve organization owner as the payer
           let payerUserId = ctx.userId;
           try {
@@ -133,6 +137,8 @@ export const teamChatRouter = router({
 
           // Determine final payer: prefer org owner; fallback to sender if owner lacks balance
           const creditManager = new CreditManager();
+          let creditDeductionSuccessful = false;
+
           try {
             const ownerBalance = await creditManager.getUserBalance(payerUserId);
             if (ownerBalance < creditsConsumed && payerUserId !== ctx.userId) {
@@ -140,78 +146,30 @@ export const teamChatRouter = router({
               if (senderBalance >= creditsConsumed) {
                 payerUserId = ctx.userId;
               } else {
-                throw new Error('Insufficient credits');
+                // throw new Error('Insufficient credits');
+                alert('Insufficient credits');
               }
             }
-          } catch (e) {
-            // ignore balance check errors; proceed to attempt deduction which will validate
-          }
-          console.log('[TeamChat] final payer resolved', {
-            payerUserId,
-            teamChatId: input.teamChatId,
-          });
 
-          // Deduct credits from payer (idempotent by messageId)
-          console.log('[TeamChat] deducting credits', { payerUserId, creditsConsumed });
-          await creditManager.consumeCredits(payerUserId, creditsConsumed, {
-            messageId: preallocatedMessageId,
-            teamChatId: input.teamChatId,
-            source: 'team_chat',
-          });
-
-          // Update usage quota for the payer within current billing period
-          console.log('[TeamChat] updating usage quota for payer', {
-            payerUserId,
-            creditsConsumed,
-            messageId: preallocatedMessageId,
-          });
-
-          // Test database connection first
-          try {
-            const connectionTest = await new UsageTracker().testConnection();
-            console.log('[TeamChat] database connection test result', connectionTest);
-          } catch (e) {
-            console.warn('[TeamChat] database connection test failed', e);
-          }
-
-          // Debug database access first
-          try {
-            const debugResult = await new UsageTracker().debugDatabaseAccess(payerUserId);
-            console.log('[TeamChat] database access debug result', debugResult);
-          } catch (e) {
-            console.warn('[TeamChat] database access debug failed', e);
-          }
-
-          try {
-            const usageResult = await new UsageTracker().updateUsage({
-              userId: payerUserId,
-              creditsUsed: creditsConsumed,
-            });
-
-            if (usageResult.success) {
-              console.log('[TeamChat] usage quota updated successfully', {
-                payerUserId,
-                creditsConsumed,
-                updatedQuota: 'updatedQuota' in usageResult ? usageResult.updatedQuota : undefined,
-              });
-            } else {
-              console.warn('[TeamChat] usage quota update failed', {
-                payerUserId,
-                creditsConsumed,
-                message: 'message' in usageResult ? usageResult.message : 'Unknown error',
-              });
-            }
-          } catch (e) {
-            console.error('[TeamChat] usage quota update error', {
-              payerUserId,
-              creditsConsumed,
-              error: e,
+            // Deduct credits from payer (idempotent by messageId)
+            console.log('[TeamChat] deducting credits', { payerUserId, creditsConsumed });
+            await creditManager.consumeCredits(payerUserId, creditsConsumed, {
               messageId: preallocatedMessageId,
+              teamChatId: input.teamChatId,
+              source: 'team_chat',
             });
-            // Don't fail the message creation, but log the error for investigation
+            creditDeductionSuccessful = true;
+          } catch (e) {
+            console.error('[TeamChat] credit deduction failed:', e);
+            // Continue with message persistence even if credit deduction fails
+            // The message will be persisted but marked as having credit issues
+            input.metadata = {
+              ...input.metadata,
+              creditError: e instanceof Error ? e.message : 'Credit deduction failed',
+              creditDeductionFailed: true,
+            };
           }
-
-          // Persist assistant message AFTER successful deduction
+          // Persist assistant message AFTER credit processing (regardless of success/failure)
           const message = await ctx.teamChatService.addMessageToChat(input.teamChatId, {
             id: preallocatedMessageId,
             content: input.content,
@@ -219,18 +177,6 @@ export const teamChatRouter = router({
             metadata: input.metadata || {},
           });
           console.log('[TeamChat] assistant message persisted', { id: message.id });
-
-          // Track usage in Redis under the payer account for short-term analytics/sync
-          await creditServerService.trackCredits(payerUserId, message.id, creditsConsumed, {
-            source: 'team_chat',
-            teamChatId: input.teamChatId,
-            messageType: input.messageType,
-            metadata,
-          });
-          console.log('[TeamChat] credits tracked in Redis', {
-            payerUserId,
-            messageId: message.id,
-          });
 
           return message;
         }
@@ -249,21 +195,21 @@ export const teamChatRouter = router({
     .input(
       z.object({
         teamChatId: z.string(),
-        limit: z.number().optional().default(50),
-        offset: z.number().optional(),
+        limit: z.number().optional().default(20),
         lastMessageId: z.string().optional(),
+        lastMessageCreatedAt: z.string().optional(),
       }),
     )
     .query(async ({ input, ctx }) => {
       // Update presence when fetching messages
-      await ctx.teamChatService.updatePresence(input.teamChatId);
-      const messages = await ctx.teamChatService.getMessages(
+      // await ctx.teamChatService.updatePresence(input.teamChatId);
+      const result = await ctx.teamChatService.getMessages(
         input.teamChatId,
         input.limit,
-        input.offset,
         input.lastMessageId,
+        input.lastMessageCreatedAt,
       );
-      return messages;
+      return result;
     }),
 
   // Check for new messages without fetching all messages
@@ -400,6 +346,18 @@ export const teamChatRouter = router({
     .mutation(async ({ input, ctx }) => {
       await ctx.teamChatService.deleteMessage(input.teamChatId, input.messageId);
       return { success: true };
+    }),
+  updateTeamChatDefaultModels: teamChatProcedure
+    .input(z.object({ teamChatId: z.string(), defaultModels: z.array(z.string()) }))
+    .mutation(async ({ input, ctx }) => {
+      const teamChat = await ctx.teamChatService.updateTeamChatDefaultModels(input.teamChatId, input.defaultModels);
+      return teamChat;
+    }),
+  getTeamChatDefaultModels: teamChatProcedure
+    .input(z.object({ teamChatId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const teamChat = await ctx.teamChatService.getTeamChatDefaultModels(input.teamChatId);
+      return teamChat;
     }),
 });
 

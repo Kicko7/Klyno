@@ -169,10 +169,13 @@ export const organizationRouter = router({
       z.object({
         memberId: z.string(),
         organizationId: z.string(),
+        stripeSubscriptionId: z.string().optional(),
+        stripeCustomerId: z.string().optional(),
+        interval: z.enum(['month', 'year']).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      return ctx.organizationService.removeMember(input.organizationId, input.memberId);
+      return ctx.organizationService.removeMember(input.organizationId, input.memberId, input.stripeSubscriptionId, input.stripeCustomerId, input.interval);
     }),
 
   updateOrganization: organizationProcedure
@@ -229,5 +232,20 @@ export const organizationRouter = router({
         input.html,
         input.token,
       );
+    }),
+  getOrganizationById: organizationProcedure
+    .input(z.object({ organizationId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.organizationService.getOrganizationById(input.organizationId);
+    }),
+  updateOrganizationDefaultModels: organizationProcedure
+    .input(z.object({ organizationId: z.string(), defaultModels: z.array(z.string()) }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.organizationService.updateOrganizationDefaultModels(input.organizationId, input.defaultModels);
+    }),
+  getDefaultModels: organizationProcedure
+    .input(z.object({ organizationId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.organizationService.getDefaultModels(input.organizationId);
     }),
 });

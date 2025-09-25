@@ -15,13 +15,17 @@ import {
   Typography,
   message,
 } from 'antd';
-import { Search, UserPlus } from 'lucide-react';
+import { useTheme } from 'antd-style';
+import { Search, Trash2, UserPlus } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import React, { useEffect, useMemo, useState } from 'react';
 
+import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { renderEmail } from '@/libs/emails/render-email';
 import { OrganizationInvitation } from '@/libs/emails/templates/organization-invitation';
 import { useOrganizationStore } from '@/store/organization/store';
+import { useTeamChatStore } from '@/store/teamChat';
+
 import AddOrganizationMemberModal from './AddOrganizationMemberModal';
 
 const { Title, Text } = Typography;
@@ -33,17 +37,21 @@ interface MembersProps {
 
 const Members: React.FC<MembersProps> = ({ organizationId }) => {
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [showDeleteOrgModal, setShowDeleteOrgModal] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<{ id: string; email: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const setActiveTeamChat = useTeamChatStore((state) => state.setActiveTeamChat);
 
   const {
     organizationMembers,
     isFetchingMembers,
     fetchOrganizationMembers,
     organizations,
-    inviteMember,
-    isInviting,
+    removeMember,
+    deleteOrganization,
   } = useOrganizationStore();
 
   const currentOrganization = organizationId
@@ -51,16 +59,33 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
     : organizations[0];
 
   useEffect(() => {
-    if (currentOrganization?.id) {
+    setActiveTeamChat(null);
+    if (currentOrganization?.id && !isFetchingMembers) {
+      console.log('🔄 Fetching members for organization:', currentOrganization.id);
       fetchOrganizationMembers(currentOrganization.id);
     }
-  }, [currentOrganization?.id, fetchOrganizationMembers]);
+  }, [currentOrganization?.id]); // Remove fetchOrganizationMembers from dependencies
 
   // Filter members based on search term
   const filteredMembers = useMemo(() => {
-    if (!searchTerm) return organizationMembers;
+    // Debug: Log the raw organization members to check for duplicates
+    // Check for duplicates by userId
+    const userIds = organizationMembers.map((member: any) => member.userId);
+    const uniqueUserIds = [...new Set(userIds)];
 
-    return organizationMembers.filter(
+    // Deduplicate members by userId (keep the first occurrence)
+    const deduplicatedMembers = organizationMembers.reduce((acc: any[], member: any) => {
+      const existingMember = acc.find((m) => m.userId === member.userId);
+      if (!existingMember) {
+        acc.push(member);
+      } else {
+      }
+      return acc;
+    }, []);
+
+    if (!searchTerm) return deduplicatedMembers;
+
+    return deduplicatedMembers.filter(
       (member: any) =>
         member.userId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         member.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -121,6 +146,78 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
     if (size) setPageSize(size);
   };
 
+  const handleRemoveClick = (memberId: string, memberEmail: string) => {
+    setMemberToRemove({ id: memberId, email: memberEmail });
+    setShowRemoveModal(true);
+  };
+
+  const [isRemovingMember, setIsRemovingMember] = useState(false);
+  const [isDeletingOrg, setIsDeletingOrg] = useState(false);
+
+  const { subscriptionInfo } = useUserSubscription();
+
+  const handleRemoveMember = async () => {
+    if (!currentOrganization?.id || !memberToRemove) return;
+
+    if (subscriptionInfo?.subscription?.status !== 'active') {
+      message.error('You need to be on a paid subscription to remove members');
+      return;
+    }
+
+    try {
+      setIsRemovingMember(true);
+      await removeMember(
+        currentOrganization.id,
+        memberToRemove.id,
+        subscriptionInfo?.subscription?.stripeSubscriptionId as any,
+        subscriptionInfo?.subscription?.stripeCustomerId as any,
+        subscriptionInfo?.subscription?.interval as any,
+      );
+      message.success(`Successfully removed ${memberToRemove.email} from the organization`);
+      // Refresh the members list
+      fetchOrganizationMembers(currentOrganization.id);
+      setShowRemoveModal(false);
+      setMemberToRemove(null);
+    } catch (error) {
+      console.error('Error removing member:', error);
+      message.error('Failed to remove member. Please try again.');
+    } finally {
+      setIsRemovingMember(false);
+    }
+  };
+
+  const handleCancelRemove = () => {
+    setShowRemoveModal(false);
+    setMemberToRemove(null);
+  };
+
+  const handleDeleteOrgClick = () => {
+    setShowDeleteOrgModal(true);
+  };
+
+  const handleDeleteOrganization = async () => {
+    if (!currentOrganization?.id) return;
+
+    try {
+      setIsDeletingOrg(true);
+      await deleteOrganization(currentOrganization.id);
+      message.success(`Successfully deleted ${currentOrganization.name} organization`);
+      setShowDeleteOrgModal(false);
+      // The organization list will be refreshed automatically by the store
+    } catch (error) {
+      console.error('Error deleting organization:', error);
+      message.error('Failed to delete organization. Please try again.');
+    } finally {
+      setIsDeletingOrg(false);
+    }
+  };
+
+  const handleCancelDeleteOrg = () => {
+    setShowDeleteOrgModal(false);
+  };
+
+  const theme = useTheme();
+
   if (!currentOrganization) {
     return (
       <div className="flex items-center justify-center h-full bg-gray-900">
@@ -132,8 +229,12 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
     );
   }
 
+  const isAdmin = currentOrganization.memberRole === 'owner';
+
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div
+      className={`min-h-screen ${theme.appearance == 'dark' ? 'bg-black text-white' : 'bg-white text-black'}`}
+    >
       <div className="p-6 w-full h-full">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
@@ -144,15 +245,56 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
             <Text className="text-gray-400 text-sm sm:text-base">
               Manage members and their roles in your organization
             </Text>
+
+            {subscriptionInfo?.subscription?.planName === 'Team Workspace' &&
+              currentOrganization.memberRole === 'owner' && (
+                <div>
+                  <div className="mt-2 flex items-center gap-3">
+                    <Text className="text-gray-400 text-sm">
+                      You have {filteredMembers.length} existing member
+                      {filteredMembers.length !== 1 ? 's' : ''}
+                      {filteredMembers.length > 3 && (
+                        <span className="ml-2">
+                          ({Math.max(0, filteredMembers.length - 3)} paid)
+                        </span>
+                      )}
+                    </Text>
+                  </div>
+                  <div className="mt-1">
+                    <Text className="text-gray-500 text-xs">
+                      {filteredMembers.length < 3
+                        ? 'First 3 members are free. Additional members cost $8/month each.'
+                        : 'Free tier: 3 members • Paid tier: $8/month per additional member'}
+                    </Text>
+                  </div>
+                </div>
+              )}
           </div>
-          <Button
-            type="primary"
-            icon={<UserPlus className="w-4 h-4" />}
-            onClick={handleInviteMember}
-            className="bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-lg"
-          >
-            Invite Member
-          </Button>
+          {isAdmin && (
+            <div className="flex gap-2">
+              <Button
+                type="primary"
+                icon={<UserPlus className="w-4 h-4" />}
+                onClick={handleInviteMember}
+                className="bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-lg"
+                title={
+                  filteredMembers.length >= 3
+                    ? 'Additional members require paid subscription ($8/month per member)'
+                    : 'Invite a new member'
+                }
+              >
+                Invite Member
+              </Button>
+              <Button
+                danger
+                icon={<Trash2 className="w-4 h-4" />}
+                onClick={handleDeleteOrgClick}
+                className="bg-red-600 hover:bg-red-700 border-red-600 shadow-lg"
+              >
+                Delete Organization
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Search Bar */}
@@ -215,6 +357,20 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
                     ) : (
                       <Tag color="green">Active</Tag>
                     )}
+
+                    {/* Remove member button - only show for non-admin members */}
+
+                    {(member.role || member.memberRole) !== 'owner' && isAdmin && (
+                      <Button
+                        type="text"
+                        danger
+                        icon={<Trash2 className="w-4 h-4" />}
+                        size="small"
+                        className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                        title="Remove member"
+                        onClick={() => handleRemoveClick(member.userId, member.email)}
+                      />
+                    )}
                   </div>
                 </List.Item>
               )}
@@ -276,6 +432,84 @@ const Members: React.FC<MembersProps> = ({ organizationId }) => {
         }}
         organizationId={currentOrganization?.id}
       />
+
+      {/* Remove Member Confirmation Modal */}
+      <Modal
+        title="Remove Member"
+        open={showRemoveModal}
+        onOk={handleRemoveMember}
+        onCancel={handleCancelRemove}
+        okText="Yes, Remove"
+        cancelText="Cancel"
+        okButtonProps={{
+          danger: true,
+          loading: isRemovingMember,
+          className: 'bg-red-600 hover:bg-red-700 border-red-600',
+        }}
+        cancelButtonProps={{
+          disabled: isRemovingMember,
+          className: 'border-gray-500 text-gray-300 hover:border-gray-400',
+        }}
+        centered
+        className="text-white"
+      >
+        <div className="text-center py-4">
+          <div className="text-red-400 mb-4">
+            <Trash2 className="w-12 h-12 mx-auto mb-2" />
+          </div>
+          <p className="text-lg mb-2">Are you sure you want to remove this member?</p>
+          <p className="text-gray-400">
+            <strong className="text-black">{memberToRemove?.email}</strong> will be removed from the
+            organization.
+          </p>
+          <p className="text-sm text-gray-500 mt-2">This action cannot be undone.</p>
+        </div>
+      </Modal>
+
+      {/* Delete Organization Confirmation Modal */}
+      <Modal
+        title="Delete Organization"
+        open={showDeleteOrgModal}
+        onOk={handleDeleteOrganization}
+        onCancel={handleCancelDeleteOrg}
+        okText="Yes, Delete"
+        cancelText="Cancel"
+        okButtonProps={{
+          danger: true,
+          loading: isDeletingOrg,
+          className: 'bg-red-600 hover:bg-red-700 border-red-600',
+        }}
+        cancelButtonProps={{
+          disabled: isDeletingOrg,
+          className: 'border-gray-500 text-gray-300 hover:border-gray-400',
+        }}
+        centered
+        className="text-white"
+      >
+        <div className="text-center py-4">
+          <div className="text-red-500 mb-4">
+            <Trash2 className="w-16 h-16 mx-auto mb-2" />
+          </div>
+          <p className="text-xl mb-2 font-semibold">Delete Organization</p>
+          <p className="text-lg mb-4">
+            Are you sure you want to delete{' '}
+            <strong className="text-red-500">{currentOrganization?.name}</strong>?
+          </p>
+          <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-4">
+            <p className="text-red-500 text-sm">
+              <strong>Warning:</strong> This will permanently delete the organization and all its
+              data including:
+            </p>
+            <ul className="text-red-500 text-sm mt-2 text-left list-disc list-inside">
+              <li>All team members and their access</li>
+              <li>All team chats and messages</li>
+              <li>All organization settings and configurations</li>
+              <li>All associated data and files</li>
+            </ul>
+          </div>
+          <p className="text-sm text-gray-500">This action cannot be undone.</p>
+        </div>
+      </Modal>
     </div>
   );
 };

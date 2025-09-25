@@ -1,6 +1,5 @@
 import { Hotkey, Icon } from '@lobehub/ui';
 import { DiscordIcon } from '@lobehub/ui/icons';
-import { Badge } from 'antd';
 import { ItemType } from 'antd/es/menu/interface';
 import {
   Book,
@@ -8,24 +7,22 @@ import {
   Cloudy,
   Download,
   Feather,
-  FileClockIcon,
   HardDriveDownload,
   LifeBuoy,
   LogOut,
   Mail,
   Settings2,
+  CreditCard,
+  Share2,
 } from 'lucide-react';
 import Link from 'next/link';
-import { PropsWithChildren, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Flexbox } from 'react-layout-kit';
 
 import type { MenuProps } from '@/components/Menu';
 import { enableAuth } from '@/const/auth';
 import { BRANDING_EMAIL, LOBE_CHAT_CLOUD, SOCIAL_URL } from '@/const/branding';
 import { DEFAULT_HOTKEY_CONFIG } from '@/const/settings';
 import {
-  CHANGELOG,
   DOCUMENTS_REFER_URL,
   GITHUB_ISSUES,
   OFFICIAL_URL,
@@ -39,33 +36,8 @@ import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfi
 import { useUserStore } from '@/store/user';
 import { authSelectors } from '@/store/user/selectors';
 
-import { useNewVersion } from './useNewVersion';
-
-const NewVersionBadge = memo(
-  ({
-    children,
-    showBadge,
-    onClick,
-  }: PropsWithChildren & { onClick?: () => void; showBadge?: boolean }) => {
-    const { t } = useTranslation('common');
-    if (!showBadge)
-      return (
-        <Flexbox flex={1} onClick={onClick}>
-          {children}
-        </Flexbox>
-      );
-    return (
-      <Flexbox align={'center'} flex={1} gap={8} horizontal onClick={onClick} width={'100%'}>
-        <span>{children}</span>
-        <Badge count={t('upgradeVersion.hasNew')} />
-      </Flexbox>
-    );
-  },
-);
-
 export const useMenu = () => {
   const { canInstall, install } = usePWAInstall();
-  const hasNewVersion = useNewVersion();
   const { t } = useTranslation(['common', 'setting', 'auth']);
   const { showCloudPromotion, hideDocs } = useServerConfigStore(featureFlagsSelectors);
   const [isLogin, isLoginWithAuth] = useUserStore((s) => [
@@ -92,7 +64,25 @@ export const useMenu = () => {
       key: 'setting',
       label: (
         <Link href={'/settings/common'}>
-          <NewVersionBadge showBadge={hasNewVersion}>{t('userPanel.setting')}</NewVersionBadge>
+          {t('userPanel.setting')}
+        </Link>
+      ),
+    },
+    {
+      icon: <Icon icon={CreditCard} />,
+      key: 'plans',
+      label: (
+        <Link href={'/pricing'}>
+          Plans & Pricing
+        </Link>
+      ),
+    },
+    {
+      icon: <Icon icon={Share2} />,
+      key: 'affiliate',
+      label: (
+        <Link href={'/affiliate'}>
+          Affiliate
         </Link>
       ),
     },
@@ -141,44 +131,39 @@ export const useMenu = () => {
       ),
     },
     {
-      icon: <Icon icon={FileClockIcon} />,
-      key: 'changelog',
-      label: <Link href={isDesktop ? CHANGELOG : '/changelog/modal'}>{t('changelog')}</Link>,
-    },
-    {
       children: [
-        {
-          icon: <Icon icon={Book} />,
-          key: 'docs',
-          label: (
-            <Link href={DOCUMENTS_REFER_URL} target={'_blank'}>
-              {t('userPanel.docs')}
-            </Link>
-          ),
-        },
+        // {
+        //   icon: <Icon icon={Book} />,
+        //   key: 'docs',
+        //   label: (
+        //     <Link href={DOCUMENTS_REFER_URL} target={'_blank'}>
+        //       {t('userPanel.docs')}
+        //     </Link>
+        //   ),
+        // },
         {
           icon: <Icon icon={Feather} />,
           key: 'feedback',
           label: (
-            <Link href={GITHUB_ISSUES} target={'_blank'}>
+            <Link href={'https://agent.jotform.com/0199041db2217e5e8697c6247e9763169b25'} target={'_blank'}>
               {t('userPanel.feedback')}
             </Link>
           ),
         },
-        {
-          icon: <Icon icon={DiscordIcon} />,
-          key: 'discord',
-          label: (
-            <Link href={SOCIAL_URL.discord} target={'_blank'}>
-              {t('userPanel.discord')}
-            </Link>
-          ),
-        },
+        // {
+        //   icon: <Icon icon={DiscordIcon} />,
+        //   key: 'discord',
+        //   label: (
+        //     <Link href={SOCIAL_URL.discord} target={'_blank'}>
+        //       {t('userPanel.discord')}
+        //     </Link>
+        //   ),
+        // },
         {
           icon: <Icon icon={Mail} />,
           key: 'email',
           label: (
-            <Link href={mailTo(BRANDING_EMAIL.support)} target={'_blank'}>
+            <Link href={mailTo("support@ascensionhostings.com")} target={'_blank'}>
               {t('userPanel.email')}
             </Link>
           ),

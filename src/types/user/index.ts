@@ -12,6 +12,7 @@ export interface LobeUser {
   id: string;
   latestName?: string | null;
   username?: string | null;
+  role: string | null;
 }
 
 export const UserGuideSchema = z.object({

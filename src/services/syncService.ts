@@ -1,13 +1,17 @@
-import { nanoid } from 'nanoid';
-
 import { lambdaClient } from '@/libs/trpc/client';
 
+import { ApiService } from './fetchService';
 import { ChatSession, MessageData } from './sessionManager';
 
 export class SyncService {
   private readonly BATCH_SIZE = 100;
   private readonly RETRY_ATTEMPTS = 3;
   private readonly RETRY_DELAY = 1000; // ms
+  private apiService: ApiService;
+
+  constructor() {
+    this.apiService = new ApiService();
+  }
 
   /**
    * Sync a single message to database
@@ -16,6 +20,7 @@ export class SyncService {
     try {
       await lambdaClient.teamChat.addMessage.mutate({
         teamChatId,
+        // userId: message.userId,
         content: message.content,
         messageType: message.type as 'user' | 'assistant' | 'system',
         metadata: {
@@ -58,12 +63,11 @@ export class SyncService {
         // Use Promise.all for parallel processing within batch
         await Promise.all(
           batch.map(async (message) => {
-            // Check if message already exists (by redisMessageId)
-            const existingMessage = await this.checkMessageExists(teamChatId, message.id);
-            
-            if (!existingMessage) {
-              await lambdaClient.teamChat.addMessage.mutate({
+            if (message?.id) {
+              await this.apiService.addMessage({
+                id: message.id,
                 teamChatId,
+                userId: message.userId,
                 content: message.content,
                 messageType: message.type as 'user' | 'assistant' | 'system',
                 metadata: {
@@ -73,9 +77,10 @@ export class SyncService {
                   originalTimestamp: message.timestamp,
                   syncAttempt: attempt,
                 },
+                sendTime: message.timestamp,
               });
             }
-          })
+          }),
         );
 
         console.log(`✅ Synced batch of ${batch.length} messages (attempt ${attempt})`);
@@ -83,7 +88,7 @@ export class SyncService {
       } catch (error) {
         lastError = error as Error;
         console.error(`Batch sync failed (attempt ${attempt}/${this.RETRY_ATTEMPTS}):`, error);
-        
+
         if (attempt < this.RETRY_ATTEMPTS) {
           await this.delay(this.RETRY_DELAY * attempt);
         }
@@ -91,7 +96,9 @@ export class SyncService {
     }
 
     // All retries failed
-    throw new Error(`Failed to sync batch after ${this.RETRY_ATTEMPTS} attempts: ${lastError?.message}`);
+    throw new Error(
+      `Failed to sync batch after ${this.RETRY_ATTEMPTS} attempts: ${lastError?.message}`,
+    );
   }
 
   /**
@@ -100,10 +107,10 @@ export class SyncService {
   async syncSessionToDb(session: ChatSession): Promise<void> {
     try {
       console.log(`🔄 Syncing session to DB: ${session.teamChatId}`);
-      
+
       // Filter unsynced messages
       const unsyncedMessages = session.messages.filter((m) => !m.syncedToDb);
-      
+
       if (unsyncedMessages.length === 0) {
         console.log('No unsynced messages to sync');
         return;
@@ -113,15 +120,15 @@ export class SyncService {
       await this.batchSyncMessages(session.teamChatId, unsyncedMessages);
 
       // Update chat metadata
-      await this.updateChatMetadata(session.teamChatId, {
-        lastActivityAt: session.lastActivityAt,
-        messageCount: session.messages.length,
-        lastSessionId: session.sessionId,
-        participantCount: session.participants.length,
-      });
+      // await this.updateChatMetadata(session.teamChatId, {
+      //   lastActivityAt: session.lastActivityAt,
+      //   messageCount: session.messages.length,
+      //   lastSessionId: session.sessionId,
+      //   participantCount: session.participants.length,
+      // });
 
       // Create session history record
-      await this.createSessionHistory(session);
+      // await this.createSessionHistory(session);
 
       console.log(`✅ Session sync completed: ${unsyncedMessages.length} messages synced`);
     } catch (error) {
@@ -140,7 +147,7 @@ export class SyncService {
       messageCount: number;
       lastSessionId?: string;
       participantCount?: number;
-    }
+    },
   ): Promise<void> {
     try {
       await lambdaClient.teamChat.updateTeamChat.mutate({
@@ -204,6 +211,7 @@ export class SyncService {
         type: msg.messageType as 'user' | 'assistant' | 'system',
         metadata: msg.metadata,
         syncedToDb: true,
+        sendTime: msg.sendTime.getTime(),
       }));
     } catch (error) {
       console.error('Failed to load history from DB:', error);
@@ -222,9 +230,7 @@ export class SyncService {
         limit: 100,
       });
 
-      return recentMessages.some(
-        (msg) => msg.metadata?.redisMessageId === redisMessageId
-      );
+      return recentMessages.some((msg) => msg.metadata?.redisMessageId === redisMessageId);
     } catch (error) {
       console.error('Failed to check message existence:', error);
       return false; // Assume doesn't exist
@@ -251,7 +257,7 @@ export class SyncService {
   }> {
     try {
       const chat = await lambdaClient.teamChat.getTeamChatById.query({ id: teamChatId });
-      
+
       return {
         totalMessages: chat?.metadata?.totalMessageCount || 0,
         syncedMessages: chat?.metadata?.syncedMessageCount || 0,
@@ -284,7 +290,7 @@ export class SyncService {
     // Implementation would depend on your retention policy
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
-    
+
     console.log(`Cleaning up sessions older than ${cutoffDate.toISOString()}`);
     // TODO: Implement cleanup logic
   }

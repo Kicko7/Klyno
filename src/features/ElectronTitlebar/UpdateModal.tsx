@@ -233,11 +233,11 @@ export const UpdateModal = memo(() => {
 
   return (
     <>
-      {renderCheckingModal()}
+      {/* {renderCheckingModal()}
       {renderAvailableModal()}
       {renderDownloadingModal()}
-      {renderDownloadedModal()}
-      {renderLatestVersionModal()}
+      {renderDownloadedModal()} */}
+      {/* {renderLatestVersionModal()} */}
       {/* Error state is handled by Modal.error currently */}
     </>
   );

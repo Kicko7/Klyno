@@ -51,19 +51,19 @@ const Page = memo<{ mobile?: boolean }>(({ mobile }) => {
                 value: 'officialSite',
               },
               {
-                href: mailTo(BRANDING_EMAIL.support),
+                href: mailTo("support@ascensionhostings.com"),
                 label: t('mail.support'),
                 value: 'support',
               },
               {
-                href: mailTo(BRANDING_EMAIL.business),
+                href: mailTo("support@ascensionhostings.com"),
                 label: t('mail.business'),
                 value: 'business',
               },
             ]}
           />
           <Divider style={{ marginBlock: 0 }} />
-          <div className={styles.title}>{t('information')}</div>
+          {/* <div className={styles.title}>{t('information')}</div>
           <AboutList
             ItemRender={ItemCard}
             grid
@@ -101,18 +101,18 @@ const Page = memo<{ mobile?: boolean }>(({ mobile }) => {
               },
             ]}
           />
-          <Divider style={{ marginBlock: 0 }} />
+          <Divider style={{ marginBlock: 0 }} /> */}
           <div className={styles.title}>{t('legal')}</div>
           <AboutList
             ItemRender={ItemLink}
             items={[
               {
-                href: TERMS_URL,
+                href: '/terms',
                 label: t('terms'),
                 value: 'terms',
               },
               {
-                href: PRIVACY_URL,
+                href: '/privacy',
                 label: t('privacy'),
                 value: 'privacy',
               },

@@ -25,7 +25,6 @@ const defaultLeftActions: ActionKeys[] = [
   'fileUpload',
   'knowledgeBase',
   'history',
-  'tools',
   'params',
   'mainToken',
 ];

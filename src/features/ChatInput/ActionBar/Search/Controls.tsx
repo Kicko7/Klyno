@@ -1,6 +1,6 @@
 import { Icon } from '@lobehub/ui';
 import { GlobeOffIcon } from '@lobehub/ui/icons';
-import { Divider } from 'antd';
+import { Divider, notification } from 'antd';
 import { createStyles } from 'antd-style';
 import { LucideIcon, SparkleIcon } from 'lucide-react';
 import { memo } from 'react';
@@ -14,6 +14,7 @@ import { SearchMode } from '@/types/search';
 
 import FCSearchModel from './FCSearchModel';
 import ModelBuiltinSearch from './ModelBuiltinSearch';
+import { useUserSubscription } from '@/hooks/useUserSubscription';
 
 const useStyles = createStyles(({ css, token }) => ({
   active: css`
@@ -69,6 +70,21 @@ const Item = memo<NetworkOption>(({ value, description, icon, label }) => {
     s.updateAgentChatConfig,
   ]);
 
+  const [model, provider] = useAgentStore((s) => [
+    agentSelectors.currentAgentModel(s),
+    agentSelectors.currentAgentModelProvider(s),
+  ]);
+
+  const supportFC = useAiInfraStore(aiModelSelectors.isModelSupportToolUse(model, provider));
+  const isProviderHasBuiltinSearchConfig = useAiInfraStore(
+    aiProviderSelectors.isProviderHasBuiltinSearchConfig(provider),
+  );
+  const isModelHasBuiltinSearchConfig = useAiInfraStore(
+    aiModelSelectors.isModelHasBuiltinSearchConfig(model, provider),
+  );
+
+  const {subscriptionInfo} = useUserSubscription();
+  
   return (
     <Flexbox
       align={'flex-start'}
@@ -77,6 +93,27 @@ const Item = memo<NetworkOption>(({ value, description, icon, label }) => {
       horizontal
       key={value}
       onClick={async () => {
+        // console.log("value",value)
+        // Check if trying to enable smart search (auto mode)
+        if (value === 'auto') {
+          // Check if model supports smart search
+          const canUseSmartSearch =  isModelHasBuiltinSearchConfig;
+          
+          if (!canUseSmartSearch) {
+            notification.warning({
+              message: 'Smart Search Not Supported',
+              description: `The current model (${model}) does not support smart online search. Please select a different model that supports this feature.`,
+            });
+            return; // Don't proceed with the update
+          }
+        }
+
+        if(!subscriptionInfo){
+          notification.warning({
+            message: 'Please upgrade your plan to use this feature',
+          });
+        }
+        
         await updateAgentChatConfig({ searchMode: value });
       }}
     >

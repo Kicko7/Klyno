@@ -1,0 +1,12 @@
+[phases.setup]
+nixPkgs = ["nodejs"]
+cmds = ["npm install -g pnpm@9.15.0"]
+
+[phases.install]
+cmds = ["pnpm install"]
+
+[phases.build]
+cmds = ["pnpm run build"]
+
+[start]
+cmd = "pnpm start"

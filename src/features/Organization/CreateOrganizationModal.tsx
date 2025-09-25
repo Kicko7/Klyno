@@ -1,9 +1,10 @@
 'use client';
 
-import { Form, Input, Modal } from 'antd';
+import { Form, Input, message, Modal } from 'antd';
 import React from 'react';
 
 import { useOrganizationStore } from '@/store/organization/store';
+import { useUserSubscription } from '@/hooks/useUserSubscription';
 
 interface CreateOrganizationModalProps {
   onClose: () => void;
@@ -13,8 +14,13 @@ interface CreateOrganizationModalProps {
 const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = ({ onClose, open }) => {
   const [form] = Form.useForm();
   const { createOrganization, isCreating } = useOrganizationStore();
+  const {subscriptionInfo} = useUserSubscription()
 
   const handleCreate = async () => {
+    if (!subscriptionInfo) {
+      message.error('You need to subscribe to create an organization');
+      return;
+    }
     try {
       const values = await form.validateFields();
       await createOrganization(values.name);

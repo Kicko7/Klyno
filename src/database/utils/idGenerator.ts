@@ -16,6 +16,10 @@ const prefixes = {
   threads: 'thd',
   topics: 'tpc',
   user: 'user',
+  shared_folders: 'shfd',
+  affiliate: 'aff',
+  affiliate_links: 'aff_lnk',
+  affiliate_withdrawals: 'aff_wd'
 } as const;
 
 export const idGenerator = (namespace: keyof typeof prefixes, size = 12) => {

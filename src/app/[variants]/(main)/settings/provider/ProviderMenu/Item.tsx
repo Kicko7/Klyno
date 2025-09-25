@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { memo } from 'react';
 import { Center, Flexbox } from 'react-layout-kit';
 
+import CustomOpenRouterIcon from '@/components/ProviderIcons/CustomOpenRouterIcon';
 import { AiProviderListItem, AiProviderSourceEnum } from '@/types/aiProvider';
 
 export const useStyles = createStyles(({ css, token }) => ({
@@ -37,16 +38,29 @@ export const useStyles = createStyles(({ css, token }) => ({
 }));
 
 const ProviderItem = memo<AiProviderListItem>(({ id, name, source, enabled, logo }) => {
+  // console.log('name', name,'id', id);
   const { styles, cx } = useStyles();
   const pathname = usePathname();
 
-  const activeKey = pathname.split('/').pop();
+  const activeKey = pathname.split('/').pop() || '';
 
   const isCustom = source === AiProviderSourceEnum.Custom;
+  
+  // Custom URL mapping for specific providers
+  const getProviderUrl = (providerId: string, providerName: string) => {
+    if (providerId === 'openrouter') {
+      return '/settings/provider/klyno';
+    }
+    return `/settings/provider/${providerId}`;
+  };
+
+  // Check if this provider is active (handle klyno URL mapping)
+  const isActive = activeKey === id || (id === 'openrouter' && activeKey === 'klyno');
+
   return (
     <Link
-      className={cx(styles.container, activeKey === id && styles.active)}
-      href={`/settings/provider/${id}`}
+      className={cx(styles.container, isActive && styles.active)}
+      href={getProviderUrl(id, name || '')}
     >
       <Flexbox gap={8} horizontal>
         {isCustom && logo ? (
@@ -57,6 +71,8 @@ const ProviderItem = memo<AiProviderListItem>(({ id, name, source, enabled, logo
             size={24}
             style={{ borderRadius: 6 }}
           />
+        ) : id === 'openrouter' ? (
+          <CustomOpenRouterIcon size={24} style={{ borderRadius: 6 }} type={'avatar'} />
         ) : (
           <ProviderIcon provider={id} size={24} style={{ borderRadius: 6 }} type={'avatar'} />
         )}

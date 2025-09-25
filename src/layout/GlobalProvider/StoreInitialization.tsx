@@ -1,12 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { createStoreUpdater } from 'zustand-utils';
 
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useEnabledDataSync } from '@/hooks/useSyncData';
+import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { useAgentStore } from '@/store/agent';
 import { useAiInfraStore } from '@/store/aiInfra';
 import { useGlobalStore } from '@/store/global';
@@ -33,6 +34,16 @@ const StoreInitialization = memo(() => {
   const useInitAgentStore = useAgentStore((s) => s.useInitInboxAgentStore);
   const useInitAiProviderKeyVaults = useAiInfraStore((s) => s.useFetchAiProviderRuntimeState);
 
+  // Get subscription data
+  const { subscriptionInfo: subscription, fetchSubscriptionInfo } = useUserSubscription();
+
+  // Fetch subscription info only once when subscription is null/undefined
+  useEffect(() => {
+    if (!subscription) {
+      fetchSubscriptionInfo();
+    }
+  }, [subscription, fetchSubscriptionInfo]);
+
   // init the system preference
   useInitSystemStatus();
 
@@ -56,8 +67,8 @@ const StoreInitialization = memo(() => {
   // init inbox agent and default agent config
   useInitAgentStore(isLoginOnInit, serverConfig.defaultAgent?.config);
 
-  // init user provider key vaults
-  useInitAiProviderKeyVaults(isLoginOnInit);
+  // init user provider key vaults with subscription data
+  useInitAiProviderKeyVaults(isLoginOnInit, subscription);
 
   // init user state
   useInitUserState(isLoginOnInit, serverConfig, {

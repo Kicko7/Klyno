@@ -233,6 +233,17 @@ const AddMemberModalContent: React.FC<AddMemberModalProps> = ({ open, onClose, t
           </h3>
           <Form form={form} layout="vertical" onFinish={handleSubmit}>
             <div className="flex gap-3">
+              <style jsx>{`
+                .ant-select-selector {
+                  overflow: hidden !important;
+                }
+                .ant-select-selection-item {
+                  overflow: hidden !important;
+                  text-overflow: ellipsis !important;
+                  white-space: nowrap !important;
+                  max-width: 100% !important;
+                }
+              `}</style>
               <Form.Item
                 name="userId"
                 className="flex-1"
@@ -243,17 +254,20 @@ const AddMemberModalContent: React.FC<AddMemberModalProps> = ({ open, onClose, t
                   loading={loadingUsers}
                   showSearch
                   optionFilterProp="label"
+                  className="w-full"
+                  style={{ width: '100%' }}
                   options={workspaceUsers.map((user) => ({
-                    label: (
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-medium truncate">{user.name}</span>
-                        {user.email && (
-                          <span className="text-sm text-gray-400 truncate">{user.email}</span>
-                        )}
-                      </div>
-                    ),
+                    label: user.email || user.name,
                     value: user.id,
                   }))}
+                  optionRender={(option) => (
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium truncate">{workspaceUsers.find(u => u.id === option.value)?.name}</span>
+                      {workspaceUsers.find(u => u.id === option.value)?.email && (
+                        <span className="text-sm text-gray-400 truncate">{workspaceUsers.find(u => u.id === option.value)?.email}</span>
+                      )}
+                    </div>
+                  )}
                 />
               </Form.Item>
               <Form.Item>

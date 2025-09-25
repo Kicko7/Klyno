@@ -1,0 +1,12 @@
+[phases.setup]
+nixPkgs = ["nodejs"]
+cmds = ["npm install -g corepack@latest", "corepack enable", "corepack use pnpm@10.10.0"]
+
+[phases.install]
+cmds = ["pnpm install --no-frozen-lockfile"]
+
+[phases.build]
+cmds = ["pnpm run build"]
+
+[start]
+cmd = "pnpm run start"

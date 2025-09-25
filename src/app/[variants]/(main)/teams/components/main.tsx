@@ -15,6 +15,9 @@ import TeamChat from './TeamChat';
 import TeamWelcome from './TeamWelcome';
 import { AppSidebar } from './sidebar/AppSiderbar';
 import { useTheme } from 'antd-style';
+import DefaultModelsForOrganization from './DefaultModelsForOrganization';
+import { message } from 'antd';
+import { useUserSubscription } from '@/hooks/useUserSubscription';
 
 const Main = () => {
   const searchParams = useSearchParams();
@@ -30,6 +33,7 @@ const Main = () => {
     hideCreateOrgModal,
   } = useOrganizationStore();
   const currentOrganization = organizations[0];
+
   useEffect(() => {
     fetchOrganizations()
   }, [fetchOrganizations]);
@@ -46,6 +50,13 @@ const Main = () => {
         </div>
       );
     }
+
+    if (view === 'default-models-for-organization') {
+      return <div className="h-full w-full overflow-auto">
+        <DefaultModelsForOrganization organizationId={organizationId || currentOrganization?.id} />
+      </div>;
+    }
+
     // Default content - TeamWelcome with Welcome to Klyno AI
     return (
       <div className="h-full w-full bg-black">
@@ -54,16 +65,31 @@ const Main = () => {
     );
   };
   const theme = useTheme();
+  const { subscriptionInfo } = useUserSubscription();
 
   return (
     <div className={` ${theme.appearance == "dark" ? "bg-black":"bg-white"} w-full h-full text-white`}>
-      {!currentOrganization && !isLoading ? (
+      {isLoading ? (
+        <Flexbox align="center" justify="center" style={{ minHeight: '100vh', width: '100%' }}>
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+            <Typography.Text className="text-slate-400">Loading organizations...</Typography.Text>
+          </div>
+        </Flexbox>
+      ) : !currentOrganization ? (
         <Flexbox align="center" justify="center" style={{ minHeight: '40vh', width: '100%' }}>
           <Empty
             description="You are not part of any organization yet."
             image={Empty.PRESENTED_IMAGE_SIMPLE}
           >
-            <Button onClick={() => showCreateOrgModal()} size="large" type="primary">
+            <Button onClick={() => {
+              if (subscriptionInfo?.subscription && subscriptionInfo?.subscription?.status === 'active' && subscriptionInfo?.subscription?.planName !== 'Starter' && subscriptionInfo?.subscription?.planName !== 'Creator Pro') {
+                showCreateOrgModal();
+              }
+              else {
+                message.error('You need to subscribe to a team plan to create an organization');
+              }
+            }} size="large" type="primary">
               Create Organization
             </Button>
           </Empty>

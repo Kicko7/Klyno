@@ -1,14 +1,15 @@
 'use client';
 
-import { memo, useState, useCallback } from 'react';
-import { useTheme } from 'antd-style';
 import { RobotOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
+import { useTheme } from 'antd-style';
+import { memo, useCallback, useState } from 'react';
+
+import { ActionKeys } from '@/features/ChatInput/ActionBar/config';
 import DesktopChatInput from '@/features/ChatInput/Desktop';
 import InputArea from '@/features/ChatInput/Desktop/InputArea';
 import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
-import { ActionKeys } from '@/features/ChatInput/ActionBar/config';
 
 const { Text } = Typography;
 
@@ -21,28 +22,23 @@ interface TeamChatInputProps {
   disabled?: boolean;
 }
 
-const TeamChatInput = memo<TeamChatInputProps>(({
-
-  isAIMode,
-  onSendMessage,
-  
-}) => {
+const TeamChatInput = memo<TeamChatInputProps>(({ isAIMode, onSendMessage }) => {
   const theme = useTheme();
   const [messageInput, setMessageInput] = useState('');
   const [sending, setSending] = useState(false);
-  
+
   // Get AI agent configuration
   const agentConfig = useAgentStore(agentSelectors.currentAgentConfig);
-  
+
   const handleSendMessage = useCallback(async () => {
     if (!messageInput.trim() || sending) return;
-    
+
     setSending(true);
     try {
       // Send the message
       await onSendMessage(messageInput.trim(), isAIMode);
       setMessageInput('');
-      
+
       if (isAIMode) {
         // In AI mode, we'll send a request to the AI service
         // For now, we'll simulate an AI response
@@ -57,22 +53,24 @@ const TeamChatInput = memo<TeamChatInputProps>(({
     }
   }, [messageInput, sending, isAIMode, onSendMessage, agentConfig]);
 
-  
   // Define actions for the chat input
-  const leftActions: ActionKeys[] = isAIMode ? ['model', 'tools'] : [];
+  const leftActions: ActionKeys[] = isAIMode ? ['model'] : [];
   const rightActions: ActionKeys[] = ['clear'];
 
-  const renderTextArea = useCallback((onSend: () => void) => (
-    <InputArea
-      loading={sending}
-      onChange={setMessageInput}
-      onSend={() => {
-        handleSendMessage();
-        onSend();
-      }}
-      value={messageInput}
-    />
-  ), [messageInput, sending, handleSendMessage]);
+  const renderTextArea = useCallback(
+    (onSend: () => void) => (
+      <InputArea
+        loading={sending}
+        onChange={setMessageInput}
+        onSend={() => {
+          handleSendMessage();
+          onSend();
+        }}
+        value={messageInput}
+      />
+    ),
+    [messageInput, sending, handleSendMessage],
+  );
 
   const renderFooter = useCallback(() => {
     if (!isAIMode) return null;
@@ -80,7 +78,8 @@ const TeamChatInput = memo<TeamChatInputProps>(({
       <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
         <RobotOutlined style={{ color: theme.colorPrimary }} />
         <Text type="secondary" style={{ fontSize: 12 }}>
-          AI mode: Your messages will be processed by AI and responses will be visible to all team members.
+          AI mode: Your messages will be processed by AI and responses will be visible to all team
+          members.
         </Text>
       </div>
     );

@@ -1,4 +1,4 @@
-import { getSingletonAnalyticsOptional } from '@lobehub/analytics';
+// import { getSingletonAnalyticsOptional } from '@lobehub/analytics';
 import useSWR, { SWRResponse, mutate } from 'swr';
 import type { PartialDeep } from 'type-fest';
 import type { StateCreator } from 'zustand/vanilla';
@@ -119,13 +119,13 @@ export const createCommonSlice: StateCreator<
               n('initUserState'),
             );
             //analytics
-            const analytics = getSingletonAnalyticsOptional();
-            analytics?.identify(data.userId || '', {
-              email: data.email,
-              firstName: data.firstName,
-              lastName: data.lastName,
-              username: data.username,
-            });
+            // const analytics = getSingletonAnalyticsOptional();
+            // analytics?.identify(data.userId || '', {
+            //   email: data.email,
+            //   firstName: data.firstName,
+            //   lastName: data.lastName,
+            //   username: data.username,
+            // });
             get().refreshDefaultModelProviderList({ trigger: 'fetchUserState' });
           }
         },

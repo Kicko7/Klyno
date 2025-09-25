@@ -97,6 +97,7 @@ export interface ChatStreamPayload {
    * @default 1
    */
   top_p?: number;
+  subscription?: any;
 }
 
 export interface ChatCompletionFunctions {

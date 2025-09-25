@@ -25,7 +25,14 @@ const Controls = memo<ControlsProps>(({ updating, setUpdating }) => {
   let items: FormItemProps[] = [
     {
       children: <Switch loading={updating} size={'small'} />,
-      label: t('settingChat.enableHistoryCount.title'),
+      label: <div>
+        <div>
+        {t('settingChat.enableHistoryCount.title')}
+        <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
+          Number of last messages model will remember
+        </div>
+        </div>
+      </div>,
       layout: 'horizontal',
       minWidth: undefined,
       name: 'enableHistoryCount',

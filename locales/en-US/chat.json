@@ -86,7 +86,8 @@
     "relativeFilesOrKnowledgeBases": "Related Files/Knowledge Bases",
     "title": "Knowledge Base",
     "uploadGuide": "Uploaded files can be viewed in the 'Knowledge Base'.",
-    "viewMore": "View More"
+    "viewMore": "View More",
+    "goToFiles": "Go to Files"
   },
   "messageAction": {
     "delAndRegenerate": "Delete and Regenerate",

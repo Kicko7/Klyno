@@ -1,7 +1,7 @@
 import { Icon } from '@lobehub/ui';
 import { TabBar, type TabBarProps } from '@lobehub/ui/mobile';
 import { createStyles } from 'antd-style';
-import { Bot, MessageSquare, User } from 'lucide-react';
+import { Search, MessageSquare, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { rgba } from 'polished';
 import { memo, useMemo } from 'react';
@@ -47,7 +47,7 @@ export default memo<Props>(({ className, tabBarKey }) => {
         },
         showMarket && {
           icon: (active: boolean) => (
-            <Icon className={active ? styles.active : undefined} icon={Bot} />
+            <Icon className={active ? styles.active : undefined} icon={Search} />
           ),
           key: SidebarTabKey.Discover,
           onClick: () => {

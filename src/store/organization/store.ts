@@ -16,12 +16,15 @@ export interface OrganizationState {
   organizations: any[];
   CreateOrgModal: boolean;
   selectedOrganizationId?: string;
+  currentOrganization?: any;
+  defaultModels: string[];
   showCreateOrgModal: () => void;
   hideCreateOrgModal: () => void;
 }
 
 export interface OrganizationAction {
   createOrganization: (name: string) => Promise<any>;
+  deleteOrganization: (organizationId: string) => Promise<void>;
   fetchOrganizationMembers: (organizationId: string) => Promise<void>;
   fetchOrganizations: () => Promise<void>;
   inviteMember: (params: {
@@ -30,7 +33,10 @@ export interface OrganizationAction {
     role: 'admin' | 'member';
     teamId: string;
   }) => Promise<void>;
+  removeMember: (organizationId: string, memberId: string,stripeSubscriptionId?: string, stripeCustomerId?: string, interval?: 'month' | 'year') => Promise<void>;
   setSelectedOrganizationId: (id: string) => void;
+  updateOrganizationDefaultModels: (organizationId: string, defaultModels: string[]) => Promise<void>;
+  getDefaultModels: (organizationId: string) => Promise<string[]>;
 }
 
 export interface OrganizationStore extends OrganizationState, OrganizationAction {}
@@ -47,6 +53,7 @@ const initialOrganizationState: OrganizationState = {
   selectedOrganizationId: undefined,
   showCreateOrgModal: () => {},
   hideCreateOrgModal: () => {},
+  defaultModels: [],
 };
 
 export const useOrganizationStore = create<OrganizationStore>()(
@@ -80,6 +87,7 @@ export const useOrganizationStore = create<OrganizationStore>()(
         set({ isLoading: true });
         try {
           const organizations = await lambdaClient.organization.getMyOrganizations.query();
+          // console.log("Organizations from DataBase",organizations)
           // If no selectedOrganizationId, set to first org
           let selectedOrganizationId = get().selectedOrganizationId;
           if (!selectedOrganizationId && organizations.length > 0) {
@@ -124,8 +132,46 @@ export const useOrganizationStore = create<OrganizationStore>()(
           set({ error, isInviting: false });
         }
       },
+      deleteOrganization: async (organizationId: string) => {
+        try {
+          await lambdaClient.organization.deleteOrganization.mutate({
+            id: organizationId,
+          });
+          // Refresh organizations list after deletion
+          await get().fetchOrganizations();
+        } catch (error) {
+          set({ error });
+          throw error;
+        }
+      },
+      removeMember: async (organizationId: string, memberId: string,stripeSubscriptionId?: string, stripeCustomerId?: string, interval?: 'month' | 'year') => {
+        try {
+          await lambdaClient.organization.removeMember.mutate({
+            organizationId,
+            memberId,
+            stripeSubscriptionId,
+            stripeCustomerId,
+            interval,
+          });
+        } catch (error) {
+          set({ error });
+          throw error;
+        }
+      },
       setSelectedOrganizationId: (id: string) => {
         set({ selectedOrganizationId: id });
+      },
+      updateOrganizationDefaultModels: async (organizationId: string, defaultModels: string[]) => {
+        await lambdaClient.organization.updateOrganizationDefaultModels.mutate({
+          organizationId,
+          defaultModels,
+        });
+        set({ defaultModels: defaultModels });
+      },
+      getDefaultModels: async (organizationId: string) => {
+        const defaultModels = await lambdaClient.organization.getDefaultModels.query({ organizationId });
+        set({ defaultModels: defaultModels });
+        return defaultModels;
       },
     }),
     {

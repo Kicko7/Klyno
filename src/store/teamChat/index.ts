@@ -1,8 +1,8 @@
-import { copyToClipboard } from '@lobehub/ui';
-import { message } from 'antd';
+import { nanoid } from 'nanoid';
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
+import { DEFAULT_AGENT_CONFIG } from '@/const/settings';
 import { isServerMode } from '@/const/version';
 import { TeamChatItem, TeamChatMessageItem } from '@/database/schemas/teamChat';
 import { convertUsage } from '@/libs/model-runtime/utils/usageConverter';
@@ -17,6 +17,20 @@ import { useUserStore } from '@/store/user';
 import { CreateMessageParams } from '@/types/message';
 
 import { toggleBooleanList } from '../chat/utils';
+
+// Default state for active chat states
+const defaultState = {
+  isActive: false,
+  isLoading: false,
+  lastViewedAt: 0,
+  hasMoreMessages: false,
+  lastMessageId: undefined,
+  pageSize: 50,
+  currentPage: 1,
+  presence: {},
+  typingUsers: {},
+  readReceipts: {},
+};
 
 interface TeamChatMetadata {
   organizationId: string;
@@ -50,6 +64,8 @@ interface TeamChatState {
       lastMessageId?: string;
       pageSize: number;
       currentPage: number;
+      totalPages?: number;
+      totalCount?: number;
       presence?: Record<string, any>;
       typingUsers?: Record<string, number | undefined>;
       readReceipts?: Record<string, any>;
@@ -77,6 +93,8 @@ interface TeamChatState {
     width: number;
   };
 
+  socketRef: any;
+  teamLoading: boolean;
   // Actions
   createTeamChat: (
     organizationId: string,
@@ -95,7 +113,6 @@ interface TeamChatState {
 
   // Redis/WebSocket Integration
   updateMessages: (teamChatId: string, messages: any[]) => void;
-  upsertMessages: (teamChatId: string, messages: any[]) => void;
   removeMessage: (teamChatId: string, messageId: string) => void;
   updatePresence: (teamChatId: string, presence: Record<string, any>) => void;
   updateTypingStatus: (teamChatId: string, userId: string, isTyping: boolean) => void;
@@ -105,7 +122,7 @@ interface TeamChatState {
     data: { title?: string; description?: string; metadata?: any },
   ) => Promise<void>;
   deleteTeamChat: (id: string) => Promise<void>;
-  loadMessages: (teamChatId: string) => Promise<void>;
+  loadMessages: (teamChatId: string, limit?: number, lastMessageId?: string, lastMessageCreatedAt?: string) => Promise<{ messages: TeamChatMessageItem[], hasMore: boolean, totalCount: number }>;
   sendMessage: (
     teamChatId: string,
     content: string,
@@ -134,7 +151,37 @@ interface TeamChatState {
   unsubscribeFromChat: (chatId: string, userId: string) => void;
   // Credit tracking service
   creditService: typeof teamChatCreditService;
+
+  // Centralized message management - single source of truth for all message operations
+  addMessage: (
+    teamChatId: string,
+    message: {
+      id?: string;
+      content: string;
+      messageType: 'user' | 'assistant' | 'system';
+      userId: string;
+      metadata?: any;
+      createdAt?: Date;
+      isLocal?: boolean; // Flag to prevent WebSocket duplication
+      sendTime?: Date;
+    },
+  ) => Promise<any>;
+
+  // Update an existing message in the store
+  updateMessage: (
+    teamChatId: string,
+    messageId: string,
+    updates: Partial<TeamChatMessageItem> & { isLocal?: boolean },
+  ) => any;
+
+  // Batch update messages (for WebSocket reconciliation)
+  batchUpdateMessages: (teamChatId: string, messages: TeamChatMessageItem[], checkSorting?: boolean) => void;
+
+  // Method to persist message to database
+  persistMessageToDatabase: (teamChatId: string, messageData: any) => Promise<void>;
   messageEditingIds: string[];
+
+  setActiveChatState: (isLoading: boolean) => void;
 }
 
 const getTeamChatService = async () => {
@@ -209,11 +256,37 @@ type TeamChatStore = TeamChatState & {
   startMessagePolling: (chatId: string) => void;
   stopMessagePolling: (chatId: string) => void;
   creditService: typeof teamChatCreditService;
-  getMessageById: (id: string) => void;
-  deleteMessage: (teamChatId: string, messageId: string) => void;
+  getMessageById: (id: string) => TeamChatMessageItem | undefined;
+  removeMessage: (teamChatId: string, messageId: string) => void;
   copyMessage: (content: string) => void;
   toggleMessageEditing: (id: string, editing: boolean) => void;
-  updateMessage: (teamChatId: string, messageId: string, content: string, metadata?: any) => void;
+  updateMessageContent: (teamChatId: string, messageId: string, content: string, metadata?: any) => void;
+
+  // Redis-based real-time operations
+  handleRedisMessageDelete: (messageId: string, teamChatId: string) => void;
+  handleRedisMessageUpdate: (
+    messageId: string,
+    teamChatId: string,
+    updates: Partial<TeamChatMessageItem>,
+  ) => void;
+  handleRedisMessageComplete: (
+    messageId: string,
+    teamChatId: string,
+    finalMessage: TeamChatMessageItem,
+  ) => void;
+  handleRedisTypingUpdate: (teamChatId: string, userId: string, isTyping: boolean) => void;
+  handleRedisMessageError: (messageId: string, teamChatId: string, error: string) => void;
+  handleRedisMessageReaction: (
+    messageId: string,
+    teamChatId: string,
+    userId: string,
+    reaction: string,
+  ) => void;
+  handleRedisReadReceipt: (messageId: string, teamChatId: string, userId: string) => void;
+  setSocketRef: (socketRef: any) => void;
+  removeWebSocketMessage: (messageId: string) => void;
+  editWebSocketMessage: (messageId: string, content: string) => void;
+
 };
 
 export const useTeamChatStore = create<TeamChatStore>()(
@@ -232,7 +305,8 @@ export const useTeamChatStore = create<TeamChatStore>()(
       messageCache: {},
       messageSubscriptions: {},
       messageEditingIds: [],
-
+      socketRef: null,
+      teamLoading: false,
       // Initialize credit tracking service
       creditService: teamChatCreditService,
 
@@ -257,55 +331,472 @@ export const useTeamChatStore = create<TeamChatStore>()(
       // Redis/WebSocket Integration
       updateMessages: (teamChatId: string, messages: any[]) => {
         // Backward-compatible: delegate to upsert to ensure replacement and sorting
-        get().upsertMessages(teamChatId, messages as any);
+        get().batchUpdateMessages(teamChatId, messages as any);
       },
 
-      // Upsert messages: replace existing by id or append if new; keep list sorted ascending by createdAt
-      upsertMessages: (teamChatId: string, messagesToUpsert: any[]) => {
-        set((state) => {
-          const existing = state.messages[teamChatId] || [];
-          const byId = new Map(existing.map((m: any) => [m.id, m]));
+      // Update existing message content (for streaming, etc.)
+      updateMessage: async (
+        teamChatId: string,
+        messageId: string,
+        updates: Partial<TeamChatMessageItem>,
+      ) => {
 
-          for (const msg of messagesToUpsert) {
-            const prev = byId.get(msg.id);
-            if (prev) {
-              // preserve original createdAt if missing on payload
-              const createdAt = (msg as any).createdAt ?? prev.createdAt;
-              const updated = { ...prev, ...msg, createdAt };
-              byId.set(msg.id, updated);
-            } else {
-              byId.set(msg.id, msg);
-            }
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found: ${messageId}`);
+            return state;
           }
 
-          // sort ascending by createdAt, fallback to id for stable order
-          const sorted = Array.from(byId.values()).sort((a: any, b: any) => {
-            const at =
-              a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
-            const bt =
-              b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
-            if (at !== bt) return at - bt;
-            return String(a.id).localeCompare(String(b.id));
+          const existingMessage = existingMessages[messageIndex] as any;
+          // Create updated message
+          const updatedMessage = {
+            ...existingMessage,
+            ...updates,
+          } as any;
+
+          // Update the specific message in place without sorting
+          const updatedMessages = [...existingMessages];
+          updatedMessages[messageIndex] = updatedMessage;
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: updatedMessages,
+            },
+          };
+        });
+        const state = get();
+        const existingMessages = state.messages[teamChatId] || [];
+        const messageIndex = existingMessages.findIndex((m) => m.id === messageId);
+        return messageIndex !== -1 ? existingMessages[messageIndex] : undefined;
+
+      
+      },
+
+      updateMessageContent: async (
+        teamChatId: string,
+        messageId: string,
+        content: string,
+      ) => {
+        // console.log(`📝 updateMessage called for ${teamChatId}:`, {
+        //   messageId,
+        //   updates,
+        //   isLocalChange: (updates as any).isLocal !== undefined,
+        //   newIsLocalValue: (updates as any).isLocal,
+        // });
+
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found: ${messageId}`);
+            return state;
+          }
+
+          const existingMessage = existingMessages[messageIndex] as any;
+          // console.log(`   📋 Existing message:`, {
+          //   id: existingMessage.id,
+          //   messageType: existingMessage.messageType,
+          //   currentIsLocal: existingMessage.isLocal,
+          //   newIsLocal: (updates as any).isLocal,
+          // });
+
+          // Create updated message
+          const updatedMessage = {
+            ...existingMessage,
+            content,
+          } as any;
+
+          // Use the same deduplication and sorting logic as batchUpdateMessages
+          const messageMap = new Map(existingMessages.map((m) => [m.id, m]));
+
+          // Update the specific message
+          messageMap.set(messageId, updatedMessage);
+
+          // Apply the same sorting logic for consistency
+          const sortedMessages = Array.from(messageMap.values()).sort((a, b) => {
+            // Parse timestamps to numbers for comparison
+            const getTimestamp = (msg: TeamChatMessageItem): number => {
+              if (msg.createdAt instanceof Date) {
+                return msg.createdAt.getTime();
+              }
+              if (typeof msg.createdAt === 'string') {
+                return new Date(msg.createdAt).getTime();
+              }
+              return 0;
+            };
+
+            const tsA = getTimestamp(a);
+            const tsB = getTimestamp(b);
+
+            // First priority: sort by timestamp
+            if (tsA !== tsB) {
+              return tsA - tsB;
+            }
+
+            // Second priority: when timestamps are equal, user messages come first
+            if (a.userId !== b.userId) {
+              // User messages (userId !== "assistant") come before assistant messages
+              if (a.userId === 'assistant') return 1;
+              if (b.userId === 'assistant') return -1;
+            }
+
+            // Third priority: if still equal, sort by ID for consistency
+            return a.id.localeCompare(b.id);
           });
 
           return {
             messages: {
               ...state.messages,
-              [teamChatId]: sorted,
+              [teamChatId]: sortedMessages,
             },
           };
         });
+
+        // If the message is no longer local, check if it's an AI message and persist it to database
+        // if ((updates as any).metadata.isLocal === false) {
+        //   console.log(`   🔄 Message is no longer local, checking if it's an AI message...`);
+        //   const state = get();
+        //   const existingMessages = state.messages[teamChatId] || [];
+        //   const message = existingMessages.find((m) => m.id === messageId);
+
+        //   if (message && message.messageType === 'assistant') {
+        //     console.log(`   💾 Persisting updated AI message to database: ${messageId}`);
+        //     console.log(`   📊 Message data:`, {
+        //       id: message.id,
+        //       content: message.content.substring(0, 100),
+        //       messageType: message.messageType,
+        //       metadata: message.metadata,
+        //     });
+        //     // Use the persistMessageToDatabase method to save the updated message
+        //     // Exclude isLocal from database persistence since it's not in the schema yet
+        //     const { isLocal, ...dbMessageData } = message as any;
+        //     await get().persistMessageToDatabase(teamChatId, dbMessageData);
+        //     console.log(`   ✅ AI message persisted successfully: ${messageId}`);
+        //   } else {
+        //     console.log(`   ℹ️ Message is not an AI message or not found:`, {
+        //       messageId,
+        //       messageType: message?.messageType,
+        //       isLocal: (message as any)?.isLocal,
+        //     });
+        //   }
+        // } else {
+        //   console.log(`   ℹ️ Message is still local or isLocal not changed:`, {
+        //     messageId,
+        //     newIsLocal: (updates as any).isLocal,
+        //   });
+        // }
       },
 
       // Remove a message by id
       removeMessage: (teamChatId: string, messageId: string) => {
         set((state) => {
-          const existing = state.messages[teamChatId] || [];
-          const filtered = existing.filter((m: any) => m.id !== messageId);
+          const existingMessages = state.messages[teamChatId] || [];
+          const filteredMessages = existingMessages.filter((m: any) => m.id !== messageId);
+
+          // Apply the same sorting logic for consistency
+          const sortedMessages = filteredMessages.sort((a, b) => {
+            // Parse timestamps to numbers for comparison
+            const getTimestamp = (msg: TeamChatMessageItem): number => {
+              if (msg.createdAt instanceof Date) {
+                return msg.createdAt.getTime();
+              }
+              if (typeof msg.createdAt === 'string') {
+                return new Date(msg.createdAt).getTime();
+              }
+              return 0;
+            };
+
+            const tsA = getTimestamp(a);
+            const tsB = getTimestamp(b);
+
+            // First priority: sort by timestamp
+            if (tsA !== tsB) {
+              return tsA - tsB;
+            }
+
+            // Second priority: when timestamps are equal, user messages come first
+            if (a.userId !== b.userId) {
+              // User messages (userId !== "assistant") come before assistant messages
+              if (a.userId === 'assistant') return 1;
+              if (b.userId === 'assistant') return -1;
+            }
+
+            // Third priority: if still equal, sort by ID for consistency
+            return a.id.localeCompare(b.id);
+          });
+
           return {
             messages: {
               ...state.messages,
-              [teamChatId]: filtered,
+              [teamChatId]: sortedMessages,
+            },
+          };
+        });
+      },
+
+      // Get a message by id from any team chat
+      getMessageById: (id: string) => {
+        const state = get();
+        for (const messages of Object.values(state.messages)) {
+          const message = messages.find((m: any) => m.id === id);
+          if (message) return message;
+        }
+        return undefined;
+      },
+
+      // Copy message content to clipboard
+      copyMessage: (content: string) => {
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(content);
+        } else {
+          // Fallback for older browsers
+          const textArea = document.createElement('textarea');
+          textArea.value = content;
+          textArea.style.position = 'fixed';
+          textArea.style.left = '-999999px';
+          textArea.style.top = '-999999px';
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          try {
+            document.execCommand('copy');
+          } catch (err) {
+            console.error('Failed to copy message:', err);
+          }
+          document.body.removeChild(textArea);
+        }
+      },
+
+      // Toggle message editing state
+      toggleMessageEditing: (id: string, editing: boolean) => {
+        set((state) => ({
+          messageEditingIds: editing
+            ? [...state.messageEditingIds, id]
+            : state.messageEditingIds.filter((editId) => editId !== id),
+        }));
+      },
+
+      // Redis-based real-time message operations
+      // These methods are called by WebSocket handlers to sync state across all users
+
+      // Handle real-time message deletion from Redis
+      handleRedisMessageDelete: (messageId: string, teamChatId: string) => {
+        console.log(`🔄 Redis: Handling message deletion: ${messageId} in ${teamChatId}`);
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const filteredMessages = existingMessages.filter((m: any) => m.id !== messageId);
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: filteredMessages,
+            },
+          };
+        });
+      },
+
+      // Handle real-time message updates from Redis (for streaming)
+      handleRedisMessageUpdate: (
+        messageId: string,
+        teamChatId: string,
+        updates: Partial<TeamChatMessageItem>,
+      ) => {
+        console.log(`🔄 Redis: Handling message update: ${messageId} in ${teamChatId}`);
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m: any) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found for Redis update: ${messageId}`);
+            return state;
+          }
+
+          const updatedMessages = [...existingMessages];
+          updatedMessages[messageIndex] = {
+            ...updatedMessages[messageIndex],
+            ...updates,
+            updatedAt: new Date(),
+          } as any;
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: updatedMessages,
+            },
+          };
+        });
+      },
+
+      // Handle real-time message completion from Redis
+      handleRedisMessageComplete: (
+        messageId: string,
+        teamChatId: string,
+        finalMessage: TeamChatMessageItem,
+      ) => {
+        console.log(`🔄 Redis: Handling message completion: ${messageId} in ${teamChatId}`);
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m: any) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found for Redis completion: ${messageId}`);
+            return state;
+          }
+
+          const updatedMessages = [...existingMessages];
+          updatedMessages[messageIndex] = {
+            ...finalMessage,
+            updatedAt: new Date(),
+          } as any;
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: updatedMessages,
+            },
+          };
+        });
+      },
+
+      // Handle real-time typing indicators from Redis
+      handleRedisTypingUpdate: (teamChatId: string, userId: string, isTyping: boolean) => {
+        console.log(
+          `🔄 Redis: Handling typing update: ${userId} ${isTyping ? 'started' : 'stopped'} typing in ${teamChatId}`,
+        );
+        set((state) => ({
+          activeChatStates: {
+            ...state.activeChatStates,
+            [teamChatId]: {
+              ...state.activeChatStates[teamChatId],
+              typingUsers: {
+                ...state.activeChatStates[teamChatId]?.typingUsers,
+                [userId]: isTyping ? Date.now() : undefined,
+              },
+            },
+          },
+        }));
+      },
+
+      // Handle real-time message errors from Redis
+      handleRedisMessageError: (messageId: string, teamChatId: string, error: string) => {
+        console.log(`🔄 Redis: Handling message error: ${messageId} in ${teamChatId} - ${error}`);
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m: any) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found for Redis error: ${messageId}`);
+            return state;
+          }
+
+          const updatedMessages = [...existingMessages];
+          updatedMessages[messageIndex] = {
+            ...updatedMessages[messageIndex],
+            error: {
+              type: 'redis_error',
+              message: error,
+            },
+            updatedAt: new Date(),
+          } as any;
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: updatedMessages,
+            },
+          };
+        });
+      },
+
+      // Handle real-time message reactions from Redis
+      handleRedisMessageReaction: (
+        messageId: string,
+        teamChatId: string,
+        userId: string,
+        reaction: string,
+      ) => {
+        console.log(
+          `🔄 Redis: Handling message reaction: ${userId} reacted with ${reaction} to ${messageId} in ${teamChatId}`,
+        );
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m: any) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found for Redis reaction: ${messageId}`);
+            return state;
+          }
+
+          const updatedMessages = [...existingMessages];
+          const currentMessage = updatedMessages[messageIndex] as any;
+
+          // Initialize reactions if they don't exist
+          if (!currentMessage.reactions) {
+            currentMessage.reactions = {};
+          }
+
+          // Add or update reaction
+          if (!currentMessage.reactions[reaction]) {
+            currentMessage.reactions[reaction] = [];
+          }
+
+          // Add user to reaction if not already there
+          if (!currentMessage.reactions[reaction].includes(userId)) {
+            currentMessage.reactions[reaction].push(userId);
+          }
+
+          updatedMessages[messageIndex] = {
+            ...currentMessage,
+            updatedAt: new Date(),
+          };
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: updatedMessages,
+            },
+          };
+        });
+      },
+
+      // Handle real-time read receipts from Redis
+      handleRedisReadReceipt: (messageId: string, teamChatId: string, userId: string) => {
+        console.log(
+          `🔄 Redis: Handling read receipt: ${userId} read ${messageId} in ${teamChatId}`,
+        );
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+          const messageIndex = existingMessages.findIndex((m: any) => m.id === messageId);
+
+          if (messageIndex === -1) {
+            console.log(`   ❌ Message not found for Redis read receipt: ${messageId}`);
+            return state;
+          }
+
+          const updatedMessages = [...existingMessages];
+          const currentMessage = updatedMessages[messageIndex] as any;
+
+          // Initialize read receipts if they don't exist
+          if (!currentMessage.readReceipts) {
+            currentMessage.readReceipts = {};
+          }
+
+          // Mark message as read by user
+          currentMessage.readReceipts[userId] = new Date().toISOString();
+
+          updatedMessages[messageIndex] = {
+            ...currentMessage,
+            updatedAt: new Date(),
+          };
+
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: updatedMessages,
             },
           };
         });
@@ -395,7 +886,22 @@ export const useTeamChatStore = create<TeamChatStore>()(
 
           if (isServerMode) {
             console.log('🚄 Using tRPC client for server mode');
-            newChatId = await lambdaClient.teamChat.createTeamChat.mutate({
+
+            const sessionResult = await lambdaClient.session.createSession.mutate({
+              config: {
+                model: DEFAULT_AGENT_CONFIG.model,
+                provider: DEFAULT_AGENT_CONFIG.provider,
+                systemRole: DEFAULT_AGENT_CONFIG.systemRole,
+                params: DEFAULT_AGENT_CONFIG.params as any,
+              },
+              session: {
+                title: title,
+                type: 'agent',
+              },
+              type: 'agent',
+            });
+
+            const chat = await lambdaClient.teamChat.createTeamChat.mutate({
               organizationId,
               title,
               metadata: {
@@ -408,8 +914,11 @@ export const useTeamChatStore = create<TeamChatStore>()(
                     addedBy: userId,
                   },
                 ],
+                sessionId: sessionResult,
               },
             });
+
+            newChatId = chat.id;
 
             // For server mode, we need to reload the list to get the full object
             const chats = await lambdaClient.teamChat.getTeamChatsByOrganization.query({
@@ -423,7 +932,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
                   ...state.teamChatsByOrg,
                   [organizationId]: [...(state.teamChatsByOrg[organizationId] || []), newChat],
                 },
-                activeTeamChatId: newChat.id,
+                // activeTeamChatId: newChat.id,
                 currentOrganizationId: organizationId,
                 isLoading: false,
               }));
@@ -458,7 +967,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
                 ...state.teamChatsByOrg,
                 [organizationId]: [...(state.teamChatsByOrg[organizationId] || []), newChat],
               },
-              activeTeamChatId: newChat.id,
+              // activeTeamChatId: newChat.id,
               currentOrganizationId: organizationId,
               isLoading: false,
             }));
@@ -529,7 +1038,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
           }
 
           set({ isLoading: true, error: null });
-          console.log('📥 Loading team chats for organization:', organizationId);
+          console.log('�� Loading team chats for organization:', organizationId);
 
           let chats: TeamChatItem[];
 
@@ -553,12 +1062,17 @@ export const useTeamChatStore = create<TeamChatStore>()(
           console.log(`✅ Loaded ${chats.length} accessible team chats for user ${userId}`);
 
           // Update chats for this organization and set it as current
+          // Only update currentOrganizationId if it's different to prevent infinite loops
+          const currentState = get();
           set((state) => ({
             teamChatsByOrg: {
               ...state.teamChatsByOrg,
               [organizationId]: chats,
             },
-            currentOrganizationId: organizationId,
+            currentOrganizationId:
+              currentState.currentOrganizationId === organizationId
+                ? currentState.currentOrganizationId
+                : organizationId,
             isLoading: false,
           }));
         } catch (error) {
@@ -575,6 +1089,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
         console.log('🎯 Setting active team chat:', id, topicId);
 
         // If id is null, clear both activeTeamChatId and activeTopicId
+        console.log('🎯 Setting active team chat:', id, topicId);
         if (id === null) {
           set({
             activeTeamChatId: null,
@@ -603,7 +1118,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
               activeTopicId: topicId || null,
               error: null,
             });
-            await get().loadMessages(id);
+            // await get().loadMessages(id);
             return;
           }
 
@@ -627,7 +1142,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
             }));
 
             // Load messages for the new chat
-            await get().loadMessages(id);
+            // await get().loadMessages(id);
             console.log('🎯 Chat fetched and messages loaded');
           } else {
             // In non-server mode, set active and load messages
@@ -636,7 +1151,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
               activeTopicId: topicId || null,
               error: null,
             });
-            await get().loadMessages(id);
+            // await get().loadMessages(id);
           }
         } catch (error) {
           console.error('❌ Error setting active chat:', error);
@@ -746,65 +1261,73 @@ export const useTeamChatStore = create<TeamChatStore>()(
         }
       },
 
-      // Load messages for a team chat with optimized loading and presence tracking
-      loadMessages: async (teamChatId: string) => {
+      // Method to load messages with proper ordering and deduplication
+      loadMessages: async (teamChatId: string, limit: number = 20, lastMessageId?: string, lastMessageCreatedAt?: string) => {
+        console.log('Load Message is called')
         try {
-          set({ isLoadingMessages: true, error: null });
-          console.log('📥 Loading messages for team chat:', teamChatId);
 
-          // First check if we have messages in cache
-          const state = get();
-          const cachedMessages = state.messages[teamChatId];
+          let result: {
+            messages: TeamChatMessageItem[];
+            hasMore: boolean;
+            totalCount: number;
+          };
 
-          // If we have cached messages, show them immediately while loading new ones
-          if (cachedMessages?.length) {
-            console.log('📝 Using cached messages while loading new ones');
-            set((state) => ({
-              messages: {
-                ...state.messages,
-                [teamChatId]: cachedMessages,
-              },
-            }));
-          }
-
-          // Load new messages
-          let messages: TeamChatMessageItem[] = [];
           if (isServerMode) {
-            console.log('🚄 Using tRPC client to load messages');
-            messages = await lambdaClient.teamChat.getMessages.query({ teamChatId });
+            const { lambdaClient } = await import('@/libs/trpc/client/lambda');
+            result = await lambdaClient.teamChat.getMessages.query({
+              teamChatId,
+              limit,
+              lastMessageId,
+              lastMessageCreatedAt,
+            });
           } else {
             const service = await getTeamChatService();
-            messages = await service.getMessages(teamChatId);
+            result = await service.getMessages(teamChatId, limit, lastMessageId, lastMessageCreatedAt);
           }
 
-          // Update messages
-          set((state) => ({
-            messages: {
-              ...state.messages,
-              [teamChatId]: messages,
-            },
-            isLoadingMessages: false,
-          }));
+          const { messages, hasMore, totalCount } = result;
 
-          // Update presence after loading messages
-          if (messages.length > 0) {
-            try {
-              await lambdaClient.teamChat.updatePresence.mutate({
-                teamChatId,
-                lastSeenMessageId: messages[messages.length - 1].id,
-              });
-            } catch (presenceError) {
-              console.error('Failed to update presence:', presenceError);
-            }
-          }
+          const sortedMessages = messages;
+          // Update store with loaded messages
+          set((state) => {
+            const existingMessages = state.messages[teamChatId] || [];
+            const existingIds = new Set(existingMessages.map(m => m.id));
+            const newMessages = sortedMessages.filter(msg => !existingIds.has(msg.id));
+            const allMessages = [...newMessages, ...existingMessages];
 
-          console.log('✅ Loaded messages:', messages.length);
-        } catch (error) {
-          console.error('❌ Failed to load messages:', error);
-          set({
-            error: error instanceof Error ? error.message : 'Failed to load messages',
-            isLoadingMessages: false,
+            return {
+              messages: {
+                ...state.messages,
+                [teamChatId]: allMessages,
+              },
+            };
           });
+
+          console.log(`✅ Loaded ${sortedMessages.length} messages for team chat: ${teamChatId} (Total: ${totalCount})`);
+          return { messages, hasMore, totalCount }
+        } catch (error) {
+          console.error('Failed to load messages:', error);
+          set((state) => ({
+            error: error instanceof Error ? error.message : 'Failed to load messages',
+            activeChatStates: {
+              ...state.activeChatStates,
+              [teamChatId]: {
+                ...(state.activeChatStates?.[teamChatId] || {
+                  isActive: false,
+                  isLoading: true,
+                  lastViewedAt: 0,
+                  hasMoreMessages: false,
+                  lastMessageId: undefined,
+                  pageSize: 20,
+                  currentPage: 1,
+                  presence: {},
+                  typingUsers: {},
+                  readReceipts: {},
+                }),
+                isLoading: false,
+              },
+            },
+          }));
         }
       },
 
@@ -827,64 +1350,27 @@ export const useTeamChatStore = create<TeamChatStore>()(
             };
           }
 
+          // Note: Credit and usage limits are enforced server-side when the message is processed
+          // Client-side pre-checks have been removed to avoid bundling server-side dependencies
 
-          // First, update the UI immediately for better UX
-          set((state) => {
-            const existingMessages = state.messages[teamChatId] || [];
-            let updatedMessages;
+          // Create the message object
+          const newMessage = {
+            id: messageId || `temp-${Date.now()}`,
+            content,
+            messageType,
+            teamChatId,
+            metadata: messageMetadata || {},
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
 
-            if (messageId) {
-              // Update existing message if messageId is provided
-              const existingIndex = existingMessages.findIndex((m) => m.id === messageId);
-              if (existingIndex >= 0) {
-                updatedMessages = [...existingMessages];
-                updatedMessages[existingIndex] = {
-                  ...updatedMessages[existingIndex],
-                  content,
-                  metadata: {
-                    ...(updatedMessages[existingIndex].metadata || {}),
-                    ...(messageMetadata || {}),
-                  },
-                };
-              } else {
-                // Add new message if not found
-                const newMessage = {
-                  id: messageId,
-                  content,
-                  messageType,
-                  teamChatId,
-                  metadata: messageMetadata || {},
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                };
-                updatedMessages = [...existingMessages, newMessage as any];
-              }
-            } else {
-              // Add new message with generated ID
-              const newMessage = {
-                id: `temp-${Date.now()}`,
-                content,
-                messageType,
-                teamChatId,
-                metadata: messageMetadata || {},
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              };
-              updatedMessages = [...existingMessages, newMessage as any];
-            }
-
-            return {
-              messages: {
-                ...state.messages,
-                [teamChatId]: updatedMessages,
-              },
-            };
-          });
+          // Use upsertMessages to ensure proper ordering and consistency
+          get().addMessage(teamChatId, newMessage as any);
 
           // Then persist to database in background
           let message;
           if (isServerMode) {
-            console.log('🚄 Using tRPC client to send message');
+            // console.log('🚄 Using tRPC client to send message');
             message = await lambdaClient.teamChat.addMessage.mutate({
               teamChatId,
               content,
@@ -905,7 +1391,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
           if (message) {
             set((state: any) => {
               const existingMessages = state.messages[teamChatId] || [];
-          
+
               const newMessage = {
                 id: message.id,
                 content: message.content,
@@ -918,7 +1404,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
               };
-          
+
               return {
                 messages: {
                   ...state.messages,
@@ -1033,16 +1519,16 @@ export const useTeamChatStore = create<TeamChatStore>()(
               // Extract usage information and include model/provider for proper display
               const metadata = context?.usage
                 ? {
-                    ...context.usage,
-                    model: agentConfig.model,
-                    provider: agentConfig.provider,
-                    // Use the API's token count directly
-                    totalTokens: context.usage.totalTokens || 0,
-                  }
+                  ...context.usage,
+                  model: agentConfig.model,
+                  provider: agentConfig.provider,
+                  // Use the API's token count directly
+                  totalTokens: context.usage.totalTokens || 0,
+                }
                 : {
-                    model: agentConfig.model,
-                    provider: agentConfig.provider,
-                  };
+                  model: agentConfig.model,
+                  provider: agentConfig.provider,
+                };
 
               await get().sendMessage(
                 teamChatId,
@@ -1078,7 +1564,14 @@ export const useTeamChatStore = create<TeamChatStore>()(
 
       // Refresh team chats for current organization
       refreshTeamChats: async () => {
-        const { currentOrganizationId } = get();
+        const { currentOrganizationId, isLoading } = get();
+
+        // Prevent duplicate calls if already loading
+        if (isLoading) {
+          console.log('⚠️ Already loading team chats, skipping duplicate call');
+          return;
+        }
+
         if (currentOrganizationId) {
           await get().loadTeamChats(currentOrganizationId);
         } else {
@@ -1183,134 +1676,169 @@ export const useTeamChatStore = create<TeamChatStore>()(
         }));
       },
 
-      getMessageById: (id: string) => {
-        const { messages } = get();
-        return Object.values(messages)
-          .flat()
-          .find((message) => message.id === id);
-      },
-      deleteMessage: async (teamChatId, messageId) => {
-        set((state) => {
-          const chatMessages = state.messages[teamChatId];
-          if (!chatMessages) return state;
+      // Centralized message management - single source of truth for all message operations
+      addMessage: async (teamChatId: string, message: any) => {
+        const messageId = message.id || `msg_${Date.now()}_${nanoid(10)}`;
+        const timestamp = new Date().toISOString();
+
+        const messageData = {
+          id: messageId,
+          content: message.content,
+          messageType: message.messageType,
+          teamChatId,
+          userId: message.userId,
+          metadata: message.metadata || {},
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          sendTime: message.sendTime,
+        };
+
+        set((state: any) => {
+          const existingMessages = state.messages[teamChatId] || [];
+
+          const isDuplicate = existingMessages.some(
+            (existing: any) =>
+              existing.id === messageId ||
+              (existing.content === message.content &&
+                existing.userId === message.userId &&
+                Math.abs(new Date(existing.createdAt).getTime() - new Date(timestamp).getTime()) < 1000),
+          );
+
+          if (isDuplicate) {
+            console.log(`�� Skipping duplicate message: ${messageId}`);
+            return state;
+          }
+
+          const updatedMessages = [...existingMessages, messageData];
+
+
           return {
             messages: {
               ...state.messages,
-              [teamChatId]: chatMessages.filter((msg) => msg.id !== messageId),
+              [teamChatId]: updatedMessages,
             },
           };
         });
-        await lambdaClient.teamChat.deleteMessage.mutate({
-          teamChatId,
-          messageId,
+
+        return messageData;
+      },
+
+      // Batch update messages (for WebSocket reconciliation)
+      batchUpdateMessages: (teamChatId: string, newMessages: any[], checkSorting: boolean = true) => {
+        set((state) => {
+          const existingMessages = state.messages[teamChatId] || [];
+
+          // Create a map for quick lookup but preserve order
+          const messageMap = new Map<string, any>();
+          const messageOrder: string[] = [];
+
+          // Add existing messages in their current order
+          existingMessages.forEach((msg) => {
+            if (msg.id) {
+              messageMap.set(msg.id, msg);
+              messageOrder.push(msg.id);
+            }
+          });
+
+          // Add/merge new messages (this will overwrite duplicates)
+          newMessages.forEach((msg) => {
+            if (msg.id) {
+              const existingMsg = messageMap.get(msg.id);
+              const mergedMsg = {
+                ...existingMsg,
+                ...msg,
+              };
+
+              // Only update metadata if new message has metadata
+              if (msg.metadata && Object.keys(msg.metadata).length > 0) {
+                mergedMsg.metadata = {
+                  // ...existingMsg?.metadata,
+                  ...msg.metadata,
+                };
+              } else if (existingMsg?.metadata) {
+                // Keep existing metadata if new message has no metadata
+                mergedMsg.metadata = existingMsg.metadata;
+              }
+
+              messageMap.set(msg.id, mergedMsg);
+              
+              // If it's a new message, add to order array
+              if (!messageOrder.includes(msg.id)) {
+                messageOrder.push(msg.id);
+              }
+            }
+          });
+
+          // Preserve the original order by using the order array
+          const mergedMessages = messageOrder.map(id => messageMap.get(id)).filter(Boolean);
+          return {
+            messages: {
+              ...state.messages,
+              [teamChatId]: mergedMessages,
+            },
+          };
         });
       },
-      copyMessage: async (content) => {
-        await copyToClipboard(content);
-      },
-      updateMessage: async (
-        teamChatId: string,
-        messageId: string,
-        content: string,
-        metadata?: any,
-      ) => {
+
+      persistMessageToDatabase: async (teamChatId: string, messageData: any) => {
+        console.log(`💾 persistMessageToDatabase called:`, {
+          teamChatId,
+          messageId: messageData.id,
+          messageType: messageData.messageType,
+          isServerMode,
+          contentPreview: messageData.content.substring(0, 100),
+        });
+
         try {
-          // Update the UI immediately for better UX
-          set((state) => {
-            const existingMessages = state.messages[teamChatId] || [];
-            const messageIndex = existingMessages.findIndex((m) => m.id === messageId);
-
-            if (messageIndex >= 0) {
-              const updatedMessages = [...existingMessages];
-              updatedMessages[messageIndex] = {
-                ...updatedMessages[messageIndex],
-                content,
-                metadata: {
-                  ...(updatedMessages[messageIndex].metadata || {}),
-                  ...(metadata || {}),
-                },
-                updatedAt: new Date(),
-              };
-
-              return {
-                messages: {
-                  ...state.messages,
-                  [teamChatId]: updatedMessages,
-                },
-              };
-            }
-
-            return state;
-          });
-
-          // Get current message data for metadata preservation
-          const currentState = get();
-          const currentMessages = currentState.messages[teamChatId] || [];
-          const currentMessage = currentMessages.find((m) => m.id === messageId);
-
-          // Persist to database
           if (isServerMode) {
-            await lambdaClient.teamChat.updateMessage.mutate({
+            console.log(`   🚄 Using server mode (lambda client)`);
+            const { lambdaClient } = await import('@/libs/trpc/client/lambda');
+            const result = await lambdaClient.teamChat.addMessage.mutate({
               teamChatId,
-              messageId,
-              content,
-              metadata: {
-                // Preserve existing metadata and add new metadata
-                ...(currentMessage?.metadata || {}),
-                ...(metadata || {}),
-                // Add edit tracking
-                editedAt: new Date().toISOString(),
-                editedBy: useUserStore.getState().user?.id,
-              },
+              content: messageData.content,
+              messageType: messageData.messageType,
+              metadata: messageData.metadata || {},
             });
+            console.log(`✅ Server mode persistence successful:`, result);
           } else {
+            console.log(`   📱 Using client mode (PGlite)`);
             const service = await getTeamChatService();
-            await service.updateMessage(teamChatId, messageId, {
-              content,
-              metadata: {
-                // Preserve existing metadata and add new metadata
-                ...(currentMessage?.metadata || {}),
-                ...(metadata || {}),
-                // Add edit tracking
-                editedAt: new Date().toISOString(),
-                editedBy: useUserStore.getState().user?.id,
-              },
+            // Exclude isLocal from database persistence until migration is run
+            const { isLocal, ...dbMessageData } = messageData as any;
+            const result = await service.addMessageToChat(teamChatId, {
+              content: dbMessageData.content,
+              messageType: dbMessageData.messageType,
+              id: dbMessageData.id,
+              metadata: dbMessageData.metadata || {},
             });
+            console.log(`   ✅ Client mode persistence successful:`, result);
           }
-
-          console.log('✅ Message updated:', messageId);
         } catch (error) {
-          console.error('❌ Failed to update message:', error);
-          set({
-            error: error instanceof Error ? error.message : 'Failed to update message',
-          });
+          console.error('❌ Failed to persist message:', error);
+          throw error;
         }
       },
-      toggleMessageEditing: (id: string, editing: boolean) => {
-        set(
-          (state) => {
-            const currentEditingIds = state.messageEditingIds || [];
 
-            if (editing) {
-              // Add to editing list if not already there
-              return {
-                messageEditingIds: currentEditingIds.includes(id)
-                  ? currentEditingIds
-                  : [...currentEditingIds, id],
-              };
-            } else {
-              // Remove from editing list
-              return {
-                messageEditingIds: currentEditingIds.filter((editingId) => editingId !== id),
-              };
-            }
-          },
-          false,
-          'toggleMessageEditing',
-        );
+      editWebSocketMessage: (messageId: string, content: string) => {
+        if (get().socketRef?.current?.connected) {
+          get().socketRef.current.emit('message:edit', messageId, content);
+        }
+      },
+
+      removeWebSocketMessage: (messageId) => {
+        if (get().socketRef?.current?.connected) {
+          get().socketRef.current.emit('message:delete', messageId);
+        }
+      },
+      setSocketRef: (socketRef: any) => {
+        set({ socketRef });
+      },
+      setActiveChatState(isLoading) {
+        set((state) => ({
+          teamLoading: isLoading
+        }));
       },
     }),
-
     {
       name: 'team-chat-store',
     },

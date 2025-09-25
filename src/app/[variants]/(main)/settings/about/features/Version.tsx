@@ -49,15 +49,10 @@ const Version = memo<{ mobile?: boolean }>(({ mobile }) => {
           <div style={{ fontSize: 18, fontWeight: 'bolder' }}>{BRANDING_NAME}</div>
           <div>
             <Tag>v{CURRENT_VERSION}</Tag>
-            {hasNewVersion && (
-              <Tag color={'info'}>
-                {t('upgradeVersion.newVersion', { version: `v${latestVersion}` })}
-              </Tag>
-            )}
           </div>
         </Flexbox>
       </Flexbox>
-      <Flexbox flex={mobile ? 1 : undefined} gap={8} horizontal>
+      {/* <Flexbox flex={mobile ? 1 : undefined} gap={8} horizontal>
         <Link href={CHANGELOG_URL} style={{ flex: 1 }} target={'_blank'}>
           <Button block={mobile}>{t('changelog')}</Button>
         </Link>
@@ -68,7 +63,7 @@ const Version = memo<{ mobile?: boolean }>(({ mobile }) => {
             </Button>
           </Link>
         )}
-      </Flexbox>
+      </Flexbox> */}
     </Flexbox>
   );
 });

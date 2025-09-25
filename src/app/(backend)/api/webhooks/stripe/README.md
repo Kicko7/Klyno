@@ -46,7 +46,7 @@ Set the following environment variables in your `.env.local` file:
 # Stripe Configuration
 STRIPE_SECRET_KEY=sk_live_xxxxxxxxxxxxxxxxxxxxxx
 STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxxxxxxxx
-STRIPE_API_VERSION=2024-12-18.acacia
+STRIPE_API_VERSION=2025-07-30.basil
 
 # Application Configuration
 APP_URL=https://yourdomain.com
@@ -116,8 +116,8 @@ case 'customer.subscription.created': {
     userId,
     subscription.id,
     subscription.customer,
-    priceId,
-    plan,
+    priceId, // persisted as stripePriceId
+    plan,    // persisted: planId, planName, monthlyCredits, file/vector limits, price, interval
     status,
     currentPeriodStart,
     currentPeriodEnd,
@@ -152,29 +152,29 @@ case 'invoice.payment_succeeded': {
 
 ```mermaid
 graph TD
-    A[Stripe Webhook] --> B[Signature Verification]
-    B --> C[Event Type Detection]
-    C --> D{Event Type}
+    A["Stripe Webhook"] --> B["Signature Verification"]
+    B --> C["Event Type Detection"]
+    C --> D{"Event Type"}
 
-    D -->|checkout.session.completed| E[Process Checkout]
-    D -->|customer.subscription.created| F[Create Subscription]
-    D -->|customer.subscription.updated| G[Update Subscription]
-    D -->|customer.subscription.deleted| H[Delete Subscription]
-    D -->|invoice.payment_succeeded| I[Allocate Credits]
-    D -->|invoice.payment_failed| J[Mark Past Due]
-    D -->|charge.refunded| K[Process Refund]
+    D -->|"checkout.session.completed"| E["Process Checkout"]
+    D -->|"customer.subscription.created"| F["Create Subscription"]
+    D -->|"customer.subscription.updated"| G["Update Subscription"]
+    D -->|"customer.subscription.deleted"| H["Delete Subscription"]
+    D -->|"invoice.payment_succeeded"| I["Allocate Credits"]
+    D -->|"invoice.payment_failed"| J["Mark Past Due"]
+    D -->|"charge.refunded"| K["Process Refund"]
 
-    E --> L[Credit Manager]
-    F --> M[Subscription Manager]
+    E --> L["Credit Manager"]
+    F --> M["Subscription Manager"]
     G --> M
     H --> M
     I --> M
     J --> M
     K --> L
 
-    L --> N[Database: Credit Transactions]
-    M --> O[Database: User Subscriptions]
-    M --> P[Database: Usage Quotas]
+    L --> N["Database: Credit Transactions"]
+    M --> O["Database: User Subscriptions"]
+    M --> P["Database: Usage Quotas"]
 ```
 
 ## Error Handling
@@ -274,10 +274,15 @@ console.error('Error processing checkout.session.completed:', error);
 - **Symptom**: `Cannot process subscription: userId not found`
 - **Solution**: Ensure `userId` is included in Stripe metadata or customer lookup works
 
-#### Plan Mapping Failures
+#### Plan Mapping and Plan ID Not Updating
 
-- **Symptom**: `Could not map product to plan configuration`
-- **Solution**: Verify Stripe product metadata contains required fields
+- **Symptoms**:
+  - `planId`/`planName` in DB not reflecting latest Stripe product
+  - Logs show plan mapping fallback or failure
+- **Solutions**:
+  - Ensure Stripe Product contains `metadata.plan_key` matching backend `PlanMapper`
+  - Alternatively, include `plan_id`, `plan_name`, `monthly_credits`, `file_storage_gb`, `vector_storage_mb`, `price_cents`, `billing_interval` in product metadata
+  - Confirm the webhook events `customer.subscription.created/updated` are enabled and delivering
 
 ## Security Considerations
 

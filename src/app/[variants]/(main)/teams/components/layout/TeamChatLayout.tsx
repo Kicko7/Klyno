@@ -1,16 +1,17 @@
 'use client';
 
 import { createStyles } from 'antd-style';
-import { Suspense, useMemo } from 'react';
-import { Flexbox } from 'react-layout-kit';
+import { Suspense, useCallback, useMemo } from 'react';
 
+import DragUpload from '@/components/DragUpload';
+import FileList from '@/features/ChatInput/Desktop/FilePreview/FileList';
 import { SkeletonList } from '@/features/Conversation';
+import { useFileStore } from '@/store/file';
 import { useTeamChatStore } from '@/store/teamChat';
 
 import TeamChatInput from '../TeamChatInput';
-import TeamChatList from '../TeamChatMessages';
+import TeamChatMessages from '../TeamChatMessages';
 import TeamChatHeader from './TeamChatHeader';
-import FileList from '@/features/ChatInput/Desktop/FilePreview/FileList';
 
 const useStyles = createStyles(({ css, token }) => ({
   container: css`
@@ -18,14 +19,28 @@ const useStyles = createStyles(({ css, token }) => ({
     display: flex;
     flex-direction: column;
     background: ${token.colorBgLayout};
+    overflow: hidden; /* Prevent flex collapse */
+  `,
+  headerContainer: css`
+    flex-shrink: 0;
+    border-bottom: 1px solid ${token.colorBorder};
+    background: ${token.colorBgContainer};
+    z-index: 5;
   `,
   messagesContainer: css`
     flex: 1;
-    overflow-x: hidden;
+    min-height: 0; /* critical for flex scroll */
     overflow-y: auto;
+    scroll-behavior: smooth;
     position: relative;
-    min-height: 0; /* Critical for flexbox scrolling */
-    scroll-behavior: smooth; /* Smooth scroll on programmatic scrolls */
+  `,
+  fileListContainer: css`
+    flex-shrink: 0;
+    background: ${token.colorBgContainer};
+    border-top: 1px solid ${token.colorBorder};
+    padding: 4px 8px;
+    max-height: 150px;
+    overflow-y: auto;
   `,
   inputContainer: css`
     flex-shrink: 0;
@@ -39,8 +54,6 @@ const useStyles = createStyles(({ css, token }) => ({
 interface TeamChatLayoutProps {
   teamChatId: string;
   mobile?: boolean;
-  onLoadMore?: () => Promise<void>;
-  hasMore?: boolean;
   isLoading?: boolean;
   isTransitioning?: boolean;
 }
@@ -48,43 +61,55 @@ interface TeamChatLayoutProps {
 const TeamChatLayout = ({
   teamChatId,
   mobile,
-  onLoadMore,
-  hasMore,
   isLoading,
   isTransitioning,
 }: TeamChatLayoutProps) => {
-  // Get messages from store with stable reference
-  const messages = useTeamChatStore((state) => {
-    const chatMessages = state.messages[teamChatId];
-    return chatMessages || null;
-  });
-
-  // Memoize messages to prevent infinite re-renders
-  const memoizedMessages = useMemo(() => {
-    return messages || [];
-  }, [messages]);
+  
+  const messages = useTeamChatStore(
+    useCallback((state) => state.messages[teamChatId] || [], [teamChatId])
+  );
+  
 
   const { styles } = useStyles();
-
-  // Combine loading states
   const isLoadingState = isLoading || isTransitioning;
 
-  return (
-    <>
-      {/* <TeamChatHeader teamChatId={teamChatId} /> */}
-      <div className={styles.container}>
-        <div className={styles.messagesContainer}>
-          <Suspense fallback={<SkeletonList mobile={mobile} />}>
-            <TeamChatList messages={memoizedMessages} isLoading={isLoadingState} />
-          </Suspense>
-        </div>
+  // Get file store for uploads
+  const uploadFiles = useFileStore((s) => s.uploadChatFiles);
 
-          <FileList />
-        <div className={styles.inputContainer}>
-          <TeamChatInput teamChatId={teamChatId} />
-        </div>
+  const handleUploadFiles = async (files: File[]) => {
+    if (files.length > 0) {
+      await uploadFiles(files);
+    }
+  };
+
+  const activeTeamChatId = useTeamChatStore(useCallback((state) => state.activeTeamChatId, []));
+  return (
+    <div className={styles.container}>
+      {/* DragUpload for copy-paste and drag-and-drop file uploads */}
+      <DragUpload onUploadFiles={handleUploadFiles} />
+      
+      {/* Fixed Header */}
+      <div className={styles.headerContainer}>
+        <TeamChatHeader teamChatId={teamChatId} />
       </div>
-    </>
+
+      {/* Messages */}
+      <div className={styles.messagesContainer}>
+        <Suspense fallback={<SkeletonList mobile={mobile} />}>
+          <TeamChatMessages messages={messages} isLoading={isLoadingState} teamId={activeTeamChatId as string}/>
+        </Suspense>
+      </div>
+
+      {/* File List */}
+      <div className={styles.fileListContainer}>
+        <FileList />
+      </div>
+
+      {/* Chat Input */}
+      <div className={styles.inputContainer}>
+        <TeamChatInput teamChatId={teamChatId} />
+      </div>
+    </div>
   );
 };
 

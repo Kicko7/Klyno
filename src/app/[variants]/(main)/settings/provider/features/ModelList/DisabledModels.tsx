@@ -1,46 +1,30 @@
-import { Button, Text } from '@lobehub/ui';
 import isEqual from 'fast-deep-equal';
-import { ChevronDown } from 'lucide-react';
-import { memo, useState } from 'react';
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Flexbox } from 'react-layout-kit';
 
 import { useAiInfraStore } from '@/store/aiInfra';
 import { aiModelSelectors } from '@/store/aiInfra/selectors';
 
-import ModelItem from './ModelItem';
+import PaginatedModelList from './PaginatedModelList';
 
 const DisabledModels = memo(() => {
   const { t } = useTranslation('modelProvider');
-
-  const [showMore, setShowMore] = useState(false);
   const disabledModels = useAiInfraStore(aiModelSelectors.disabledAiProviderModelList, isEqual);
 
-  const displayModels = showMore ? disabledModels : disabledModels.slice(0, 10);
+  // Only render if there are disabled models
+  if (disabledModels.length === 0) {
+    return null;
+  }
 
   return (
-    disabledModels.length > 0 && (
-      <Flexbox>
-        <Text style={{ fontSize: 12, marginTop: 8 }} type={'secondary'}>
-          {t('providerModels.list.disabled')}
-        </Text>
-        {displayModels.map((item) => (
-          <ModelItem {...item} key={item.id} />
-        ))}
-        {!showMore && disabledModels.length > 10 && (
-          <Button
-            block
-            icon={ChevronDown}
-            onClick={() => {
-              setShowMore(true);
-            }}
-            size={'small'}
-          >
-            {t('providerModels.list.disabledActions.showMore')}
-          </Button>
-        )}
-      </Flexbox>
-    )
+    <PaginatedModelList
+      models={disabledModels}
+      itemsPerPage={10}
+      virtualizationThreshold={50}
+      title={t('providerModels.list.disabled')}
+      description="These are disabled AI models. Scroll down or click 'Show More' to see all available models and enable the ones you want to use."
+      showVirtualization={true}
+    />
   );
 });
 

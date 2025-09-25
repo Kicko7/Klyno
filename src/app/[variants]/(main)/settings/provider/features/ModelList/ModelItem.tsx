@@ -57,6 +57,7 @@ interface ModelItemProps extends AiProviderModelListItem {
   pricing?: ChatModelPricing;
   releasedAt?: string;
   removed?: boolean;
+  providerId?:string;
 }
 
 const ModelItem = memo<ModelItemProps>(
@@ -71,6 +72,7 @@ const ModelItem = memo<ModelItemProps>(
     contextWindowTokens,
     abilities,
     type,
+    providerId
   }) => {
     const { styles } = useStyles();
     const { t } = useTranslation(['modelProvider', 'components', 'models', 'common']);
@@ -173,16 +175,6 @@ const ModelItem = memo<ModelItemProps>(
                   {...abilities}
                   contextWindowTokens={contextWindowTokens}
                 />
-                {/*{removed && (*/}
-                {/*  <Tooltip*/}
-                {/*    overlayStyle={{ maxWidth: 300 }}*/}
-                {/*    placement={'top'}*/}
-                {/*    style={{ pointerEvents: 'none' }}*/}
-                {/*    title={t('ModelSelect.removed')}*/}
-                {/*  >*/}
-                {/*    <ActionIcon icon={Recycle} style={{ color: theme.colorWarning }} />*/}
-                {/*  </Tooltip>*/}
-                {/*)}*/}
               </Flexbox>
             </Flexbox>
             <div>

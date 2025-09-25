@@ -46,8 +46,8 @@ export class OrganizationService {
     return this.organizationModel.getPendingInvitations(userId);
   }
 
-  async removeMember(organizationId: string, memberId: string) {
-    return this.organizationModel.removeOrganizationMember(organizationId, memberId);
+  async removeMember(organizationId: string, memberId: string,stripeSubscriptionId?: string, stripeCustomerId?: string, interval?: 'month' | 'year') {
+    return this.organizationModel.removeOrganizationMember(organizationId, memberId,stripeSubscriptionId, stripeCustomerId, interval);
   }
 
   async addOrganizationMember(params: NewOrganizationMember) {
@@ -327,4 +327,16 @@ export class OrganizationService {
       invitation,
     };
   }
+  async getOrganizationById(organizationId: string) {
+    return this.organizationModel.getOrganizationById(organizationId);
+  }
+
+  async updateOrganizationDefaultModels(organizationId: string, defaultModels: string[]) {
+    return this.organizationModel.updateOrganizationDefaultModels(organizationId, defaultModels);
+  }
+
+  async getDefaultModels(organizationId: string) {
+    return this.organizationModel.getDefaultModels(organizationId);
+  }
+  
 }

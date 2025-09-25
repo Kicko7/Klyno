@@ -20,6 +20,7 @@ import { Center, Flexbox } from 'react-layout-kit';
 import urlJoin from 'url-join';
 import { z } from 'zod';
 
+import CustomOpenRouterIcon from '@/components/ProviderIcons/CustomOpenRouterIcon';
 import { FormInput, FormPassword } from '@/components/FormInput';
 import { FORM_STYLE } from '@/const/layoutTokens';
 import { AES_GCM_URL, BASE_PROVIDER_DOC_URL } from '@/const/url';
@@ -350,7 +351,11 @@ const ProviderConfig = memo<ProviderConfigProps>(
             </Flexbox>
           ) : (
             <>
-              <ProviderCombine provider={id} size={24} />
+              {id === 'openrouter' ? (
+                <CustomOpenRouterIcon size={24} type={'avatar'} />
+              ) : (
+                <ProviderCombine provider={id} size={24} />
+              )}
               <Tooltip title={t('providerModels.config.helpDoc')}>
                 <Link
                   href={urlJoin(BASE_PROVIDER_DOC_URL, id)}

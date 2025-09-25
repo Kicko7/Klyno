@@ -28,7 +28,8 @@ export const useSendMessage = () => {
 
   const canSend = !isUploadingFiles && !isSendButtonDisabledByMessage;
 
-  const send = useCallback((params: UseSendMessageParams = {}) => {
+  const send = useCallback((params: UseSendMessageParams = {}, subscription?: any) => {
+    console.log(subscription,'[SUBSCRIPTION IN SEND MESSAGE]')
     const store = useChatStore.getState();
     if (chatSelectors.isAIGenerating(store)) return;
 
@@ -45,9 +46,11 @@ export const useSendMessage = () => {
     // if there is no message and no image, then we should not send the message
     if (!store.inputMessage && fileList.length === 0) return;
 
+    // Check if model supports file uploads when files are present
     sendMessage({
       files: fileList,
       message: store.inputMessage,
+      subscription:subscription || {},
       ...params,
     });
 

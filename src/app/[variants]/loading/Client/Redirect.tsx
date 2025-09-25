@@ -1,13 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { memo, useEffect } from 'react';
+import { memo, useEffect, useState } from 'react';
 
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
 import { useUserStore } from '@/store/user';
 
 import { AppLoadingStage } from '../stage';
+import { useAffiliateStore } from '@/store/affiliate/store';
 
 interface RedirectProps {
   setActiveStage: (value: AppLoadingStage) => void;
@@ -18,11 +19,32 @@ const Redirect = memo<RedirectProps>(({ setActiveStage }) => {
   const isUserStateInit = useUserStore((s) => s.isUserStateInit);
 
   const isPgliteNotEnabled = useGlobalStore(systemStatusSelectors.isPgliteNotEnabled);
+  const [affiliateRef, setAffiliateRef] = useState<string | null>(null);
+  const addAffiliateRef = useAffiliateStore((state) => state.addAffiliateRef);
+  const updateUserAffiliateRef = useAffiliateStore((state) => state.updateUserAffiliateRef);
 
   const navToChat = () => {
     setActiveStage(AppLoadingStage.GoToChat);
     router.replace('/chat');
   };
+
+  const handleAffiliateRef = async () => {
+    const user = useUserStore.getState().user;
+    if(user && affiliateRef) {
+      const affiliate = await addAffiliateRef({ link: affiliateRef, userId: user.id });
+      updateUserAffiliateRef({ affiliateId: affiliate?.id, userId: user.id });
+      localStorage.removeItem('affiliateRef');
+      setAffiliateRef(null);
+    }
+  }
+
+  // Safely get affiliateRef from localStorage on client side
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const ref = localStorage.getItem('affiliateRef');
+      setAffiliateRef(ref);
+    }
+  }, []);
 
   useEffect(() => {
     // if pglite is not enabled, redirect to chat
@@ -35,6 +57,11 @@ const Redirect = memo<RedirectProps>(({ setActiveStage }) => {
     if (!isUserStateInit) {
       setActiveStage(AppLoadingStage.InitUser);
       return;
+    }
+
+    const user = useUserStore.getState().user;
+    if(user && affiliateRef) {
+     handleAffiliateRef();
     }
 
     // finally check the conversation status

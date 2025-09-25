@@ -1,10 +1,11 @@
 import { ActionIcon, Icon } from '@lobehub/ui';
+import { Spin } from 'antd';
 import { createStyles } from 'antd-style';
 import type { ItemType } from 'antd/es/menu/interface';
 import { LucideArrowRight, LucideBolt } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { type ReactNode, memo, useMemo } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { type ReactNode, memo, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Flexbox } from 'react-layout-kit';
 
@@ -12,9 +13,16 @@ import { ModelItemRender, ProviderItemRender } from '@/components/ModelSelect';
 import { isDeprecatedEdition } from '@/const/version';
 import ActionDropdown from '@/features/ChatInput/ActionBar/components/ActionDropdown';
 import { useEnabledChatModels } from '@/hooks/useEnabledChatModels';
+import { useUserSubscription } from '@/hooks/useUserSubscription';
+import { lambdaClient } from '@/libs/trpc/client';
 import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/slices/chat';
+import { useAiInfraStore } from '@/store/aiInfra';
+import { useOrganizationStore } from '@/store/organization/store';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
+import { useTeamChatStore } from '@/store/teamChat';
+import { useUserStore } from '@/store/user';
+import { authSelectors } from '@/store/user/selectors';
 import { EnabledProviderWithModels } from '@/types/aiProvider';
 
 const useStyles = createStyles(({ css, prefixCls }) => ({
@@ -45,27 +53,128 @@ interface IProps {
   onOpenChange?: (open: boolean) => void;
   open?: boolean;
   updating?: boolean;
+  sessionId?: string;
 }
 
-const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open }) => {
+const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open, sessionId }) => {
   const { t } = useTranslation('components');
   const { styles, theme } = useStyles();
   const [model, provider, updateAgentConfig] = useAgentStore((s) => [
-    agentSelectors.currentAgentModel(s),
-    agentSelectors.currentAgentModelProvider(s),
+    sessionId
+      ? agentSelectors.getAgentConfigBySessionId(sessionId)(s)?.model || 'gpt-4'
+      : agentSelectors.currentAgentModel(s),
+    sessionId
+      ? agentSelectors.getAgentConfigBySessionId(sessionId)(s)?.provider || 'openai'
+      : agentSelectors.currentAgentModelProvider(s),
     s.updateAgentConfig,
   ]);
+
   const { showLLM } = useServerConfigStore(featureFlagsSelectors);
   const router = useRouter();
   const enabledList = useEnabledChatModels();
 
+  const isLogin = useUserStore(authSelectors.isLogin);
+
+  // Get loading state for model list
+  const { isLoading: isModelListLoading } = useAiInfraStore((s) =>
+    s.useFetchAiProviderRuntimeState(isLogin, undefined),
+  );
+
+  const pathname = usePathname();
+  const isTeamChat = pathname.includes('teams');
+  const activeTeamChatId = useTeamChatStore((state) => state.activeTeamChatId);
+  const { defaultModels, selectedOrganizationId, getDefaultModels } = useOrganizationStore();
+  const currentOrganization = useOrganizationStore((state) =>
+    state.organizations.find((organization) => organization.id === selectedOrganizationId),
+  );
+  // console.log(currentOrganization)
+  const { subscriptionInfo } = useUserSubscription();
+  const [teamChatDefaultModels, setTeamChatDefaultModels] = useState<string[]>([]);
+
+  async function getTeamChatDefaultModels() {
+    const data = await lambdaClient.teamChat.getTeamChatDefaultModels.query({
+      teamChatId: activeTeamChatId as string,
+    });
+    setTeamChatDefaultModels(data || []);
+    return data;
+  }
+
+  useEffect(() => {
+    if (selectedOrganizationId && activeTeamChatId) {
+      getTeamChatDefaultModels();
+      getDefaultModels(selectedOrganizationId);
+    }
+  }, [activeTeamChatId]);
+
   const items = useMemo<ItemType[]>(() => {
+    // Show loading state if model list is being fetched
+    if (isModelListLoading || !enabledList || enabledList.length === 0) {
+      return [
+        {
+          key: 'loading',
+          label: (
+            <Flexbox align="center" gap={8} horizontal justify="center" style={{ padding: '12px' }}>
+              <Spin size="small" />
+              <span style={{ color: theme.colorTextTertiary }}>Loading models...</span>
+            </Flexbox>
+          ),
+          disabled: true,
+        },
+      ];
+    }
+
+    // Filter models based on team chat, subscription, and organization default models
+    let filteredEnabledList = enabledList;
+
+    if (isTeamChat) {
+      // In team chat: show organization default models, if empty then show all models
+
+      if (teamChatDefaultModels.length > 0) {
+        filteredEnabledList = enabledList
+          .map((provider) => ({
+            ...provider,
+            children: provider.children.filter((model) => teamChatDefaultModels.includes(model.id)),
+          }))
+          .filter((provider) => provider.children.length > 0);
+      } else {
+        if (selectedOrganizationId && defaultModels.length > 0) {
+          const orgDefaultModels = defaultModels;
+          filteredEnabledList = enabledList
+            .map((provider) => ({
+              ...provider,
+              children: provider.children.filter((model) => orgDefaultModels.includes(model.id)),
+            }))
+            .filter((provider) => provider.children.length > 0);
+        } else {
+          filteredEnabledList = enabledList.filter((provider) => provider.id === 'openrouter');
+        }
+      }
+
+      // If no default models, show all enabled models (filteredEnabledList remains as enabledList)
+    } else {
+      // Not in team chat: check subscription
+      if (!subscriptionInfo || subscriptionInfo.subscription?.status !== 'active') {
+        // No subscription: show only free models
+        filteredEnabledList = enabledList
+          .map((provider) => ({
+            ...provider,
+            children: provider.children.filter((model) => model.id.toLowerCase().includes('free')),
+          }))
+          .filter((provider) => provider.children.length > 0);
+      }
+      // If subscribed, show all enabled models (filteredEnabledList remains as enabledList)
+    }
+
     const getModelItems = (provider: EnabledProviderWithModels) => {
       const items = provider.children.map((model) => ({
         key: menuKey(provider.id, model.id),
         label: <ModelItemRender {...model} {...model.abilities} />,
         onClick: async () => {
-          await updateAgentConfig({ model: model.id, provider: provider.id });
+          if (sessionId) {
+            await updateAgentConfig({ model: model.id, provider: provider.id }, sessionId);
+          } else {
+            await updateAgentConfig({ model: model.id, provider: provider.id });
+          }
         },
       }));
 
@@ -81,8 +190,16 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open }) => {
               </Flexbox>
             ),
             onClick: () => {
+              // Custom URL mapping for specific providers
+              const getProviderUrl = (providerId: string, providerName: string) => {
+                if (providerId === 'openrouter') {
+                  return '/settings/provider/klyno';
+                }
+                return `/settings/provider/${providerId}`;
+              };
+
               router.push(
-                isDeprecatedEdition ? '/settings/llm' : `/settings/provider/${provider.id}`,
+                isDeprecatedEdition ? '/settings/llm' : getProviderUrl(provider.id, provider.name),
               );
             },
           },
@@ -91,13 +208,17 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open }) => {
       return items;
     };
 
-    if (enabledList.length === 0)
+    if (filteredEnabledList.length === 0)
       return [
         {
           key: `no-provider`,
           label: (
             <Flexbox gap={8} horizontal style={{ color: theme.colorTextTertiary }}>
-              {t('ModelSwitchPanel.emptyProvider')}
+              {isTeamChat
+                ? 'No models available for this organization'
+                : !subscriptionInfo
+                  ? 'No free models available'
+                  : t('ModelSwitchPanel.emptyProvider')}
               <Icon icon={LucideArrowRight} />
             </Flexbox>
           ),
@@ -107,8 +228,24 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open }) => {
         },
       ];
 
+    // Auto-select first model when user joins team chat (only if sessionId exists and we have models)
+    if (
+      isTeamChat &&
+      sessionId &&
+      filteredEnabledList.length > 0 &&
+      filteredEnabledList[0].children.length > 0
+    ) {
+      updateAgentConfig(
+        {
+          model: filteredEnabledList[0].children[0].id,
+          provider: filteredEnabledList[0].id,
+        },
+        sessionId,
+      );
+    }
+
     // otherwise show with provider group
-    return enabledList.map((provider) => ({
+    return filteredEnabledList.map((provider) => ({
       children: getModelItems(provider),
       key: provider.id,
       label: (
@@ -119,22 +256,45 @@ const ModelSwitchPanel = memo<IProps>(({ children, onOpenChange, open }) => {
             provider={provider.id}
             source={provider.source}
           />
-          {showLLM && (
-            <Link
-              href={isDeprecatedEdition ? '/settings/llm' : `/settings/provider/${provider.id}`}
-            >
-              <ActionIcon
-                icon={LucideBolt}
-                size={'small'}
-                title={t('ModelSwitchPanel.goToSettings')}
-              />
-            </Link>
-          )}
+          {showLLM &&
+            ((isTeamChat && currentOrganization?.memberRole === 'owner') ||
+              (!isTeamChat && subscriptionInfo?.subscription?.status === 'active')) && (
+              <Link
+                href={
+                  isDeprecatedEdition
+                    ? '/settings/llm'
+                    : provider.id === 'openrouter' && provider.name === 'KlynoAI'
+                      ? '/settings/provider/klyno'
+                      : `/settings/provider/${provider.id}`
+                }
+              >
+                <ActionIcon
+                  icon={LucideBolt}
+                  size={'small'}
+                  title={t('ModelSwitchPanel.goToSettings')}
+                />
+              </Link>
+            )}
         </Flexbox>
       ),
       type: 'group',
     }));
-  }, [enabledList]);
+  }, [
+    enabledList,
+    isTeamChat,
+    selectedOrganizationId,
+    defaultModels,
+    subscriptionInfo,
+    t,
+    theme.colorTextTertiary,
+    router,
+    showLLM,
+    updateAgentConfig,
+    sessionId,
+    isModelListLoading,
+    teamChatDefaultModels,
+    currentOrganization,
+  ]);
 
   const icon = <div className={styles.tag}>{children}</div>;
 

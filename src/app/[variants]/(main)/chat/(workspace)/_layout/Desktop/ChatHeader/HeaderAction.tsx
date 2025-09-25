@@ -16,6 +16,7 @@ import { HotkeyEnum } from '@/types/hotkey';
 
 import SettingButton from '../../../features/SettingButton';
 import ShareButton from '../../../features/ShareButton';
+import { useTeamChatStore } from '@/store/teamChat';
 
 const HeaderAction = memo<{ className?: string }>(({ className }) => {
   const { t } = useTranslation('chat');
@@ -27,13 +28,23 @@ const HeaderAction = memo<{ className?: string }>(({ className }) => {
 
   const { isAgentEditable } = useServerConfigStore(featureFlagsSelectors);
 
+  const activeTeamChatId = useTeamChatStore((s) => s.activeTeamChatId);
+
+  const toggleWorkspace = useTeamChatStore((s) => s.toggleWorkspace);
+
   return (
     <Flexbox className={className} gap={4} horizontal>
       <ShareButton />
       <Tooltip hotkey={hotkey} title={t('toggleRightPanel.title', { ns: 'hotkey' })}>
         <ActionIcon
           icon={showAgentSettings ? PanelRightClose : PanelRightOpen}
-          onClick={() => toggleConfig()}
+          onClick={() => {
+            if (activeTeamChatId) {
+              toggleWorkspace();
+            } else {
+              toggleConfig();
+            }
+          }}
           size={DESKTOP_HEADER_ICON_SIZE}
         />
       </Tooltip>

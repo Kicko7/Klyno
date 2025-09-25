@@ -1,17 +1,17 @@
 {
   "actions": {
     "autoRename": "Smart Rename",
-    "confirmRemoveAll": "You are about to delete all topics. This action cannot be undone, please proceed with caution.",
-    "confirmRemoveTopic": "You are about to delete this topic. This action cannot be undone, please proceed with caution.",
-    "confirmRemoveUnstarred": "You are about to delete unstarred topics. This action cannot be undone, please proceed with caution.",
+    "confirmRemoveAll": "You are about to delete all chats. This action cannot be undone, please proceed with caution.",
+    "confirmRemoveTopic": "You are about to delete this chat. This action cannot be undone, please proceed with caution.",
+    "confirmRemoveUnstarred": "You are about to delete unstarred chats. This action cannot be undone, please proceed with caution.",
     "duplicate": "Create Copy",
-    "export": "Export Topics",
-    "removeAll": "Delete All Topics",
-    "removeUnstarred": "Delete Unstarred Topics"
+    "export": "Export Chats",
+    "removeAll": "Delete All Chats",
+    "removeUnstarred": "Delete Unstarred Chat"
   },
-  "defaultTitle": "Default Topic",
-  "duplicateLoading": "Copying Topic...",
-  "duplicateSuccess": "Topic Copied Successfully",
+  "defaultTitle": "Default Chat",
+  "duplicateLoading": "Copying Chat...",
+  "duplicateSuccess": "Chat Copied Successfully",
   "favorite": "Favorite",
   "groupMode": {
     "ascMessages": "Sort by Total Messages Ascending",
@@ -28,11 +28,11 @@
     }
   },
   "guide": {
-    "desc": "Click the button on the left to save the current conversation as a historical topic and start a new conversation.",
-    "title": "Topic List"
+    "desc": "Click the button on the left to save the current conversation as a historical chat and start a new conversation.",
+    "title": "Chat List"
   },
-  "searchPlaceholder": "Search Topics...",
+  "searchPlaceholder": "Search Chats...",
   "searchResultEmpty": "No search results found.",
   "temp": "Temporary",
-  "title": "Topic"
+  "title": "Chats"
 }

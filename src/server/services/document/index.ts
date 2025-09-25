@@ -1,4 +1,3 @@
-import { loadFile } from '@lobechat/file-loaders';
 import debug from 'debug';
 
 import { DocumentModel } from '@/database/models/document';
@@ -34,7 +33,8 @@ export class DocumentService {
     log(`${logPrefix} 开始解析文件, 路径: ${filePath}`);
 
     try {
-      // 使用loadFile加载文件内容
+      // 使用loadFile加载文件内容 - dynamically import to avoid edge runtime issues
+      const { loadFile } = await import('@lobechat/file-loaders');
       const fileDocument = await loadFile(filePath);
 
       log(`${logPrefix} 文件解析成功 %O`, {

@@ -62,7 +62,8 @@ const DefaultMode = memo(() => {
           label: name,
         })),
         {
-          children: <SessionList dataSource={defaultSessions || []} />,
+          // Passing empty array to avoid showing the default list because of teams organization
+          children: <SessionList dataSource={defaultSessions.filter((session) => session.meta.title !== 'Team Chat')} />,
           extra: <Actions openConfigModal={() => setConfigGroupModalOpen(true)} />,
           key: SessionDefaultGroup.Default,
           label: t('defaultList'),

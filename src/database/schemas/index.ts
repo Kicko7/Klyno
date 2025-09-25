@@ -19,3 +19,5 @@ export * from './user';
 export * from './userCredits';
 export * from './userSubscriptions';
 export * from './userUsageQuotas';
+export * from './sharedFolder'
+export * from './affiliate'

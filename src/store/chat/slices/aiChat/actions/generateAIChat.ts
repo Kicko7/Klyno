@@ -7,6 +7,8 @@ import { StateCreator } from 'zustand/vanilla';
 import { LOADING_FLAT, MESSAGE_CANCEL_FLAT } from '@/const/message';
 import { TraceEventType, TraceNameMap } from '@/const/trace';
 import { isServerMode } from '@/const/version';
+import { useUserSubscription } from '@/hooks/useUserSubscription';
+import { lambdaClient } from '@/libs/trpc/client';
 import { knowledgeBaseQAPrompts } from '@/prompts/knowledgeBaseQA';
 import { chatService } from '@/services/chat';
 import { messageService } from '@/services/message';
@@ -20,6 +22,7 @@ import { ChatStore } from '@/store/chat/store';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { getFileStoreState } from '@/store/file/store';
 import { useSessionStore } from '@/store/session';
+import { getUserStoreState } from '@/store/user';
 import { WebBrowsingManifest } from '@/tools/web-browsing';
 import { ChatMessage, CreateMessageParams, SendMessageParams } from '@/types/message';
 import { ChatImageItem } from '@/types/message/image';
@@ -27,6 +30,7 @@ import { MessageSemanticSearchChunk } from '@/types/rag';
 import { setNamespace } from '@/utils/storeDebug';
 
 import { chatSelectors, topicSelectors } from '../../../selectors';
+import { calculateCreditsByPlan } from '@/utils/calculateCredits';
 
 const n = setNamespace('ai');
 
@@ -46,7 +50,7 @@ export interface AIGenerateAction {
   /**
    * Sends a new message to the AI chat system
    */
-  sendMessage: (params: SendMessageParams) => Promise<void>;
+  sendMessage: (params: SendMessageParams, subscription?: any) => Promise<void>;
   /**
    * Regenerates a specific message in the chat
    */
@@ -72,6 +76,7 @@ export interface AIGenerateAction {
     messages: ChatMessage[],
     parentId: string,
     params?: ProcessMessageParams,
+    subscription?: any,
   ) => Promise<void>;
   /**
    * Retrieves an AI-generated chat message from the backend service
@@ -82,6 +87,7 @@ export interface AIGenerateAction {
     params?: ProcessMessageParams;
     model: string;
     provider: string;
+    subscription?: any;
   }) => Promise<{
     isFunctionCall: boolean;
     traceId?: string;
@@ -144,7 +150,7 @@ export const generateAIChat: StateCreator<
     get().internal_traceMessage(id, { eventType: TraceEventType.RegenerateMessage });
   },
 
-  sendMessage: async ({ message, files, onlyAddUserMessage, isWelcomeQuestion }) => {
+  sendMessage: async ({ message, files, onlyAddUserMessage, isWelcomeQuestion, subscription }) => {
     const { internal_coreProcessMessage, activeTopicId, activeId, activeThreadId } = get();
     if (!activeId) return;
 
@@ -160,7 +166,9 @@ export const generateAIChat: StateCreator<
     const newMessage: CreateMessageParams = {
       content: message,
       // if message has attached with files, then add files to message and the agent
-      files: fileIdList,
+      // Note: files field expects ChatFileItem[], but we have fileIdList which is string[]
+      // We'll use the deprecated files field for now since it expects string[]
+      files: fileIdList as any, // Type assertion to bypass the type mismatch temporarily
       role: 'user',
       sessionId: activeId,
       // if there is activeTopicId，then add topicId to message
@@ -245,11 +253,16 @@ export const generateAIChat: StateCreator<
     const messages = chatSelectors.activeBaseChats(get());
     const userFiles = chatSelectors.currentUserFiles(get()).map((f) => f.id);
 
-    await internal_coreProcessMessage(messages, id, {
-      isWelcomeQuestion,
-      ragQuery: get().internal_shouldUseRAG() ? message : undefined,
-      threadId: activeThreadId,
-    });
+    await internal_coreProcessMessage(
+      messages,
+      id,
+      {
+        isWelcomeQuestion,
+        ragQuery: get().internal_shouldUseRAG() ? message : undefined,
+        threadId: activeThreadId,
+      },
+      subscription,
+    );
 
     set({ isCreatingMessage: false }, false, n('creatingMessage/stop'));
 
@@ -294,7 +307,7 @@ export const generateAIChat: StateCreator<
   },
 
   // the internal process method of the AI message
-  internal_coreProcessMessage: async (originalMessages, userMessageId, params) => {
+  internal_coreProcessMessage: async (originalMessages, userMessageId, params, subscription) => {
     const { internal_fetchAIChatMessage, triggerToolCalls, refreshMessages, activeTopicId } = get();
 
     // create a new array to avoid the original messages array change
@@ -461,6 +474,7 @@ export const generateAIChat: StateCreator<
       params,
       model,
       provider: provider!,
+      subscription,
     });
 
     // 5. if it's the function call message, trigger the function method
@@ -489,7 +503,14 @@ export const generateAIChat: StateCreator<
       await get().internal_summaryHistory(historyMessages);
     }
   },
-  internal_fetchAIChatMessage: async ({ messages, messageId, params, provider, model }) => {
+  internal_fetchAIChatMessage: async ({
+    messages,
+    messageId,
+    params,
+    provider,
+    model,
+    subscription,
+  }) => {
     const {
       internal_toggleChatLoading,
       refreshMessages,
@@ -509,7 +530,7 @@ export const generateAIChat: StateCreator<
     const chatConfig = agentChatConfigSelectors.currentChatConfig(getAgentStoreState());
 
     const compiler = template(chatConfig.inputTemplate, {
-      interpolate: /{{\s*(text)\s*}}/g
+      interpolate: /{{\s*(text)\s*}}/g,
     });
 
     // ================================== //
@@ -528,8 +549,8 @@ export const generateAIChat: StateCreator<
 
     // 2. replace inputMessage template
     preprocessMsgs = !chatConfig.inputTemplate
-    ? preprocessMsgs
-    : preprocessMsgs.map((m) => {
+      ? preprocessMsgs
+      : preprocessMsgs.map((m) => {
         if (m.role === 'user') {
           try {
             return { ...m, content: compiler({ text: m.content }) };
@@ -578,6 +599,7 @@ export const generateAIChat: StateCreator<
         provider,
         ...agentConfig.params,
         plugins: agentConfig.plugins,
+        subscription: subscription,
       },
       historySummary: historySummary?.content,
       trace: {
@@ -587,6 +609,7 @@ export const generateAIChat: StateCreator<
         traceName: TraceNameMap.Conversation,
       },
       isWelcomeQuestion: params?.isWelcomeQuestion,
+      subscription: subscription, // Add subscription parameter here
       onErrorHandle: async (error) => {
         await messageService.updateMessageError(messageId, error);
         await refreshMessages();
@@ -595,6 +618,29 @@ export const generateAIChat: StateCreator<
         content,
         { traceId, observationId, toolCalls, reasoning, grounding, usage, speed },
       ) => {
+
+        const aiInfraStoreState = getAiInfraStoreState();
+        const modelInfo = aiModelSelectors.getEnabledModelById(model, provider)(aiInfraStoreState) as any;
+
+        // Get model details
+        const modelPricing = modelInfo?.pricing;
+
+        if (!model.includes('free') && provider == 'openrouter') {
+          const credits = calculateCreditsByPlan(usage as any, modelPricing as any, subscription?.subscription?.planName);
+          const currentUser = getUserStoreState().user?.id;
+          if (currentUser) {
+            const result =
+              await lambdaClient.subscription.updateOrganizationSubscriptionInfo.mutate({
+                ownerId: currentUser,
+                creditsUsed: credits || 0,
+              });
+            if (result.success) {
+              window.dispatchEvent(
+                new CustomEvent('update-subscription-info', { detail: result.data }),
+              );
+            }
+          }
+        }
         // if there is traceId, update it
         if (traceId) {
           msgTraceId = traceId;
@@ -642,6 +688,8 @@ export const generateAIChat: StateCreator<
         });
       },
       onMessageHandle: async (chunk) => {
+
+
         switch (chunk.type) {
           case 'grounding': {
             // if there is no citations, then stop
