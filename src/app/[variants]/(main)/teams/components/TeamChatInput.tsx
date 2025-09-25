@@ -116,7 +116,6 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     agentChatConfigSelectors.historyCount(s),
     agentChatConfigSelectors.enableHistoryCount(s),
   ]);
-  console.log(historyCount, enableHistoryCount, 'historyCount, enableHistoryCount');
   
 
   // Calculate the effective max history messages
@@ -126,7 +125,6 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     }
     return Math.max(1, historyCount || DEFAULT_MAX_HISTORY_MESSAGES);
   }, [enableHistoryCount, historyCount]);
-  console.log(effectiveMaxHistoryMessages, 'effectiveMaxHistoryMessages');
   
   const isDuplicateMessage = useCallback((message: MessageStreamData, existingMessages: any[]) => {
     if (!message.id) return false;
