@@ -10,7 +10,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useRef, useState } from 'react';
 import { memo, useCallback, useEffect, useMemo } from 'react';
 import { Flexbox } from 'react-layout-kit';
-
 import HeaderAction from '@/app/[variants]/(main)/chat/(workspace)/_layout/Desktop/ChatHeader/HeaderAction';
 import { DESKTOP_HEADER_ICON_SIZE } from '@/const/layoutTokens';
 import { SkeletonList } from '@/features/Conversation';
@@ -116,7 +115,26 @@ const TeamChat = memo(() => {
     chatId,
     organizations,
   ]);
+// Add this inside your TeamChat component
+useEffect(() => {
+  if (!activeTeamChatId) return;
 
+  // ✅ Get chat directly from local store (no network call!)
+  const activeTeamChat = teamChats.find(chat => chat.id === activeTeamChatId) || null;
+
+  if (!activeTeamChat) {
+    console.warn('Active team chat not found in local store:', activeTeamChatId);
+    return;
+  }
+
+  // ✅ Extract creditsUsed from metadata
+  const creditsUsed = activeTeamChat.metadata?.creditsUsed || 0;
+  console.log(`Credits used for chat ${activeTeamChatId}:`, creditsUsed);
+
+  // ✅ Update Zustand store for real-time UI
+  useTeamChatStore.getState().setChatCreditTotal(activeTeamChatId, creditsUsed);
+  console.log('Updated credit total:', useTeamChatStore.getState().chatCreditTotals[activeTeamChatId]);
+}, [activeTeamChatId, teamChats]); // 👈 Depend on teamChats, not currentOrganization
 
   
 
@@ -131,7 +149,6 @@ const TeamChat = memo(() => {
       });
     }
   }, [currentOrganization?.id, createTeamChat, organizations]);
-
 
 
   const theme = useTheme();

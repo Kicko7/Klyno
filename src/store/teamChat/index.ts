@@ -92,6 +92,7 @@ interface TeamChatState {
     isVisible: boolean;
     width: number;
   };
+  chatCreditTotals: Record<string, number>; // teamChatId → total credits used
 
   socketRef: any;
   teamLoading: boolean;
@@ -110,6 +111,7 @@ interface TeamChatState {
   setActiveTeamChat: (id: string | null, topicId?: string) => void;
   loadActiveChat: (id: string) => Promise<void>;
   switchToTeamChatTopic: (teamChatId: string, topicId: string) => void;
+  setChatCreditTotal: (teamChatId: string, total: number) => void;
 
   // Redis/WebSocket Integration
   updateMessages: (teamChatId: string, messages: any[]) => void;
@@ -309,7 +311,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
       teamLoading: false,
       // Initialize credit tracking service
       creditService: teamChatCreditService,
-
+      chatCreditTotals: {},
       // Message subscription management (legacy - now handled by WebSocket)
       subscribeToChat: (chatId: string, userId: string) => {
         console.log('⚠️ subscribeToChat is deprecated - use WebSocket instead');
@@ -318,7 +320,6 @@ export const useTeamChatStore = create<TeamChatStore>()(
       unsubscribeFromChat: (chatId: string, userId: string) => {
         console.log('⚠️ unsubscribeFromChat is deprecated - use WebSocket instead');
       },
-
       // Legacy polling methods - now handled by WebSocket
       startMessagePolling: async (chatId: string) => {
         console.log('⚠️ startMessagePolling is deprecated - use WebSocket instead');
@@ -333,7 +334,15 @@ export const useTeamChatStore = create<TeamChatStore>()(
         // Backward-compatible: delegate to upsert to ensure replacement and sorting
         get().batchUpdateMessages(teamChatId, messages as any);
       },
+      setChatCreditTotal: (teamChatId: string, total: number) => {
+        set((state) => ({
 
+          chatCreditTotals: {
+            ...state.chatCreditTotals,
+            [teamChatId]: total,
+          },
+        }));
+      },
       // Update existing message content (for streaming, etc.)
       updateMessage: async (
         teamChatId: string,
@@ -365,11 +374,26 @@ export const useTeamChatStore = create<TeamChatStore>()(
           // });
 
           // Create updated message
+          const updatedMetadata = {
+            ...existingMessage.metadata,
+            ...updates.metadata,
+          };
+          if (updates.metadata?.credits) {
+            updatedMetadata.credits = {
+              ...existingMessage.metadata?.credits,
+              ...updates.metadata.credits,
+              // Add timestamp when credits were calculated
+              calculatedAt: new Date().toISOString(),
+            };
+          }
+
+          // Create updated message with merged metadata
           const updatedMessage = {
             ...existingMessage,
             ...updates,
+            metadata: updatedMetadata,
+            updatedAt: new Date().toISOString(),
           } as any;
-
           // Use the same deduplication and sorting logic as batchUpdateMessages
           const messageMap = new Map(existingMessages.map((m) => [m.id, m]));
 
@@ -454,6 +478,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
         //   });
         // }
       },
+     
 
       updateMessageContent: async (
         teamChatId: string,
@@ -994,6 +1019,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
                   },
                 ],
                 sessionId: sessionResult,
+                creditUsed: 0,
               },
             });
 

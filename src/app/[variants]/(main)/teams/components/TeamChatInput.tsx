@@ -150,7 +150,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       console.log('Connected to socket:', socketRef.current?.id);
       setSocketRef(socketRef);
       socketRef.current?.emit('room:join', activeTeamChatId);
-   
+
     });
 
     socketRef.current.on('connect_error', (err) => {
@@ -201,9 +201,10 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     });
 
     socketRef.current.on('session:loaded', (session: any) => {
+      // Defer state update to avoid setState during render
       setTimeout(() => {
-        if(session?.messages && session.messages.length > 0) {
-          batchUpdateMessages(teamChatId, session.messages,false);
+        if (session?.messages && session.messages.length > 0) {
+          batchUpdateMessages(teamChatId, session.messages, false);
         }
         setActiveChatState(false);
       }, 0);
@@ -213,6 +214,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       socketRef.current?.emit('room:leave', teamChatId);
       socketRef.current?.disconnect();
       setSocketRef(null);
+
     };
   }, [activeTeamChatId, currentUser?.id]);
 
@@ -252,7 +254,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   const { organizations, selectedOrganizationId } = useOrganizationStore();
   const currentOrganization = organizations.find((org) => org.id === selectedOrganizationId);
 
-  const { setOwnerId, ownerId, organizationSubscriptionInfo, updateOrganizationSubscriptionInfo } =
+  const { setOwnerId, ownerId, organizationSubscriptionInfo, updateTeamChatCredits, updateOrganizationSubscriptionInfo } =
     useUserSubscription();
   useEffect(() => {
     if (currentOrganization) {
@@ -266,7 +268,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   const activeTeamChat = teamChats.find((chat) => chat.id === activeTeamChatId);
   const sessionId = activeTeamChat?.metadata?.sessionId;
   const agentConfigSession = useAgentStore(agentSelectors.getAgentConfigBySessionId(sessionId));
-  
+
 
   // Get current model and check if it supports vision (images)
   const currentModel = agentConfigSession?.model || 'gpt-4';
@@ -335,12 +337,12 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       const fileMetadata =
         fileList.length > 0
           ? fileList.map((file) => ({
-              id: file.id,
-              name: file.file.name,
-              size: file.file.size,
-              type: file.file.type || 'application/octet-stream',
-              url: file.fileUrl || '',
-            }))
+            id: file.id,
+            name: file.file.name,
+            size: file.file.size,
+            type: file.file.type || 'application/octet-stream',
+            url: file.fileUrl || '',
+          }))
           : [];
 
       // Generate consistent message IDs using a single timestamp
@@ -351,18 +353,18 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       // Prepare user metadata
       const userMetadata = currentUser
         ? {
-            userInfo: {
-              id: currentUser.id,
-              username: currentUser.username,
-              email: currentUser.email,
-              fullName: currentUser.fullName,
-              firstName: currentUser.firstName,
-              avatar: currentUser.avatar,
-            },
-            files: fileMetadata,
-            isMultiUserChat: true,
-            clientMessageId: userMessageId,
-          }
+          userInfo: {
+            id: currentUser.id,
+            username: currentUser.username,
+            email: currentUser.email,
+            fullName: currentUser.fullName,
+            firstName: currentUser.firstName,
+            avatar: currentUser.avatar,
+          },
+          files: fileMetadata,
+          isMultiUserChat: true,
+          clientMessageId: userMessageId,
+        }
         : { clientMessageId: userMessageId };
 
       // Add user message to local store
@@ -371,11 +373,17 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         content: messageToSend,
         messageType: 'user',
         userId: currentUser?.id || 'unknown',
-        metadata: userMetadata,
+        metadata: {
+          ...userMetadata,
+          // Add current credit information for context
+          credits: {
+            availableAtSend: organizationSubscriptionInfo?.currentCredits || 0,
+            planName: organizationSubscriptionInfo?.subscription?.planName,
+          },
+        },
         isLocal: true,
         sendTime: new Date(),
       });
-
       await sendWebSocketMessage(
         messageToSend,
         'user',
@@ -393,11 +401,19 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
           content: 'Thinking...',
           messageType: 'assistant',
           userId: currentUser?.id || 'unknown',
-          metadata: { isThinking: true, clientMessageId: assistantMessageId, isLocal: true },
+          metadata: {
+            isThinking: true,
+            clientMessageId: assistantMessageId,
+            isLocal: true,
+            // Add credit context for the thinking state
+            credits: {
+              availableBeforeResponse: organizationSubscriptionInfo?.currentCredits || 0,
+              planName: organizationSubscriptionInfo?.subscription?.planName,
+            },
+          },
           isLocal: true,
           sendTime: new Date(),
         });
-      
       }, 1000);
 
       // Generate AI response
@@ -475,13 +491,13 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     const currentFileList =
       fileList.length > 0
         ? fileList.map((file) => ({
-            id: file.id,
-            name: file.file.name,
-            size: file.file.size,
-            type: file.file.type || 'application/octet-stream',
-            url: file.fileUrl || '',
-            content: '', // Will be populated by the file processing system
-          }))
+          id: file.id,
+          name: file.file.name,
+          size: file.file.size,
+          type: file.file.type || 'application/octet-stream',
+          url: file.fileUrl || '',
+          content: '', // Will be populated by the file processing system
+        }))
         : [];
 
     // Separate images from other files
@@ -581,20 +597,50 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   ) => {
     const finalMessage = finalContent || aiResponse || 'No response generated';
 
-    // Prepare metadata once to avoid duplication
+    // Get AI infrastructure state and model info for pricing
+    const aiInfraStoreState = getAiInfraStoreState();
+    const modelInfo = aiModelSelectors.getEnabledModelById(
+      agentConfig.model,
+      agentConfig.provider,
+    )(aiInfraStoreState) as any;
+    const agentPricing = modelInfo?.pricing as any;
+
+    // Calculate credits if this is a paid model
+    let creditsUsed = 0;
+    if (
+      context?.usage?.totalTokens &&
+      !agentConfig.model.includes('free') &&
+      agentConfig.provider == 'openrouter'
+    ) {
+      creditsUsed = calculateCreditsByPlan(
+        context.usage as any,
+        agentPricing as any,
+        organizationSubscriptionInfo?.subscription?.planName || '',
+      );
+    }
+
+    // Prepare metadata with credits information
     const baseMetadata = {
       ...context?.usage,
       model: agentConfig?.model,
       provider: agentConfig?.provider,
       totalTokens: context?.usage?.totalTokens || 0,
       clientMessageId: assistantMessageId,
+      // Add credits information to metadata
+      credits: {
+        used: creditsUsed,
+        planName: organizationSubscriptionInfo?.subscription?.planName,
+        modelPricing: agentPricing,
+      },
     };
 
+    // Update the message with credits in metadata
     const message = await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
       content: finalMessage,
       metadata: { ...baseMetadata, isThinking: false, isLocal: true },
     });
-    // Send via WebSocket
+
+    // Send via WebSocket with credits metadata
     sendWebSocketMessage(
       finalMessage,
       'assistant',
@@ -607,24 +653,18 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       message.sendTime,
     );
 
-    const aiInfraStoreState = getAiInfraStoreState();
-    const modelInfo = aiModelSelectors.getEnabledModelById(
-      agentConfig.model,
-      agentConfig.provider,
-    )(aiInfraStoreState) as any;
-    const agentPricing = modelInfo?.pricing as any;
+    // Update organization credits after successful message completion
+    if (creditsUsed > 0) {
+      const currentTotalbefore = useTeamChatStore.getState().chatCreditTotals[teamChatId] || 0;
+      console.log('Current total credits used for chat', teamChatId, ':', currentTotalbefore);
 
-    if (
-      context?.usage?.totalTokens &&
-      !agentConfig.model.includes('free') &&
-      agentConfig.provider == 'openrouter'
-    ) {
-      const credits = calculateCreditsByPlan(
-        context.usage as any,
-        agentPricing as any,
-        organizationSubscriptionInfo?.subscription?.planName || '',
-      );
-      await updateOrganizationSubscriptionInfo(credits);
+      useTeamChatStore.getState().setChatCreditTotal(teamChatId, currentTotalbefore + creditsUsed);
+      const currentTotalafter = useTeamChatStore.getState().chatCreditTotals[teamChatId] || 0;
+
+      console.log('Updated local credit total for chat', teamChatId, ':', useTeamChatStore.getState().chatCreditTotals[teamChatId]);
+      await updateTeamChatCredits(teamChatId, creditsUsed,);
+
+      await updateOrganizationSubscriptionInfo(creditsUsed);
     }
   };
 
@@ -673,8 +713,10 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
           expand={false}
           leftActions={leftActions}
           rightActions={rightActions}
-          setExpand={() => {}}
+          setExpand={() => { }}
           sessionId={sessionId}
+          teamChatId={teamChatId} // 👈 Pass it here
+          organizationSubscriptionInfo={organizationSubscriptionInfo}
         />
         <InputArea
           loading={loading}

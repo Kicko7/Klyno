@@ -6,6 +6,7 @@ import { creditTransactions } from '@/database/schemas/creditTransactions';
 import { users } from '@/database/schemas/user';
 import { userCredits } from '@/database/schemas/userCredits';
 import { userSubscriptions } from '@/database/schemas/userSubscriptions';
+import { teamChats } from '@/database/schemas/teamChat';
 import { userUsageQuotas } from '@/database/schemas/userUsageQuotas';
 
 import { PlanMapper } from './planMapper';
@@ -294,6 +295,63 @@ export class SubscriptionManager {
         .where(eq(users.id, userId));
     });
   }
+// In your tRPC resolver or service
+async updateTeamChatCredits(teamChatId: string, creditsUsed: number) {
+  return db.transaction(async (tx) => {
+    try {      
+      // 1. Fetch current team chat
+      const [currentChat] = await tx
+        .select()
+        .from(teamChats)
+        .where(eq(teamChats.id, teamChatId))
+        .limit(1);
+
+      if (!currentChat) {
+        return {
+          success: false,
+          message: `Team chat not found: ${teamChatId}`,
+          teamChat: null,
+          creditsRemaining: 0,
+        };
+      }
+
+      // 2. Parse and update metadata
+      const currentMetadata = currentChat.metadata;
+      
+      const totalCreditsUsed = (currentMetadata?.creditsUsed ?? 0) + creditsUsed;
+      
+
+      const updatedMetadata = {
+        ...currentMetadata,
+        creditsUsed: totalCreditsUsed,
+        memberAccess: currentMetadata?.memberAccess ?? [],
+      };
+
+
+      // 3. Update ONLY the teamChats table
+      const [updatedChat] = await tx
+        .update(teamChats)
+        .set({ metadata: updatedMetadata })
+        .where(eq(teamChats.id, teamChatId))
+        .returning();
+
+      return {
+        success: true,
+        message: 'Team chat credits updated successfully',
+        teamChat: updatedChat,
+        creditsRemaining: totalCreditsUsed, // Return total credits used for this chat
+      };
+    } catch (error) {
+      console.error('Error updating team chat credits:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to update team chat credits',
+        teamChat: null,
+        creditsRemaining: 0,
+      };
+    }
+  });
+}
 
   async updateOrganizationSubscriptionInfo(ownerId: string, creditsUsed: number) {
     return db.transaction(async (tx) => {

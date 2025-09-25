@@ -9,7 +9,16 @@ export interface UserSubscriptionInfo {
   usageQuota: Partial<UserUsageQuotaItem> | null;
   currentCredits: number;
 }
-
+interface TeamChatMetadata {
+  creditsUsed?: number;
+  lastCreditUpdate?: string;
+  creditHistory?: Array<{
+    amount: number;
+    timestamp: string;
+    action: 'debit' | 'credit';
+  }>;
+  [key: string]: any; // Allow other metadata fields
+}
 export const useUserSubscription = () => {
   const [subscriptionInfo, setSubscriptionInfo] = useState<UserSubscriptionInfo | null>(null);
   const [organizationSubscriptionInfo, setOrganizationSubscriptionInfo] =
@@ -120,6 +129,25 @@ export const useUserSubscription = () => {
       fetchOrganizationSubscriptionInfo(ownerId);
     }
   }, [ownerId]);
+  const updateTeamChatCredits = async (teamChatId: string, creditsUsed: number,) => {
+    try {
+      const result = await lambdaClient.subscription.updateTeamChatCredits.mutate({
+        teamChatId,
+        creditsUsed,
+      });
+      console.log('[useUserSubscription] updateTeamChatCredits result:', result);
+
+
+
+      return result;
+    } catch (err) {
+      console.error('[useUserSubscription] Error updating team chat credits:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update team chat credits');
+      return { success: false, message: 'Network error' };
+    }
+  };
+
+  // Return the new function in your hook
 
   const updateOrganizationSubscriptionInfo = async (creditsUsed: number, userId?: string) => {
     if (!userId) {
@@ -201,5 +229,6 @@ export const useUserSubscription = () => {
     ownerId,
     updateOrganizationSubscriptionInfo,
     fetchSubscriptionInfo,
+    updateTeamChatCredits
   };
 };
