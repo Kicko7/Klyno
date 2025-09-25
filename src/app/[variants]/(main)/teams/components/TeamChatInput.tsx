@@ -461,7 +461,6 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   ) => {
     try {      
       const chatHistory = await gatherChatHistory(teamChatId, effectiveMaxHistoryMessages);
-      console.log(chatHistory, 'chatHistory');
       
       const messages = buildMessageArray(chatHistory, userMessage, agentConfigSession);
 
