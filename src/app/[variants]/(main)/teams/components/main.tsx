@@ -5,7 +5,7 @@ import { Metadata } from 'next';
 import { useSearchParams } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import { Flexbox } from 'react-layout-kit';
-
+import { Loader2Icon } from 'lucide-react';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import CreateOrganizationModal from '@/features/Organization/CreateOrganizationModal';
 import { useOrganizationStore } from '@/store/organization/store';
@@ -37,7 +37,7 @@ const Main = () => {
   useEffect(() => {
     fetchOrganizations()
   }, [fetchOrganizations]);
-  
+
 
   const renderContent = () => {
     if (view === 'members') {
@@ -68,11 +68,11 @@ const Main = () => {
   const { subscriptionInfo } = useUserSubscription();
 
   return (
-    <div className={` ${theme.appearance == "dark" ? "bg-black":"bg-white"} w-full h-full text-white`}>
+    <div className={` ${theme.appearance == "dark" ? "bg-black" : "bg-white"} w-full h-full text-white`}>
       {isLoading ? (
         <Flexbox align="center" justify="center" style={{ minHeight: '100vh', width: '100%' }}>
           <div className="flex flex-col items-center gap-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+            <Loader2Icon className="animate-spin " size={48} />
             <Typography.Text className="text-slate-400">Loading organizations...</Typography.Text>
           </div>
         </Flexbox>
