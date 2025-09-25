@@ -82,7 +82,7 @@ export function renderOrganizationInvitationEmail(data: OrganizationInvitationDa
 <body>
   <div class="container">
     <div class="logo-container">
-      <img src="https://app.klynno.ai/logo-email.png" alt="Klyno AI" width="190" height="36" style="margin: 0 auto; padding-top: 20px;" />
+      <img src="https://app.klynno.ai/logo-email.png" alt="Klyno AI" width="190" style="margin: 0 auto; padding-top: 20px;" />
     </div>
     <div class="content">
       <h1 class="heading">You have been invited to join ${organization.name} on Klyno AI</h1>
