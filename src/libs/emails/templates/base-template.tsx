@@ -91,7 +91,7 @@ export const BaseTemplate: React.FC<BaseEmailProps> = ({
           <Section style={logoContainer}>
             <Img
               alt="Klyno AI"
-              height="36"
+
               src={logoUrl}
               style={logo}
               width="190"

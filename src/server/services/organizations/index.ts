@@ -304,7 +304,7 @@ export class OrganizationService {
       try {
         await sendEmail({
           html,
-          subject: 'You have been invited to join an organization on Klynno AI',
+          subject: 'You have been invited to join an organization on Klyno AI',
           to: email,
         });
         console.log('Invitation email sent successfully to:', email);
