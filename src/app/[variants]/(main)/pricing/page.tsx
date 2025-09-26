@@ -939,7 +939,7 @@ const PricingPage = () => {
               style={{
                 marginLeft: theme.marginXS,
                 backgroundColor: theme.colorSuccess,
-                color: "white",
+                color: theme.isDarkMode ? '#000' : '#fff',
                 padding: `2px ${theme.paddingSM}px`,
                 borderRadius: theme.borderRadius,
                 fontSize: theme.fontSizeSM,
@@ -985,7 +985,7 @@ const PricingPage = () => {
                   left: "50%",
                   transform: "translateX(-50%)",
                   backgroundColor: plan.color,
-                  color: "white",
+                  color: theme.isDarkMode ? '#000' : '#fff',
                   padding: `${theme.paddingXS}px ${theme.paddingLG}px`,
                   borderRadius: theme.borderRadiusLG,
                   fontSize: theme.fontSizeSM,
@@ -993,7 +993,8 @@ const PricingPage = () => {
                   zIndex: 1,
                 }}
               >
-                Most Popular
+                  Most Popular
+             
               </div>
             )}
 
