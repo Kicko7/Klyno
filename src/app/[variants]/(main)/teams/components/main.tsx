@@ -72,7 +72,7 @@ const Main = () => {
       {isLoading ? (
         <Flexbox align="center" justify="center" style={{ minHeight: '100vh', width: '100%' }}>
           <div className="flex flex-col items-center gap-4">
-            <Loader2Icon className="animate-spin " size={48} />
+            <Loader2Icon className="animate-spin " size={48} color={theme.appearance === "dark" ? "white" : "black"} />
             <Typography.Text className="text-slate-400">Loading organizations...</Typography.Text>
           </div>
         </Flexbox>

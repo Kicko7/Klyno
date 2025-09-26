@@ -121,8 +121,12 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     removeMessage,
     setSocketRef,
     removeQueueFromWebSocket,
-    
   } = useTeamChatStore();
+
+  
+  const currentQueueItems = useTeamChatStore.getState().queueItems;
+  console.log(currentQueueItems)
+
   const activeTeamChatId = useTeamChatStore((state) => state.activeTeamChatId);
   const setActiveChatState = useTeamChatStore((state) => state.setActiveChatState);
   const editWebSocketMessage = useTeamChatStore((state) => state.editWebSocketMessage);
@@ -144,6 +148,10 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   const currentProvider = agentConfigSession?.provider || 'openai';
   const modelSupportsVision = useModelSupportVision(currentModel, currentProvider);
   const canUpload = modelSupportsVision;
+
+
+  const [isProcessingQueue, setIsProcessingQueue] = useState(false);
+
 
   // Organization setup
   const currentOrganization = useMemo(
@@ -579,10 +587,13 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
           if (
             currentQueueItems?.length > 0 &&
             currentQueueItems[0].metadata.userInfo.id === currentUserData?.id
+            && !isProcessingQueue
           ) {
             handleSendQueue(currentQueueItems[0]);
-            removeQueueFromWebSocket(teamChatId, currentQueueItems[0].messageId);
             removeFromQueue(currentQueueItems[0].messageId);
+            setTimeout(() => {
+            removeQueueFromWebSocket(teamChatId, currentQueueItems[0].messageId);
+            }, 2000);
           } else {
             setLoading(false);
           }
@@ -592,10 +603,11 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     [teamChatId, batchUpdateMessages, removeQueueFromWebSocket, removeFromQueue],
   );
 
+
   const handleSendQueue = useCallback(
     async (message: any) => {
       if (!validateCredits()) return;
-
+      setIsProcessingQueue(true);
       try {
         const currentTimestamp = new Date();
         const assistantMessageId = `assistant_${currentTimestamp.getTime()}_${nanoid(10)}`;
@@ -648,13 +660,17 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
         if (
           currentQueueItems?.length > 0 &&
           currentQueueItems[0].metadata.userInfo.id === currentUserData?.id
+          && !isProcessingQueue
         ) {
           handleSendQueue(currentQueueItems[0]);
-          removeQueueFromWebSocket(teamChatId, currentQueueItems[0].messageId);
           removeFromQueue(currentQueueItems[0].messageId);
+          setTimeout(() => {
+            removeQueueFromWebSocket(teamChatId, currentQueueItems[0].messageId);
+          }, 2000);
         } else {
           setLoading(false);
         }
+        setIsProcessingQueue(false);
       }
     },
     [
@@ -664,6 +680,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       sendWebSocketMessage,
       generateAIResponse,
       handleAIError,
+      isProcessingQueue,
     ],
   );
 
@@ -815,10 +832,13 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       if (
         currentQueueItems?.length > 0 &&
         currentQueueItems[0].metadata.userInfo.id === currentUserData?.id
+        && !isProcessingQueue
       ) {
         handleSendQueue(currentQueueItems[0]);
-        removeQueueFromWebSocket(teamChatId, currentQueueItems[0].messageId);
         removeFromQueue(currentQueueItems[0].messageId);
+        setTimeout(() => {
+          removeQueueFromWebSocket(teamChatId, currentQueueItems[0].messageId);
+        }, 2000);
       }
     }
   }, [
