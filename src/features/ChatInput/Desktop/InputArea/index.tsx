@@ -90,7 +90,7 @@ const InputArea = memo<InputAreaProps>(({ onSend, value, loading, onChange }) =>
           enableScope(HotkeyEnum.AddUserMessage);
         }}
         onPressEnter={(e) => {
-          if (loading || e.altKey || e.shiftKey || isChineseInput.current) return;
+          if ( e.altKey || e.shiftKey || isChineseInput.current) return;
 
           // eslint-disable-next-line unicorn/consistent-function-scoping
           const send = () => {

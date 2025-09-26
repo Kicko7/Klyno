@@ -623,9 +623,16 @@ export const generateAIChat: StateCreator<
         const modelInfo = aiModelSelectors.getEnabledModelById(model, provider)(aiInfraStoreState) as any;
 
         // Get model details
-        const modelPricing = modelInfo?.pricing;
+        let modelPricing = modelInfo?.pricing;
 
         if (!model.includes('free') && provider == 'openrouter') {
+          if(subscription && model === 'openrouter/auto') {
+            const claudeModelInfo = aiModelSelectors.getEnabledModelById(
+              'anthropic/claude-3.5-haiku',
+              'openrouter',
+            )(aiInfraStoreState) as any;
+            modelPricing = claudeModelInfo?.pricing as any;
+          }
           const credits = calculateCreditsByPlan(usage as any, modelPricing as any, subscription?.subscription?.planName);
           const currentUser = getUserStoreState().user?.id;
           if (currentUser) {

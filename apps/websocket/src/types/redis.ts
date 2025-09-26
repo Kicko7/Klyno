@@ -61,6 +61,7 @@ export enum RedisKeyType {
   CREDITS = 'credits',
   ACTIVE_MESSAGES = 'active_messages',
   MESSAGE_STREAM = 'message_stream',
+  QUEUE = 'queue',
 }
 
 // Redis Key TTL (in seconds)
@@ -71,6 +72,7 @@ export const RedisTTL: Record<RedisKeyType, number> = {
   [RedisKeyType.CREDITS]: 3600, // 1 hour
   [RedisKeyType.ACTIVE_MESSAGES]: 3600, // 1 hour
   [RedisKeyType.MESSAGE_STREAM]: 86400, // 24 hours
+  [RedisKeyType.QUEUE]: 86400, // 24 hours
 };
 
 // Redis Key Builder
@@ -81,4 +83,5 @@ export const RedisKeyBuilder: Record<RedisKeyType, (id: string) => string> = {
   [RedisKeyType.CREDITS]: (userId) => `user:${userId}:credits`,
   [RedisKeyType.ACTIVE_MESSAGES]: (teamId) => `team:${teamId}:active_messages`,
   [RedisKeyType.MESSAGE_STREAM]: (teamId) => `team:${teamId}:message_stream`,
+  [RedisKeyType.QUEUE]: (teamId) => `team:${teamId}:queue`,
 };

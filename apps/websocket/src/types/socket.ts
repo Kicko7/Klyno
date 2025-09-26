@@ -16,6 +16,7 @@ export interface ServerToClientEvents {
     messages: any[];
     participants: string[];
     status: string;
+    queue: any[];
   }) => void;
   'message:update': (data: { id: string; content: string ,metadata?:any}) => void;
   'message:delete': (messageId: string) => void;
@@ -26,6 +27,16 @@ export interface ServerToClientEvents {
     timestamp: string;
   }) => void;
   'user:credits': (data: { userId: string; credits: number; timestamp: string }) => void;
+  'message:queue': (data: {
+    teamId: string;
+    content: string;
+    type?: 'user' | 'assistant' | 'system';
+    metadata?: Record<string, unknown>;
+    messageId: string;
+    timestamp: number;
+  }) => void;
+  'message:queue:delete': (teamChatId: string, messageId: string) => void;
+  'user:leave': (userId: string) => void;
 }
 
 export interface ClientToServerEvents {
@@ -44,6 +55,15 @@ export interface ClientToServerEvents {
   'receipt:update': (data: { teamId: string; lastReadMessageId: string }) => void;
   'presence:heartbeat': (teamId: string) => void;
   'user:credits:request': () => void;
+  'message:queue-send': (data: {
+    teamId: string;
+    content: string;
+    type?: 'user' | 'assistant' | 'system';
+    metadata?: Record<string, unknown>;
+    messageId: string;
+    timestamp: number;
+  }) => void;
+  'message:queue:remove': (teamChatId: string, messageId: string) => void;
 }
 
 export interface InterServerEvents {

@@ -76,7 +76,7 @@ const AssistantExtra = memo<{
     return (
       <Usage
         metadata={metadata}
-        model={metadata?.model || 'assistant'}
+        model={metadata?.model === 'openrouter/auto' ? 'klynoai/auto' : metadata?.model || 'assistant'}
         provider={metadata?.provider || 'openai'}
       />
     );
@@ -279,6 +279,9 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
     const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(true);
     const [page, setPage] = useState(1);
     const [shouldPreventAutoScroll, setShouldPreventAutoScroll] = useState(false);
+    const [scrollOffset, setScrollOffset] = useState(0);
+    const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+    const [previousMessageCount, setPreviousMessageCount] = useState(0);
 
     // Keep your existing state
     const [generatingMessages, setGeneratingMessages] = useState<Set<string>>(new Set());
@@ -321,9 +324,13 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
 
       console.log('Loading older messages...');
       setLoadingOlderMessages(true);
-      setShouldPreventAutoScroll(true); // Prevent auto-scroll while loading
+      setIsLoadingOlder(true);
+      // Don't prevent auto-scroll for new messages, only for maintaining position
 
       try {
+        // Store current message count before loading
+        setPreviousMessageCount(processedMessages.length);
+
         // Get the last (newest) message to load messages before it
         const lastMessage = messages[0];
 
@@ -347,8 +354,10 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
         console.error('Error loading older messages:', error);
       } finally {
         setLoadingOlderMessages(false);
-        // Reset scroll prevention after a short delay
-        setTimeout(() => setShouldPreventAutoScroll(false), 500);
+        // Reset loading state after a short delay
+        setTimeout(() => {
+          setIsLoadingOlder(false);
+        }, 500);
       }
     }, [loadingOlderMessages, teamId, messages, loadMessages]);
 
@@ -360,6 +369,30 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
         (msg) => msg && msg.id && (msg.content || msg.content === 'Thinking...'),
       );
     }, [messages]);
+
+    // Effect to maintain scroll position when loading older messages
+    useEffect(() => {
+      if (isLoadingOlder && previousMessageCount > 0) {
+        // Wait for the DOM to update with new messages
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (virtuosoRef.current) {
+              const newMessageCount = processedMessages.length;
+              const addedMessages = newMessageCount - previousMessageCount;
+              
+              if (addedMessages > 0) {
+                // Scroll to the same relative position, accounting for new messages
+                // We need to scroll to the index where the user was before
+                virtuosoRef.current.scrollToIndex({
+                  index: addedMessages,
+                  align: 'start'
+                });
+              }
+            }
+          });
+        });
+      }
+    }, [processedMessages.length, isLoadingOlder, previousMessageCount]);
 
     useEffect(() => {
       const newGeneratingMessages = new Set<string>();
@@ -465,16 +498,17 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
       const currentCount = processedMessages.length;
       const previousCount = lastMessageCountRef.current;
 
-      // Only auto-scroll if we're at bottom and not preventing auto-scroll
-      if (currentCount > previousCount && isAtBottom && !shouldPreventAutoScroll) {
+      // Auto-scroll for new messages (when count increases)
+      if (currentCount > previousCount && isAtBottom) {
+        // Always auto-scroll for new messages, regardless of loading state
         scrollToBottom();
       }
 
       lastMessageCountRef.current = currentCount;
-    }, [processedMessages.length, isAtBottom, shouldPreventAutoScroll, scrollToBottom]);
+    }, [processedMessages.length, isAtBottom, scrollToBottom]);
 
     useEffect(() => {
-      if (processedMessages.length > 0 && isAtBottom && !shouldPreventAutoScroll) {
+      if (processedMessages.length > 0 && isAtBottom) {
         const lastMessage = processedMessages[processedMessages.length - 1];
         const currentLastContent = lastMessage?.content || '';
 
@@ -484,11 +518,11 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
           lastMessageContentRef.current = currentLastContent;
         }
       }
-    }, [processedMessages, isAtBottom, shouldPreventAutoScroll, scrollToBottomForStreaming]);
+    }, [processedMessages, isAtBottom, scrollToBottomForStreaming]);
 
     // Special effect for streaming messages - more aggressive scrolling
     useEffect(() => {
-      if (processedMessages.length > 0 && !shouldPreventAutoScroll) {
+      if (processedMessages.length > 0) {
         const lastMessage = processedMessages[processedMessages.length - 1];
         const isStreaming =
           lastMessage?.messageType === 'assistant' &&
@@ -507,7 +541,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
           });
         }
       }
-    }, [processedMessages, isAtBottom, shouldPreventAutoScroll]);
+    }, [processedMessages, isAtBottom]);
 
     // Keep your existing getAvatar function
     const getAvatar = useCallback(
@@ -637,12 +671,12 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
     const handleRangeChanged = useCallback(
       (range: { startIndex: number; endIndex: number }) => {
         // If user scrolls to the very top and we're not already loading
-        if (range.startIndex === 0 && hasMoreOlderMessages && !loadingOlderMessages) {
+        if (range.startIndex === 0 && hasMoreOlderMessages && !loadingOlderMessages && !isLoadingOlder) {
           console.log('User scrolled to top - triggering load older messages');
           loadOlderMessages();
         }
       },
-      [hasMoreOlderMessages, loadingOlderMessages, loadOlderMessages],
+      [hasMoreOlderMessages, loadingOlderMessages, isLoadingOlder, loadOlderMessages],
     );
 
     // UPDATED: Components with conditional top loader
@@ -650,7 +684,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
       () => ({
         Footer: () => <div style={{ height: '16px' }} />,
         Header: () => {
-          if (loadingOlderMessages && hasMoreOlderMessages) {
+          if ((loadingOlderMessages || isLoadingOlder) && hasMoreOlderMessages) {
             return <TopLoader />;
           }
           return processedMessages.length <= 5 ? (
@@ -658,7 +692,7 @@ const TeamChatMessages: React.FC<TeamChatMessagesProps> = memo(
           ) : null;
         },
       }),
-      [processedMessages.length, loadingOlderMessages, hasMoreOlderMessages],
+      [processedMessages.length, loadingOlderMessages, isLoadingOlder, hasMoreOlderMessages],
     );
 
     // Keep your existing conditional returns

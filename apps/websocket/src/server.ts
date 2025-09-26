@@ -99,7 +99,6 @@ export class WebSocketServer {
             console.log(`📥 Loading session from DB for room: ${roomId}`);
             session = await this.sessionManager.loadSessionFromDb(roomId);
             if (!session) {
-              // Create new session if none exists
               session = await this.sessionManager.createSession(roomId, [socket.data.userId]);
               console.log(`🆕 Created new session for room: ${roomId}`);
             }
@@ -111,6 +110,7 @@ export class WebSocketServer {
             messages: session.messages,
             participants: session.participants,
             status: session.status,
+            queue: session.queue,
           });
           console.log(`📤 Sent session data to user ${socket.data.userId} for room ${roomId}:`, {
             messageCount: session.messages.length,
@@ -141,7 +141,6 @@ export class WebSocketServer {
 
           // Get room information for debugging
           const room = this.io.sockets.adapter.rooms.get(roomId);
-          const roomSize = room ? room.size : 0;
         } catch (error) {
           console.error(`❌ Error joining room ${roomId}:`, error);
           socket.emit('room:error', 'Failed to join room');
@@ -150,30 +149,29 @@ export class WebSocketServer {
 
       socket.on('room:leave', async (roomId) => {
         try {
+          const userId = socket.data.userId; // Get the user ID who is leaving
+          console.log(`👋 User ${userId} leaving room ${roomId}`);
+
           await socket.leave(roomId);
           socket.data.activeRooms.delete(roomId);
 
-          // Update user presence
-          await this.redisService.updatePresence(roomId, {
-            userId: socket.data.userId,
-            lastActiveAt: new Date().toISOString(),
-            isActive: false,
-          });
-
-          // Broadcast presence update
-          this.io.to(roomId).emit('presence:update', {
-            userId: socket.data.userId,
-            lastActiveAt: new Date().toISOString(),
-            isActive: false,
-          });
-
           // If room is now empty, persist messages to DB and expire session
           try {
+            const session = await this.sessionManager.getSession(roomId);
+            if (session && session.queue && session.queue.length > 0) {
+              session.queue = session.queue.filter((p: any) => p.userId !== userId);
+              console.log(`👋 User ${userId} leaving room ${roomId} with queue`, session.queue);
+              await this.sessionManager.updateSession(roomId, session.messages, session.queue);
+              console.log(session.queue);
+            }
+            
+            // Broadcast user leave to the specific room they're leaving
+            socket.broadcast.to(roomId).emit('user:leave', userId);
             const room = this.io.sockets.adapter.rooms.get(roomId);
             const roomSize = room ? room.size : 0;
             if (roomSize === 0) {
               await this.sessionManager.expireSession(roomId);
-              console.log(`💾 Room ${roomId} empty after leave → session expired & synced`);
+              console.log(`💾 Room ${roomId} empty after user ${userId} left → session expired & synced`);
             }
           } catch (checkErr) {
             console.error(`Error checking room empty state for ${roomId}:`, checkErr);
@@ -198,14 +196,14 @@ export class WebSocketServer {
             const messageId =
               message.metadata?.clientMessageId || `msg_${Date.now()}_${nanoid(10)}`;
 
-              if(messageId.includes('assistant')) {
-               const assistantMessage = await this.sessionManager.getMessageById(messageId);
-               if(assistantMessage) {
+            if (messageId.includes('assistant')) {
+              const assistantMessage = await this.sessionManager.getMessageById(messageId);
+              if (assistantMessage) {
                 // Update existing message instead of creating new one
                 await this.sessionManager.updateMessage(message.teamId, messageId, {
-                ...message
+                  ...message
                 });
-                
+
                 socket.broadcast.to(message.teamId).emit('message:update', {
                   id: messageId,
                   content: message.content,
@@ -213,10 +211,10 @@ export class WebSocketServer {
                     ...message.metadata,
                   },
                 });
-                
+
                 return; // Exit early since we updated the existing message
-               }
               }
+            }
 
             // Create message data for session
             const messageData: MessageData = {
@@ -318,7 +316,7 @@ export class WebSocketServer {
 
             // Broadcast only to the specific room where the message belongs
             for (const roomId of socket.data.activeRooms) {
-              socket.broadcast.to(roomId).emit('message:update', {   
+              socket.broadcast.to(roomId).emit('message:update', {
                 id: messageId,
                 content,
               });
@@ -339,7 +337,7 @@ export class WebSocketServer {
               });
 
               for (const roomId of socket.data.activeRooms) {
-                socket.broadcast.to(roomId).emit('message:update', {   
+                socket.broadcast.to(roomId).emit('message:update', {
                   id: messageId,
                   content,
                 });
@@ -374,14 +372,14 @@ export class WebSocketServer {
           } else {
             try {
               await this.apiService.deleteMessage(messageId);
-              
+
               // If message is not in Redis, we need to find which room it belongs to
               // For now, we'll broadcast to all active rooms as fallback
               // TODO: Implement a way to find the room for database messages
               for (const roomId of socket.data.activeRooms) {
                 this.io.to(roomId).emit('message:delete', messageId);
               }
-              
+
               console.log(`✅ Message ${messageId} deleted from database`);
             } catch (error) {
               console.error('❌ Error deleting message:', error);
@@ -392,6 +390,31 @@ export class WebSocketServer {
         }
       });
 
+
+      socket.on('message:queue-send', async (data: { teamId: string; content: string; type?: any; metadata?: any, timestamp: any, messageId: string }) => {
+        try {
+          await this.sessionManager.appendQueueMessage(data.teamId, data);
+          console.log('message:queue-send', data);
+          for (const roomId of socket.data.activeRooms) {
+            socket.broadcast.to(roomId).emit('message:queue', data);
+          }
+        } catch (error) {
+          console.error('Error adding message to message stream:', error);
+        }
+      });
+
+      socket.on('message:queue:remove', async (teamChatId: string, messageId: string) => {
+        try {
+          console.log('message:queue:remove', teamChatId, messageId);
+          await this.sessionManager.removeQueueMessage(teamChatId, messageId);
+
+          // Broadcast to all connected clients, not just current socket's rooms
+          this.io.emit('message:queue:delete', teamChatId, messageId);
+          console.log('Broadcasted message:queue:delete to all clients', teamChatId, messageId);
+        } catch (error) {
+          console.error('Error removing message from queue:', error);
+        }
+      });
       // Typing Events
       socket.on('typing:start', async (teamId) => {
         try {
@@ -484,21 +507,16 @@ export class WebSocketServer {
 
         // Update presence for all active rooms
         for (const roomId of socket.data.activeRooms) {
-          try {
-            await this.redisService.updatePresence(roomId, {
-              userId: socket.data.userId,
-              lastActiveAt: new Date().toISOString(),
-              isActive: false,
-            });
-
-            this.io.to(roomId).emit('presence:update', {
-              userId: socket.data.userId,
-              lastActiveAt: new Date().toISOString(),
-              isActive: false,
-            });
+          try {            // Broadcast user leave to all rooms they were in
 
             // If this disconnect leaves the room empty, sync and expire the session
             try {
+              const session = await this.sessionManager.getSession(roomId);
+              if (session && session.queue && session.queue.length > 0) {
+                session.queue = session.queue.filter((p: any) => p.userId !== socket.data.userId);
+                await this.sessionManager.updateSession(roomId, session.messages, session.queue);
+                this.io.to(roomId).emit('user:leave', socket.data.userId);
+              }
               const room = this.io.sockets.adapter.rooms.get(roomId);
               const roomSize = room ? room.size : 0;
               if (roomSize === 0) {

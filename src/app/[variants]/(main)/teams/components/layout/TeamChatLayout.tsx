@@ -12,6 +12,9 @@ import { useTeamChatStore } from '@/store/teamChat';
 import TeamChatInput from '../TeamChatInput';
 import TeamChatMessages from '../TeamChatMessages';
 import TeamChatHeader from './TeamChatHeader';
+import QueueUI from '../QueueUI';
+import { useUserStore } from '@/store/user';
+import { userProfileSelectors } from '@/store/user/selectors';
 
 const useStyles = createStyles(({ css, token }) => ({
   container: css`
@@ -64,11 +67,18 @@ const TeamChatLayout = ({
   isLoading,
   isTransitioning,
 }: TeamChatLayoutProps) => {
-  
   const messages = useTeamChatStore(
     useCallback((state) => state.messages[teamChatId] || [], [teamChatId])
   );
   
+  const currentUser = useUserStore(userProfileSelectors.userProfile);
+
+  // Get queue states and actions from store
+  const queueItems = useTeamChatStore(useCallback((state) => state.queueItems, []));
+  const showQueue = useTeamChatStore(useCallback((state) => state.showQueue, []));
+  const addToQueue = useTeamChatStore(useCallback((state) => state.addToQueue, []));
+  const removeFromQueue = useTeamChatStore(useCallback((state) => state.removeFromQueue, []));
+  const clearQueue = useTeamChatStore(useCallback((state) => state.clearQueue, []));
 
   const { styles } = useStyles();
   const isLoadingState = isLoading || isTransitioning;
@@ -83,7 +93,9 @@ const TeamChatLayout = ({
   };
 
   const activeTeamChatId = useTeamChatStore(useCallback((state) => state.activeTeamChatId, []));
+
   return (
+    
     <div className={styles.container}>
       {/* DragUpload for copy-paste and drag-and-drop file uploads */}
       <DragUpload onUploadFiles={handleUploadFiles} />
@@ -100,6 +112,9 @@ const TeamChatLayout = ({
         </Suspense>
       </div>
 
+      <div className='mb-2'>
+        <QueueUI />
+      </div>
       {/* File List */}
       <div className={styles.fileListContainer}>
         <FileList />

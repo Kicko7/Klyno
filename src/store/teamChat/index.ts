@@ -37,6 +37,15 @@ interface TeamChatMetadata {
   [key: string]: any;
 }
 
+interface QueueItem {
+  teamId: string;
+  content: string;
+  type: 'user';
+  metadata: any;
+  messageId: string;
+  timestamp: any;
+}
+
 interface TeamChatState {
   // State
   teamChatsByOrg: Record<string, TeamChatItem[]>; // organizationId -> chats
@@ -93,6 +102,10 @@ interface TeamChatState {
     width: number;
   };
 
+  // Queue state
+  queueItems: QueueItem[];
+  showQueue: boolean;
+
   socketRef: any;
   teamLoading: boolean;
   // Actions
@@ -145,6 +158,12 @@ interface TeamChatState {
   toggleWorkspace: () => void;
   setWorkspaceWidth: (width: number) => void;
   setWorkspaceVisible: (visible: boolean) => void;
+
+  // Queue actions
+  addToQueue: (message: QueueItem) => void;
+  removeFromQueue: (messageId: string) => void;
+  clearQueue: () => void;
+  setShowQueue: (show: boolean) => void;
 
   // Message subscription actions (legacy - now handled by WebSocket)
   subscribeToChat: (chatId: string, userId: string) => void;
@@ -262,6 +281,12 @@ type TeamChatStore = TeamChatState & {
   toggleMessageEditing: (id: string, editing: boolean) => void;
   updateMessageContent: (teamChatId: string, messageId: string, content: string, metadata?: any) => void;
 
+  // Queue actions
+  addToQueue: (message: QueueItem) => void;
+  removeFromQueue: (messageId: string) => void;
+  clearQueue: () => void;
+  setShowQueue: (show: boolean) => void;
+
   // Redis-based real-time operations
   handleRedisMessageDelete: (messageId: string, teamChatId: string) => void;
   handleRedisMessageUpdate: (
@@ -286,7 +311,7 @@ type TeamChatStore = TeamChatState & {
   setSocketRef: (socketRef: any) => void;
   removeWebSocketMessage: (messageId: string) => void;
   editWebSocketMessage: (messageId: string, content: string) => void;
-
+  removeQueueFromWebSocket: (teamChatId: string, messageId: string) => void;
 };
 
 export const useTeamChatStore = create<TeamChatStore>()(
@@ -859,6 +884,10 @@ export const useTeamChatStore = create<TeamChatStore>()(
         isVisible: true,
         width: 320,
       },
+
+      // Queue state
+      queueItems: [],
+      showQueue: false,
 
       // Create a new team chat
       createTeamChat: async (
@@ -1676,6 +1705,30 @@ export const useTeamChatStore = create<TeamChatStore>()(
         }));
       },
 
+      // Queue actions
+      addToQueue: (message: QueueItem) => {
+        set((state) => ({
+          queueItems: [...state.queueItems, message],
+        }));
+      },
+
+      removeFromQueue: (messageId: string) => {
+        set((state) => ({
+          queueItems: state.queueItems.filter(item => item.messageId !== messageId),
+        }));
+      },
+
+      clearQueue: () => {
+        set({
+          queueItems: [],
+          showQueue: false,
+        });
+      },
+
+      setShowQueue: (show: boolean) => {
+        set({ showQueue: show });
+      },
+
       // Centralized message management - single source of truth for all message operations
       addMessage: async (teamChatId: string, message: any) => {
         const messageId = message.id || `msg_${Date.now()}_${nanoid(10)}`;
@@ -1837,6 +1890,16 @@ export const useTeamChatStore = create<TeamChatStore>()(
         set((state) => ({
           teamLoading: isLoading
         }));
+      },
+      removeQueueFromWebSocket: (teamChatId: string, messageId: string) => {
+        const socket = get().socketRef?.current;
+        console.log('removeQueueFromWebSocket called', { teamChatId, messageId, connected: socket?.connected });
+        if (socket?.connected) {
+          socket.emit('message:queue:remove', teamChatId, messageId);
+          console.log('WebSocket emit sent for message:queue:remove');
+        } else {
+          console.error('WebSocket not connected, cannot remove queue message');
+        }
       },
     }),
     {

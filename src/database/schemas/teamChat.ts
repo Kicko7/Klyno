@@ -74,7 +74,6 @@ export const teamChatMessages = pgTable('team_chat_messages', {
     .notNull(),
 
   userId: text('user_id')
-    .references(() => users.id, { onDelete: 'cascade' })
     .notNull(),
 
   content: text('content').notNull(),

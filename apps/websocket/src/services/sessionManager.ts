@@ -51,6 +51,7 @@ export class SessionManager {
       teamChatId,
       participants,
       messages: [],
+      queue: [], // Initialize empty queue
       createdAt: now,
       lastActivityAt: now,
       expiresAt: now + this.SESSION_TTL * 1000,
@@ -116,6 +117,7 @@ export class SessionManager {
         teamChatId,
         participants,
         messages: messageData.reverse(), // Reverse to get chronological order
+        queue: [], // Initialize empty queue
         createdAt: now,
         lastActivityAt: now,
         expiresAt: now + this.SESSION_TTL * 1000,
@@ -183,33 +185,57 @@ export class SessionManager {
     }
   }
 
-  /**
-   * Persist a message to the database
-   */
-  // private async persistMessageToDatabase(teamChatId: string, message: MessageData): Promise<void> {
-  //   console.log('Persisting message to database', message);
-  //   try {
-  //     await this.apiService.addMessage({
-  //       teamChatId,
-  //       userId: message.userId,
-  //       content: message.content,
-  //       messageType: message.type as 'user' | 'assistant' | 'system',
-  //       metadata: {
-  //         ...message.metadata,
-  //         redisMessageId: message.id,
-  //         syncedFromRedis: true,
-  //       },
-  //     });
-  //   } catch (error) {
-  //     console.error(`Failed to persist message to database: ${message.id}`, error);
-  //     throw error;
-  //   }
-  // }
+  async appendQueueMessage(teamChatId: string, message: any): Promise<void> {
+    let session = await this.getSession(teamChatId);
+    if (!session) {
+      session = await this.createSession(teamChatId);
+    }
+    session.queue.push(message);
+    await this.redisService.setSession(session);
+  }
 
-  /**
-   * Update session with multiple messages (batch operation)
-   */
-  async updateSession(teamChatId: string, messages: any[]): Promise<void> {
+  async getQueue(teamChatId: string): Promise<any[]> {
+    let session = await this.getSession(teamChatId);
+    return session.queue;
+  }
+
+  async removeQueueMessage(teamChatId: string, messageId: string): Promise<void> {
+    console.log('removeQueueMessage called for teamChatId:', teamChatId, 'messageId:', messageId);
+    
+    // Get all active sessions
+    const allSessions = await this.getAllActiveSessions();
+    console.log('Found', allSessions.length, 'active sessions');
+    
+    let removedFromSessions = 0;
+    
+    // Remove the message from all sessions that have it in their queue
+    for (const session of allSessions) {
+      console.log(`Checking session ${session.teamChatId}, queue length: ${session.queue?.length || 0}`);
+      if (session.queue && session.queue.length > 0) {
+        const originalQueueLength = session.queue.length;
+        const messageExists = session.queue.some((m: any) => m.messageId === messageId);
+        console.log(`Session ${session.teamChatId} has message ${messageId}:`, messageExists);
+        
+        session.queue = session.queue.filter((m: any) => m.messageId !== messageId);
+        
+        // If the queue was modified, save the session
+        if (session.queue.length !== originalQueueLength) {
+          await this.redisService.setSession(session);
+          removedFromSessions++;
+          console.log(`✅ Removed message ${messageId} from session ${session.teamChatId}, queue now has ${session.queue.length} items`);
+        } else {
+          console.log(`❌ Message ${messageId} not found in session ${session.teamChatId}`);
+        }
+      } else {
+        console.log(`Session ${session.teamChatId} has no queue or empty queue`);
+      }
+    }
+    
+    console.log(`Message ${messageId} removed from ${removedFromSessions} sessions`);
+  }
+
+
+  async updateSession(teamChatId: string, messages: any[], queue: any[]): Promise<void> {
     let session = await this.getSession(teamChatId);
 
     if (!session) {
@@ -229,6 +255,8 @@ export class SessionManager {
         await this.syncService.batchSyncMessages(teamChatId, unsyncedMessages);
       }
     }
+    
+    session.queue.push(...queue);
 
     // Add new messages
     session.messages.push(...messages);
@@ -319,7 +347,7 @@ export class SessionManager {
       if (!session) return;
 
       // Ensure all messages are synced
-      const unsyncedMessages = session.messages.filter((m: any) => !m.syncedToDb);
+      const unsyncedMessages = session.messages.filter((m: any) => !m.syncedToDb && !m.content.includes('Thinking...'));
       if (unsyncedMessages.length > 0) {
         await this.syncService.syncSessionToDb(session);
       }
@@ -396,8 +424,6 @@ export class SessionManager {
     try {
       // Get all active sessions from Redis
       const sessions = await this.redisService.getAllActiveSessions();
-
-      console.log('sessions', sessions);
       for (const session of sessions) {
         const message = session.messages?.find((msg: any) => msg.id === messageId);
         if (message) {

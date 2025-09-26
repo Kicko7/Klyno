@@ -35,6 +35,7 @@ interface ConnectionHealth {
 interface ChatSession {
   teamChatId: string;
   messages: unknown[];
+  queue: unknown[];
   [key: string]: unknown;
 }
 
@@ -603,6 +604,7 @@ export class OptimizedRedisService extends EventEmitter {
   async setSession(session: ChatSession): Promise<void> {
     const key = `chat:${session.teamChatId}:session`;
     const messagesKey = `chat:${session.teamChatId}:messages`;
+    const queueKey = `chat:${session.teamChatId}:queue`;
 
     await this.executeWithRetry(async () => {
       const pipeline = this.redis.pipeline();
@@ -613,6 +615,7 @@ export class OptimizedRedisService extends EventEmitter {
         JSON.stringify({
           ...session,
           messages: undefined, // Don't store messages in metadata
+          queue: undefined, // Don't store queue in metadata
         }),
       );
       pipeline.expire(key, 1200); // 20 minutes
@@ -625,6 +628,14 @@ export class OptimizedRedisService extends EventEmitter {
         }
         pipeline.expire(messagesKey, 1200);
       }
+      // Always handle queue - clear existing and set new queue (even if empty)
+      pipeline.del(queueKey); // Clear existing queue
+      if (session.queue && session.queue.length > 0) {
+        for (const message of session.queue) {
+          pipeline.rpush(queueKey, JSON.stringify(message));
+        }
+      }
+      pipeline.expire(queueKey, 1200);
 
       await pipeline.exec();
     });
@@ -636,6 +647,7 @@ export class OptimizedRedisService extends EventEmitter {
   async getSession(teamChatId: string): Promise<ChatSession | null> {
     const key = `chat:${teamChatId}:session`;
     const messagesKey = `chat:${teamChatId}:messages`;
+    const queueKey = `chat:${teamChatId}:queue`;
 
     return await this.executeWithRetry(async () => {
       const sessionData = await this.redis.get(key);
@@ -660,7 +672,8 @@ export class OptimizedRedisService extends EventEmitter {
       // Get messages with error handling
       try {
         const messages = await this.redis.lrange(messagesKey, 0, -1);
-        
+        const queue = await this.redis.lrange(queueKey, 0, -1);
+
         session.messages = messages
           .map((msg: unknown) => {
             try {
@@ -676,9 +689,25 @@ export class OptimizedRedisService extends EventEmitter {
             }
           })
           .filter((msg): msg is unknown => msg !== null);
+        session.queue = queue
+          .map((msg: unknown) => {
+            try {
+              if (typeof msg === 'string') {
+                return JSON.parse(msg);
+              } else if (typeof msg === 'object' && msg !== null) {
+                return msg;
+              }
+              return null;
+            } catch (error) {
+              console.warn(`Failed to parse queue message for ${teamChatId}:`, error);
+              return null;
+            }
+          })
+          .filter((msg): msg is unknown => msg !== null);
       } catch (error) {
         console.warn(`Failed to get messages for ${teamChatId}:`, error);
         session.messages = [];
+        session.queue = [];
       }
 
       return session;
@@ -707,7 +736,7 @@ export class OptimizedRedisService extends EventEmitter {
       const sessions: ChatSession[] = [];
       // console.log('keys', keys);
       // console.log('pattern', pattern);
-      
+
 
       for (const key of keys) {
         const teamChatId = key.split(':')[1];
@@ -732,9 +761,10 @@ export class OptimizedRedisService extends EventEmitter {
     const key = `chat:${teamChatId}:session`;
     const messagesKey = `chat:${teamChatId}:messages`;
     const metaKey = `chat:${teamChatId}:meta`;
+    const queueKey = `chat:${teamChatId}:queue`;
 
     await this.executeWithRetry(async () => {
-      await this.redis.del(key, messagesKey, metaKey);
+      await this.redis.del(key, messagesKey, metaKey, queueKey);
     });
   }
 
@@ -744,11 +774,12 @@ export class OptimizedRedisService extends EventEmitter {
   async refreshExpiry(teamChatId: string, ttl: number): Promise<void> {
     const key = `chat:${teamChatId}:session`;
     const messagesKey = `chat:${teamChatId}:messages`;
-
+    const queueKey = `chat:${teamChatId}:queue`;
     await this.executeWithRetry(async () => {
       const pipeline = this.redis.pipeline();
       pipeline.expire(key, ttl);
       pipeline.expire(messagesKey, ttl);
+      pipeline.expire(queueKey, ttl);
       await pipeline.exec();
     });
   }
@@ -758,7 +789,6 @@ export class OptimizedRedisService extends EventEmitter {
    */
   async getMessageCount(teamChatId: string): Promise<number> {
     const messagesKey = `chat:${teamChatId}:messages`;
-
     return await this.executeWithRetry(async () => {
       return await this.redis.llen(messagesKey);
     });
