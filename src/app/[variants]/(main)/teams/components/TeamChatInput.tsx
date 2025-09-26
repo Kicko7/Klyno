@@ -99,7 +99,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
   const teamChatStore = useTeamChatStore();
   const currentUser = useUserStore(userProfileSelectors.userProfile);
   const { organizations, selectedOrganizationId } = useOrganizationStore();
-  const { setOwnerId, ownerId, organizationSubscriptionInfo, updateOrganizationSubscriptionInfo } =
+  const { setOwnerId, ownerId, organizationSubscriptionInfo, updateOrganizationSubscriptionInfo ,updateTeamChatCredits} =
     useUserSubscription();
 
   // Component state
@@ -121,6 +121,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     removeMessage,
     setSocketRef,
     removeQueueFromWebSocket,
+    
   } = useTeamChatStore();
   const activeTeamChatId = useTeamChatStore((state) => state.activeTeamChatId);
   const setActiveChatState = useTeamChatStore((state) => state.setActiveChatState);
@@ -267,12 +268,12 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       const fileMetadata =
         fileList.length > 0
           ? fileList.map((file) => ({
-              id: file.id,
-              name: file.file.name,
-              size: file.file.size,
-              type: file.file.type || 'application/octet-stream',
-              url: file.fileUrl || '',
-            }))
+            id: file.id,
+            name: file.file.name,
+            size: file.file.size,
+            type: file.file.type || 'application/octet-stream',
+            url: file.fileUrl || '',
+          }))
           : [];
 
       const userMetadata = currentUserData
@@ -410,62 +411,69 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       assistantMessageId: string,
     ) => {
       const finalMessage = finalContent || aiResponse || 'No response generated';
-      const currentUserData = currentUserRef.current;
-      const orgInfo = organizationSubscriptionInfoRef.current;
 
+      // Get AI infrastructure state and model info for pricing
+      const aiInfraStoreState = getAiInfraStoreState();
+      const modelInfo = aiModelSelectors.getEnabledModelById(
+        agentConfig.model,
+        agentConfig.provider,
+      )(aiInfraStoreState) as any;
+      const agentPricing = modelInfo?.pricing as any;
+  
+      // Calculate credits if this is a paid model
+      let creditsUsed = 0;
+      if (
+        context?.usage?.totalTokens &&
+        !agentConfig.model.includes('free') &&
+        agentConfig.provider == 'openrouter'
+      ) {
+        creditsUsed = calculateCreditsByPlan(
+          context.usage as any,
+          agentPricing as any,
+          organizationSubscriptionInfo?.subscription?.planName || '',
+        );
+      }
+  
+      // Prepare metadata with credits information
       const baseMetadata = {
         ...context?.usage,
         model: agentConfig?.model,
         provider: agentConfig?.provider,
         totalTokens: context?.usage?.totalTokens || 0,
         clientMessageId: assistantMessageId,
+        // Add credits information to metadata
+        credits: {
+          used: creditsUsed,
+          planName: organizationSubscriptionInfo?.subscription?.planName,
+          modelPricing: agentPricing,
+        },
       };
-
+  
+      // Update the message with credits in metadata
       const message = await teamChatStore.updateMessage(teamChatId, assistantMessageId, {
         content: finalMessage,
         metadata: { ...baseMetadata, isThinking: false, isLocal: true },
       });
-
+  
+      // Send via WebSocket with credits metadata
       sendWebSocketMessage(
         finalMessage,
         'assistant',
         {
           ...baseMetadata,
           isThinking: false,
-          userId: currentUserData?.id || 'assistant',
+          userId: currentUser?.id || 'assistant',
         },
         assistantMessageId,
         message.sendTime,
       );
-
-      // Handle credits calculation
-      if (
-        context?.usage?.totalTokens &&
-        !agentConfig.model.includes('free') &&
-        agentConfig.provider === 'openrouter'
-      ) {
-        const aiInfraStoreState = getAiInfraStoreState();
-        let modelInfo = aiModelSelectors.getEnabledModelById(
-          agentConfig.model,
-          agentConfig.provider,
-        )(aiInfraStoreState) as any;
-
-        // Use claude-3.5-haiku pricing for openrouter/auto
-        if (agentConfig.model === 'openrouter/auto') {
-          const claudeModelInfo = aiModelSelectors.getEnabledModelById(
-            'anthropic/claude-3.5-haiku',
-            'openrouter',
-          )(aiInfraStoreState) as any;
-          modelInfo = { ...modelInfo, pricing: claudeModelInfo?.pricing };
-        }
-
-        const credits = calculateCreditsByPlan(
-          context.usage as any,
-          modelInfo?.pricing as any,
-          orgInfo?.subscription?.planName || '',
-        );
-
-        await updateOrganizationSubscriptionInfo(credits);
+  
+      // Update organization credits after successful message completion
+      if (creditsUsed > 0) {
+        const currentTotalbefore = useTeamChatStore.getState().chatCreditTotals[teamChatId] || 0;  
+        useTeamChatStore.getState().setChatCreditTotal(teamChatId, currentTotalbefore + creditsUsed);
+        await updateTeamChatCredits(teamChatId, creditsUsed);
+        await updateOrganizationSubscriptionInfo(creditsUsed);
       }
     },
     [teamChatStore, sendWebSocketMessage, updateOrganizationSubscriptionInfo],
@@ -945,7 +953,6 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       if (socketRef.current?.connected) {
         socketRef.current?.emit('room:leave', activeTeamChatId);
-        console.log(`🔌 Leaving room ${activeTeamChatId} on cleanup`);
       }
       socketRef.current?.disconnect();
       setSocketRef(null);
@@ -999,8 +1006,10 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
           expand={false}
           leftActions={leftActions}
           rightActions={rightActions}
-          setExpand={() => {}}
+          setExpand={() => { }}
           sessionId={sessionId}
+          teamChatId={teamChatId} // 👈 Pass it here
+          organizationSubscriptionInfo={organizationSubscriptionInfo}
         />
         <InputArea
           loading={loading}

@@ -63,7 +63,24 @@ export const subscriptionRouter = router({
       message: result.message,
     };
   }),
-
+  updateTeamChatCredits: authedProcedure
+    .input(z.object({
+      teamChatId: z.string().min(1),
+      creditsUsed: z.number().min(0),
+    }))
+    .mutation(async ({ input }) => {
+      const subscriptionManager = new SubscriptionManager();
+      const result = await subscriptionManager.updateTeamChatCredits(
+        input.teamChatId,
+        input.creditsUsed
+      );
+      return {
+        success: result.success,
+        data: result.teamChat,
+        message: result.message,
+        creditsRemaining: result.creditsRemaining,
+      };
+    }),
   updateSubscriptionBalance: authedProcedure
     .input(
       z.object({

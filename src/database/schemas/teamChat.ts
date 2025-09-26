@@ -49,6 +49,7 @@ export const teamChats = pgTable('team_chats', {
           device?: string;
         };
       };
+      creditsUsed?: number;
       [key: string]: any;
     }>()
     .default({

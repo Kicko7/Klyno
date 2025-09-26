@@ -101,6 +101,7 @@ interface TeamChatState {
     isVisible: boolean;
     width: number;
   };
+  chatCreditTotals: Record<string, number>; // teamChatId → total credits used
 
   // Queue state
   queueItems: QueueItem[];
@@ -123,6 +124,7 @@ interface TeamChatState {
   setActiveTeamChat: (id: string | null, topicId?: string) => void;
   loadActiveChat: (id: string) => Promise<void>;
   switchToTeamChatTopic: (teamChatId: string, topicId: string) => void;
+  setChatCreditTotal: (teamChatId: string, total: number) => void;
 
   // Redis/WebSocket Integration
   updateMessages: (teamChatId: string, messages: any[]) => void;
@@ -334,7 +336,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
       teamLoading: false,
       // Initialize credit tracking service
       creditService: teamChatCreditService,
-
+      chatCreditTotals: {},
       // Message subscription management (legacy - now handled by WebSocket)
       subscribeToChat: (chatId: string, userId: string) => {
         console.log('⚠️ subscribeToChat is deprecated - use WebSocket instead');
@@ -343,7 +345,6 @@ export const useTeamChatStore = create<TeamChatStore>()(
       unsubscribeFromChat: (chatId: string, userId: string) => {
         console.log('⚠️ unsubscribeFromChat is deprecated - use WebSocket instead');
       },
-
       // Legacy polling methods - now handled by WebSocket
       startMessagePolling: async (chatId: string) => {
         console.log('⚠️ startMessagePolling is deprecated - use WebSocket instead');
@@ -358,7 +359,15 @@ export const useTeamChatStore = create<TeamChatStore>()(
         // Backward-compatible: delegate to upsert to ensure replacement and sorting
         get().batchUpdateMessages(teamChatId, messages as any);
       },
+      setChatCreditTotal: (teamChatId: string, total: number) => {
+        set((state) => ({
 
+          chatCreditTotals: {
+            ...state.chatCreditTotals,
+            [teamChatId]: total,
+          },
+        }));
+      },
       // Update existing message content (for streaming, etc.)
       updateMessage: async (
         teamChatId: string,
@@ -377,9 +386,25 @@ export const useTeamChatStore = create<TeamChatStore>()(
 
           const existingMessage = existingMessages[messageIndex] as any;
           // Create updated message
+          const updatedMetadata = {
+            ...existingMessage.metadata,
+            ...updates.metadata,
+          };
+          if (updates.metadata?.credits) {
+            updatedMetadata.credits = {
+              ...existingMessage.metadata?.credits,
+              ...updates.metadata.credits,
+              // Add timestamp when credits were calculated
+              calculatedAt: new Date().toISOString(),
+            };
+          }
+
+          // Create updated message with merged metadata
           const updatedMessage = {
             ...existingMessage,
             ...updates,
+            metadata: updatedMetadata,
+            updatedAt: new Date().toISOString(),
           } as any;
 
           // Update the specific message in place without sorting
@@ -398,7 +423,39 @@ export const useTeamChatStore = create<TeamChatStore>()(
         const messageIndex = existingMessages.findIndex((m) => m.id === messageId);
         return messageIndex !== -1 ? existingMessages[messageIndex] : undefined;
 
-      
+        // If the message is no longer local, check if it's an AI message and persist it to database
+        // if ((updates as any).metadata.isLocal === false) {
+        //   console.log(`   🔄 Message is no longer local, checking if it's an AI message...`);
+        //   const state = get();
+        //   const existingMessages = state.messages[teamChatId] || [];
+        //   const message = existingMessages.find((m) => m.id === messageId);
+
+        //   if (message && message.messageType === 'assistant') {
+        //     console.log(`   💾 Persisting updated AI message to database: ${messageId}`);
+        //     console.log(`   📊 Message data:`, {
+        //       id: message.id,
+        //       content: message.content.substring(0, 100),
+        //       messageType: message.messageType,
+        //       metadata: message.metadata,
+        //     });
+        //     // Use the persistMessageToDatabase method to save the updated message
+        //     // Exclude isLocal from database persistence since it's not in the schema yet
+        //     const { isLocal, ...dbMessageData } = message as any;
+        //     await get().persistMessageToDatabase(teamChatId, dbMessageData);
+        //     console.log(`   ✅ AI message persisted successfully: ${messageId}`);
+        //   } else {
+        //     console.log(`   ℹ️ Message is not an AI message or not found:`, {
+        //       messageId,
+        //       messageType: message?.messageType,
+        //       isLocal: (message as any)?.isLocal,
+        //     });
+        //   }
+        // } else {
+        //   console.log(`   ℹ️ Message is still local or isLocal not changed:`, {
+        //     messageId,
+        //     newIsLocal: (updates as any).isLocal,
+        //   });
+        // }
       },
 
       updateMessageContent: async (
@@ -944,6 +1001,7 @@ export const useTeamChatStore = create<TeamChatStore>()(
                   },
                 ],
                 sessionId: sessionResult,
+                creditUsed: 0,
               },
             });
 
