@@ -12,7 +12,7 @@ import { useModelSupportVision } from '@/hooks/useModelSupportVision';
 import { useUserSubscription } from '@/hooks/useUserSubscription';
 import { chatService } from '@/services/chat';
 import { useAgentStore } from '@/store/agent';
-import { agentSelectors } from '@/store/agent/selectors';
+import { agentSelectors, agentChatConfigSelectors } from '@/store/agent/selectors';
 import { aiModelSelectors, getAiInfraStoreState, useAiInfraStore } from '@/store/aiInfra';
 import { fileChatSelectors, useFileStore } from '@/store/file';
 import { useGlobalStore } from '@/store/global';
@@ -29,7 +29,7 @@ import { nanoid } from '@/utils/uuid';
 
 import TeamChatInputFooter from './TeamChatInputFooter';
 
-const leftActions = ['model', 'fileUpload', 'knowledgeBase', 'params', 'stt'] as ActionKeys[];
+const leftActions = ['model', 'fileUpload', 'knowledgeBase', 'params', 'stt','history'] as ActionKeys[];
 const rightActions = ['clear'] as ActionKeys[];
 
 interface TeamChatInputProps {
@@ -37,14 +37,14 @@ interface TeamChatInputProps {
   organizationId?: string;
 }
 
-// Maximum number of history messages to include in context
-const MAX_HISTORY_MESSAGES = 20;
 const MAX_QUEUE_SIZE = 3;
+const DEFAULT_MAX_HISTORY_MESSAGES = 20;
+
 
 // Function to gather chat history and construct context
 export const gatherChatHistory = async (
   teamChatId: string,
-  maxMessages: number = MAX_HISTORY_MESSAGES,
+  maxMessages: number,
 ): Promise<CreateMessageParams[]> => {
   const chatHistory = useTeamChatStore.getState().messages[teamChatId] || [];
   if (chatHistory.length === 0) return [];
@@ -180,6 +180,19 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     }
   }, []);
 
+  const [historyCount, enableHistoryCount] = useAgentStore((s) => [
+    agentChatConfigSelectors.historyCount(s),
+    agentChatConfigSelectors.enableHistoryCount(s),
+  ]);
+
+  // Calculate the effective max history messages
+  const effectiveMaxHistoryMessages = useMemo(() => {
+    if (!enableHistoryCount) {
+      return DEFAULT_MAX_HISTORY_MESSAGES;
+    }
+    return Math.max(1, historyCount || DEFAULT_MAX_HISTORY_MESSAGES);
+  }, [enableHistoryCount, historyCount]);
+  
   const isDuplicateMessage = useCallback((message: MessageStreamData, existingMessages: any[]) => {
     if (!message.id) return false;
 
@@ -505,7 +518,7 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
       const orgInfo = organizationSubscriptionInfoRef.current;
 
       try {
-        const chatHistory = await gatherChatHistory(teamChatId, MAX_HISTORY_MESSAGES);
+        const chatHistory = await gatherChatHistory(teamChatId, effectiveMaxHistoryMessages);
         const messages = buildMessageArray(chatHistory, userMessage, agentConfigSession);
 
         let aiResponse = '';
@@ -1027,5 +1040,4 @@ const TeamChatInput = ({ teamChatId }: TeamChatInputProps) => {
     </DraggablePanel>
   );
 };
-
 export default TeamChatInput;
