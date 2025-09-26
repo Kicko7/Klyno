@@ -1,6 +1,7 @@
 import { ReactNode, Suspense } from 'react';
 
 import { LobeAnalyticsProviderWrapper } from '@/components/Analytics/LobeAnalyticsProviderWrapper';
+import PasswordProtection from '@/components/PasswordProtection/PasswordProtection';
 import { getServerFeatureFlagsValue } from '@/config/featureFlags';
 import { appEnv } from '@/envs/app';
 import DevPanel from '@/features/DevPanel';
@@ -55,15 +56,17 @@ const GlobalLayout = async ({
             isMobile={isMobile}
             serverConfig={serverConfig}
           >
-            <QueryProvider>
-              <LobeAnalyticsProviderWrapper>{children}</LobeAnalyticsProviderWrapper>
-            </QueryProvider>
-            <StoreInitialization />
-            <Suspense>
-              <ImportSettings />
-              <ReactScan />
-              {process.env.NODE_ENV === 'development' && <DevPanel />}
-            </Suspense>
+            <PasswordProtection appPassword={process.env.NEXT_PUBLIC_APP_PASSWORD}>
+              <QueryProvider>
+                <LobeAnalyticsProviderWrapper>{children}</LobeAnalyticsProviderWrapper>
+              </QueryProvider>
+              <StoreInitialization />
+              <Suspense>
+                <ImportSettings />
+                <ReactScan />
+                {process.env.NODE_ENV === 'development' && <DevPanel />}
+              </Suspense>
+            </PasswordProtection>
           </ServerConfigStoreProvider>
         </Locale>
       </AppTheme>
